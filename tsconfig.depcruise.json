@@ -1,0 +1,13 @@
+{
+  // Used only by dependency-cruiser to resolve imports across both apps from the repository root.
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowJs": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./apps/web/*"]
+    }
+  },
+  "include": ["apps/*/src", "apps/*/test", "apps/web/app", "apps/web/lib", "apps/web/e2e"]
+}
