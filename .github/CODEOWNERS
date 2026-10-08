@@ -1,0 +1,16 @@
+# Owners are placeholders; replace them with real GitHub usernames or teams.
+# Later rules take precedence over earlier ones.
+
+# Everything not listed below
+*                                           @owner-lead
+
+# Domain modules
+/apps/api/src/modules/flight-catalog/       @owner-flight-catalog
+/apps/api/src/modules/search/               @owner-search
+/apps/api/src/modules/inventory/            @owner-inventory
+/apps/api/src/modules/booking/              @owner-booking
+/apps/api/src/modules/ticketing/            @owner-ticketing
+/apps/api/src/modules/notifications/        @owner-notifications
+/apps/api/src/modules/users-access/         @owner-users-access
+/apps/api/src/modules/administration/       @owner-administration
+/apps/api/src/modules/payments/             @owner-payments

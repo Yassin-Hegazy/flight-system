@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Used by the Playwright smoke test. Integration tests start their own database with Testcontainers.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: flights
+          POSTGRES_PASSWORD: flights
+          POSTGRES_DB: flights
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flights -d flights"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # apps/api (NODE_ENV is set per step: a job-wide "production" would make pnpm skip devDependencies)
+      PORT: 3001
+      DATABASE_URL: postgresql://flights:flights@localhost:5432/flights
+      LOG_LEVEL: info
+      # apps/web
+      API_URL: http://localhost:3001
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check architecture rules
+        run: pnpm depcruise
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter web exec playwright install --with-deps chromium firefox
+
+      - name: Playwright smoke test
+        run: pnpm test:e2e
+        env:
+          NODE_ENV: production
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
