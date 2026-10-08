@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+
+engineStrict: true
+
+# pnpm only runs dependency install scripts that are explicitly allowed here.
+allowBuilds:
+  argon2: true # loads its prebuilt native binding
+  '@scarf/scarf': false # install-time telemetry from swagger-ui-dist
+  '@swc/core': false # platform binary ships as an optional dependency
+  cpu-features: false # optional native speed-up for ssh2 (Testcontainers)
+  protobufjs: false
+  sharp: false
+  ssh2: false
+  unrs-resolver: false
