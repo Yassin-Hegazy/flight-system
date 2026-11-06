@@ -50,7 +50,7 @@ export class FlightCatalogService {
       estimatedDepartureUtc: flight.estimatedDepartureUtc ?? undefined,
       status: FlightStatusValue.of(flight.status).value,
       cancelReason: flight.cancelReason ?? undefined,
-      fares: Object.fromEntries(fares.map((fare) => [fare.cabin, { amount: Number(fare.amount), currency: fare.currency }])) as FlightInfo['fares'],
+      fares: Object.fromEntries(fares.map((fare) => [fare.cabin, { amount: Number(fare.amount), currency: fare.currency }])),
     };
   }
 
