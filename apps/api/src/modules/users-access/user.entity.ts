@@ -16,7 +16,7 @@ export class UserEntity {
   @Column({ length: 120 })
   name!: string;
 
-  @Column({ length: 30, nullable: true })
+  @Column({ type: 'varchar', length: 30, nullable: true })
   phone!: string | null;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.Traveler })
