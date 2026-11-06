@@ -6,7 +6,9 @@
 
 ## Public API
 
-<!-- List everything index.ts exports and how other modules should use it. -->
+The public API exports `FlightCatalogService` and the domain value objects/helpers from
+`index.ts`. Consumers should use the service for persistence-backed operations and the pure
+helpers for bookability and party pricing; entities and repositories remain private.
 
 ## Module rules
 
