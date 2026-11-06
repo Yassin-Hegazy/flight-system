@@ -32,12 +32,14 @@ export class FlightCatalogRepository {
   }
 
   findFlights(originCode: string, destinationCode: string, start: Date, end: Date) {
-    return this.flights.find({
-      where: { originCode, destinationCode },
-      order: { scheduledDepartureUtc: 'ASC' },
-    }).then((rows) =>
-      rows.filter((row) => row.scheduledDepartureUtc >= start && row.scheduledDepartureUtc < end),
-    );
+    return this.flights
+      .createQueryBuilder('flight')
+      .where('flight.originCode = :originCode', { originCode })
+      .andWhere('flight.destinationCode = :destinationCode', { destinationCode })
+      .andWhere('flight.scheduledDepartureUtc >= :start', { start })
+      .andWhere('flight.scheduledDepartureUtc < :end', { end })
+      .orderBy('flight.scheduledDepartureUtc', 'ASC')
+      .getMany();
   }
 
   searchAirports(query: string) {

@@ -1,5 +1,4 @@
-import { IsDateString, IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
-import { FlightStatus, type Cabin } from './flight-catalog.domain';
+import { IsDateString, IsString, Length, Matches } from 'class-validator';
 
 export class FlightRouteQuery {
   @IsString()
@@ -20,22 +19,4 @@ export class AirportSearchQuery {
   @IsString()
   @Length(0, 100)
   q = '';
-}
-
-export class ChangeFlightStatusInput {
-  @IsIn(Object.values(FlightStatus))
-  status!: FlightStatus;
-
-  @IsOptional()
-  @IsDateString()
-  estimatedDepartureUtc?: string;
-}
-
-export class FareInput {
-  @IsIn(['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'] satisfies Cabin[])
-  cabin!: Cabin;
-
-  @IsString()
-  @Matches(/^[A-Z]{3}$/)
-  currency!: string;
 }
