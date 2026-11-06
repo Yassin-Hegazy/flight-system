@@ -42,36 +42,36 @@ export class UsersAccessController {
   @Patch('me')
   @UseGuards(AuthGuard)
   updateProfile(@Req() request: AuthRequest, @Body() input: ProfileInput) {
-    return this.service.updateProfile(request.user!.id, input);
+    return this.service.updateProfile(request.user.id, input);
   }
 
   @Patch('me/password')
   @UseGuards(AuthGuard)
   changePassword(@Req() request: AuthRequest, @Body() input: ChangePasswordInput) {
-    return this.service.changePassword(request.user!.id, input.current, input.next);
+    return this.service.changePassword(request.user.id, input.current, input.next);
   }
 
   @Get('me/saved-travelers')
   @UseGuards(AuthGuard)
   listSavedTravelers(@Req() request: AuthRequest) {
-    return this.service.listSavedTravelers(request.user!.id);
+    return this.service.listSavedTravelers(request.user.id);
   }
 
   @Post('me/saved-travelers')
   @UseGuards(AuthGuard)
   addSavedTraveler(@Req() request: AuthRequest, @Body() input: SavedTravelerInput) {
-    return this.service.addSavedTraveler(request.user!.id, input);
+    return this.service.addSavedTraveler(request.user.id, input);
   }
 
   @Patch('me/saved-travelers/:id')
   @UseGuards(AuthGuard)
   updateSavedTraveler(@Req() request: AuthRequest, @Param('id') id: string, @Body() input: SavedTravelerInput) {
-    return this.service.updateSavedTraveler(request.user!.id, id, input);
+    return this.service.updateSavedTraveler(request.user.id, id, input);
   }
 
   @Delete('me/saved-travelers/:id')
   @UseGuards(AuthGuard)
   deleteSavedTraveler(@Req() request: AuthRequest, @Param('id') id: string) {
-    return this.service.deleteSavedTraveler(request.user!.id, id);
+    return this.service.deleteSavedTraveler(request.user.id, id);
   }
 }

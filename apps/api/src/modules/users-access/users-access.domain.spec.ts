@@ -9,8 +9,8 @@ describe('users access domain', () => {
     expect(validatePassword('a'.repeat(73))).toBeTruthy();
   });
 
-  it('rejects non-admin users before an administrative use case runs', async () => {
-    const useCase = vi.fn(async () => 'changed');
+  it('rejects non-admin users before an administrative use case runs', () => {
+    const useCase = vi.fn(() => Promise.resolve('changed'));
     const wrapped = withRole(UserRole.Admin, useCase, {
       id: 'u1', email: 'a@example.com', name: 'A', role: UserRole.Traveler,
     });
@@ -18,12 +18,12 @@ describe('users access domain', () => {
     expect(useCase).not.toHaveBeenCalled();
   });
 
-  it('returns not-found for a resource owned by another user', async () => {
+  it('returns not-found for a resource owned by another user', () => {
     const wrapped = withOwnership(
-      async () => ({ ownerId: 'owner-a', value: 'secret' }),
-      async () => 'read',
+      () => Promise.resolve({ ownerId: 'owner-a', value: 'secret' }),
+      () => Promise.resolve('read'),
       { id: 'owner-b', email: 'b@example.com', name: 'B', role: UserRole.Traveler },
     );
-    await expect(wrapped('record')).rejects.toThrow('NOT_FOUND');
+    return expect(wrapped('record')).rejects.toThrow('NOT_FOUND');
   });
 });
