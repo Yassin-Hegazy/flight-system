@@ -6,7 +6,10 @@
 
 ## Public API
 
-<!-- List everything index.ts exports and how other modules should use it. -->
+The public API exports `UsersAccessService`, `AuthGuard`, `RoleGuard`, `OwnershipGuard`, and
+the decorator-style `withAuth`, `withRole`, and `withOwnership` wrappers. Password hashes and
+repositories stay private to this module. Sessions are random server-side tokens stored only as
+SHA-256 hashes and delivered through an HttpOnly, SameSite=Lax cookie.
 
 ## Module rules
 
