@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Headers, Param, Patch, Post, Req, Res, UseGuards, Body } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthGuard } from './users-access.guards';
 import { ChangePasswordInput, ProfileInput, RegisterInput, SavedTravelerInput, SignInInput } from './users-access.dto';
