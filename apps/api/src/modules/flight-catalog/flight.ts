@@ -20,6 +20,7 @@ export interface NewFlight {
 export type FlightRuleError =
   | 'INVALID_FLIGHT_NUMBER'
   | 'INVALID_AIRPORT_CODE'
+  | 'AIRLINE_MISMATCH'
   | 'SAME_AIRPORT'
   | 'ARRIVAL_NOT_AFTER_DEPARTURE'
   | 'DEPARTURE_IN_PAST';
@@ -62,6 +63,8 @@ export class Flight {
       throw error;
     }
 
+    const airlineCode = input.airlineCode.trim().toUpperCase();
+    if (number.airlineCode !== airlineCode) return err('AIRLINE_MISMATCH');
     const route = Route.between(origin, destination);
     if (!route.ok) return route;
     if (input.scheduledArrivalUtc.getTime() <= input.scheduledDepartureUtc.getTime()) {
@@ -73,7 +76,7 @@ export class Flight {
       new Flight({
         id: null,
         number,
-        airlineCode: input.airlineCode.trim().toUpperCase(),
+        airlineCode,
         route: route.value,
         scheduledDepartureUtc: input.scheduledDepartureUtc,
         scheduledArrivalUtc: input.scheduledArrivalUtc,

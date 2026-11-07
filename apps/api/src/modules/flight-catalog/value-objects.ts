@@ -33,13 +33,19 @@ export class InvalidFlightNumber extends Error {
   }
 }
 
+/** An IATA-style flight number: a 2-character airline code, then 1 to 4 digits (MS777, U21). */
 export class FlightNumber {
   private constructor(readonly value: string) {}
 
   static of(raw: string): FlightNumber {
     const value = raw.trim().toUpperCase();
-    if (!/^[A-Z0-9]{2,3}-?[0-9]{1,4}$/.test(value)) throw new InvalidFlightNumber(raw);
+    if (!/^[A-Z0-9]{2}[0-9]{1,4}$/.test(value)) throw new InvalidFlightNumber(raw);
     return new FlightNumber(value);
+  }
+
+  /** The airline the number belongs to: its first two characters. */
+  get airlineCode(): string {
+    return this.value.slice(0, 2);
   }
 }
 
