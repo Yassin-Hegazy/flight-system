@@ -77,14 +77,16 @@ export class PgCatalogRepository implements CatalogRepository {
   }
 
   async searchAirports(query: string, limit: number): Promise<AirportRecord[]> {
+    // % and _ typed by the user are text, not LIKE wildcards.
+    const literal = query.toLowerCase().replace(/[\\%_]/g, (character) => `\\${character}`);
     return this.db
       .createQueryBuilder(AirportEntity, 'airport')
-      .where('LOWER(airport.code) LIKE LOWER(:prefix)', { prefix: `${query}%` })
-      .orWhere('LOWER(airport.city) LIKE LOWER(:contains)', { contains: `%${query}%` })
-      .orWhere('LOWER(airport.name) LIKE LOWER(:contains)', { contains: `%${query}%` })
-      .orderBy('CASE WHEN LOWER(airport.code) = LOWER(:exact) THEN 0 ELSE 1 END', 'ASC')
+      .where(`LOWER(airport.code) LIKE :prefix ESCAPE '\\'`, { prefix: `${literal}%` })
+      .orWhere(`LOWER(airport.city) LIKE :contains ESCAPE '\\'`, { contains: `%${literal}%` })
+      .orWhere(`LOWER(airport.name) LIKE :contains ESCAPE '\\'`, { contains: `%${literal}%` })
+      .orderBy('CASE WHEN LOWER(airport.code) = :exact THEN 0 ELSE 1 END', 'ASC')
       .addOrderBy('airport.code', 'ASC')
-      .setParameters({ exact: query })
+      .setParameters({ exact: query.toLowerCase() })
       .take(limit)
       .getMany();
   }

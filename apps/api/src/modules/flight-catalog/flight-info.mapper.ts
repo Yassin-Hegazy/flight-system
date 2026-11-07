@@ -37,6 +37,9 @@ export function toFlightInfo(flight: Flight, reference: ReferenceData): FlightIn
     scheduledArrivalLocal: formatLocal(flight.scheduledArrivalUtc, destination.timezone),
     durationMinutes: flight.durationMinutes,
     estimatedDepartureUtc: flight.estimatedDepartureUtc ?? undefined,
+    estimatedDepartureLocal: flight.estimatedDepartureUtc
+      ? formatLocal(flight.estimatedDepartureUtc, origin.timezone)
+      : undefined,
     status: flight.status,
     cancelReason: flight.cancelReason ?? undefined,
     fares,

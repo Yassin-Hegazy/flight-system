@@ -18,7 +18,9 @@ export interface FlightInfo {
   scheduledDepartureLocal: string;
   scheduledArrivalLocal: string;
   durationMinutes: number;
+  /** Present while DELAYED: the new time, shown beside the original scheduled time. */
   estimatedDepartureUtc?: Date;
+  estimatedDepartureLocal?: string;
   status: FlightStatus;
   cancelReason?: string;
   /** Adult fare per cabin, in integer minor units. */
