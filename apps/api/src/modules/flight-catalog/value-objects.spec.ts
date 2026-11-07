@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { money } from '../../shared/money';
 import { Flight, type NewFlight } from './flight';
 import {
   AirportCode,
@@ -16,6 +17,7 @@ const newFlight = (overrides: Partial<NewFlight>): NewFlight => ({
   destinationCode: 'LHR',
   scheduledDepartureUtc: new Date('2026-12-10T07:00:00Z'),
   scheduledArrivalUtc: new Date('2026-12-10T12:00:00Z'),
+  fares: { ECONOMY: money(10000, 'EGP'), BUSINESS: money(40000, 'EGP') },
   ...overrides,
 });
 
@@ -43,6 +45,7 @@ describe('US-AD-01 flight numbers (overview 4.5: 2-character airline code + 1 to
       Flight.schedule(newFlight({ flightNumber: 'BA123', airlineCode: 'MS' }), {
         now: NOW,
         timeZoneOf: () => 'Africa/Cairo',
+        airlineExists: () => true,
       }),
     ).toEqual({
       ok: false,

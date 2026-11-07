@@ -27,8 +27,9 @@ describe('Overview 4.3 two cabins per flight', () => {
         destinationCode: 'LHR',
         scheduledDepartureUtc: new Date('2026-12-10T07:00:00Z'),
         scheduledArrivalUtc: new Date('2026-12-10T12:00:00Z'),
+        fares: { ECONOMY: money(10000, 'EGP'), BUSINESS: money(40000, 'EGP') },
       },
-      { now: NOW, timeZoneOf: () => 'Africa/Cairo' },
+      { now: NOW, timeZoneOf: () => 'Africa/Cairo', airlineExists: () => true },
     );
     if (!scheduled.ok) throw new Error(scheduled.error);
     const flightId = repository.addFlight(scheduled.value);

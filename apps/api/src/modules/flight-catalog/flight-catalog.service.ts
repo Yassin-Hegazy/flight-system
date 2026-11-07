@@ -19,11 +19,18 @@ import {
   type CatalogRepository,
   type FareRecord,
 } from './catalog.repository';
-import { Flight, isBookable, type NewFlight } from './flight';
+import { Flight, isBookable, isPositiveFare, type NewFlight } from './flight';
 import { toFlightInfo } from './flight-info.mapper';
 import type { FlightStatus } from './flight-status';
 import { type PassengerMix, type PriceQuote, type PricingError, priceParty } from './pricing';
-import { AirportCode, type Cabin, InvalidAirportCode, isCabin, type Route } from './value-objects';
+import {
+  AirportCode,
+  CABINS,
+  type Cabin,
+  InvalidAirportCode,
+  isCabin,
+  type Route,
+} from './value-objects';
 
 const MAX_AIRPORT_SUGGESTIONS = 10;
 const MIN_AIRPORT_QUERY = 2;
@@ -79,17 +86,29 @@ export class FlightCatalogService implements CatalogApi {
   }
 
   async createFlight(tx: Tx, input: NewFlight): Promise<Result<string, CreateFlightError>> {
-    const codes = [input.originCode, input.destinationCode].map((code) =>
-      code.trim().toUpperCase(),
-    );
-    const airports = await this.repository.findAirports(codes);
+    const normalize = (code: string) => code.trim().toUpperCase();
+    const [airports, airlines] = await Promise.all([
+      this.repository.findAirports([input.originCode, input.destinationCode].map(normalize)),
+      this.repository.findAirlines([normalize(input.airlineCode)]),
+    ]);
     const timeZones = new Map(airports.map((airport) => [airport.code, airport.timezone]));
     const scheduled = Flight.schedule(input, {
       now: this.clock.now(),
       timeZoneOf: (code) => timeZones.get(code),
+      airlineExists: (code) => airlines.some((airline) => airline.code === code),
     });
     if (!scheduled.ok) return scheduled;
-    return this.repository.insertFlight(tx, scheduled.value);
+
+    const inserted = await this.repository.insertFlight(tx, scheduled.value);
+    if (!inserted.ok) return inserted;
+    for (const cabin of CABINS) {
+      await this.repository.saveFare(tx, {
+        flightId: inserted.value,
+        cabin,
+        fare: input.fares[cabin],
+      });
+    }
+    return inserted;
   }
 
   async changeStatus(
@@ -114,7 +133,7 @@ export class FlightCatalogService implements CatalogApi {
     fare: Money,
   ): Promise<Result<Money | null, FareError>> {
     if (!isCabin(cabin)) return err('INVALID_CABIN');
-    if (!isPositiveMoney(fare)) return err('INVALID_FARE');
+    if (!isPositiveFare(fare)) return err('INVALID_FARE');
     if (!(await this.repository.findFlightForUpdate(tx, flightId))) return err('FLIGHT_NOT_FOUND');
     const previous = await this.repository.findFare(tx, flightId, cabin);
     await this.repository.saveFare(tx, { flightId, cabin, fare });
@@ -170,15 +189,6 @@ export class FlightCatalogService implements CatalogApi {
     };
     return flights.map((flight) => toFlightInfo(flight, reference));
   }
-}
-
-/** A fare is a positive whole number of minor units in an ISO 4217 currency. */
-function isPositiveMoney(fare: Money): boolean {
-  return (
-    Number.isSafeInteger(fare.amountMinor) &&
-    fare.amountMinor > 0 &&
-    /^[A-Z]{3}$/.test(fare.currency)
-  );
 }
 
 function unique(values: readonly string[]): string[] {

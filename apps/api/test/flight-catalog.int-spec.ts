@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { money } from '../src/shared/money';
 import { CATALOG_API, type CatalogApi, type NewFlight } from '../src/modules/flight-catalog/index';
 import { createTestApp } from './support/app';
 import { startTestDatabase, type TestDatabase } from './support/postgres';
@@ -51,6 +52,7 @@ describe('Flight Catalog against PostgreSQL', () => {
     destinationCode: 'LHR',
     scheduledDepartureUtc: new Date(departure),
     scheduledArrivalUtc: new Date(arrival),
+    fares: { ECONOMY: money(1500000, 'EGP'), BUSINESS: money(6000000, 'EGP') },
   });
 
   describe('US-AD-01 a flight number repeats daily but not twice on one day', () => {

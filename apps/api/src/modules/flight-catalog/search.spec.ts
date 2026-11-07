@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tx } from '../../shared/db';
+import { money } from '../../shared/money';
 import { FlightCatalogService } from './flight-catalog.service';
 import { InMemoryCatalogRepository } from './in-memory-catalog.repository';
 import { AirportCode, Route } from './value-objects';
@@ -34,6 +35,7 @@ async function catalogWithFlightsLeavingCairoAt(departuresUtc: string[]) {
       destinationCode: 'LHR',
       scheduledDepartureUtc: departureUtc,
       scheduledArrivalUtc: new Date(departureUtc.getTime() + 5 * 3_600_000),
+      fares: { ECONOMY: money(10000, 'EGP'), BUSINESS: money(40000, 'EGP') },
     });
     if (!result.ok) throw new Error(result.error);
   }

@@ -1,8 +1,11 @@
+import type { Money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
 import { localDateOf } from '../../shared/time';
 import { canTransition, FlightStatus } from './flight-status';
 import {
   AirportCode,
+  CABINS,
+  type Cabin,
   FlightNumber,
   InvalidAirportCode,
   InvalidFlightNumber,
@@ -16,16 +19,21 @@ export interface NewFlight {
   destinationCode: string;
   scheduledDepartureUtc: Date;
   scheduledArrivalUtc: Date;
+  /** The adult fare of each cabin, in integer minor units. */
+  fares: Record<Cabin, Money>;
 }
 
 export type FlightRuleError =
   | 'INVALID_FLIGHT_NUMBER'
   | 'INVALID_AIRPORT_CODE'
   | 'AIRLINE_MISMATCH'
+  | 'UNKNOWN_AIRLINE'
   | 'SAME_AIRPORT'
   | 'UNKNOWN_AIRPORT'
   | 'ARRIVAL_NOT_AFTER_DEPARTURE'
-  | 'DEPARTURE_IN_PAST';
+  | 'DEPARTURE_IN_PAST'
+  | 'MISSING_FARE'
+  | 'FARE_NOT_POSITIVE';
 
 export type StatusRuleError =
   | 'INVALID_TRANSITION'
@@ -33,10 +41,11 @@ export type StatusRuleError =
   | 'ESTIMATE_NOT_AFTER_SCHEDULED'
   | 'ESTIMATE_NOT_ALLOWED';
 
-/** What scheduling needs from outside the flight: the time and the airports' time zones. */
+/** What scheduling needs from outside the flight: the time, airport time zones, known airlines. */
 export interface ScheduleContext {
   now: Date;
   timeZoneOf(airportCode: string): string | undefined;
+  airlineExists(airlineCode: string): boolean;
 }
 
 export interface FlightProps {
@@ -79,6 +88,7 @@ export class Flight {
 
     const airlineCode = input.airlineCode.trim().toUpperCase();
     if (number.airlineCode !== airlineCode) return err('AIRLINE_MISMATCH');
+    if (!context.airlineExists(airlineCode)) return err('UNKNOWN_AIRLINE');
     const route = Route.between(origin, destination);
     if (!route.ok) return route;
     const originTimeZone = context.timeZoneOf(origin.value);
@@ -88,6 +98,11 @@ export class Flight {
     }
     if (input.scheduledDepartureUtc.getTime() <= context.now.getTime()) {
       return err('DEPARTURE_IN_PAST');
+    }
+    for (const cabin of CABINS) {
+      const fare = input.fares?.[cabin] as Money | undefined;
+      if (!fare) return err('MISSING_FARE');
+      if (!isPositiveFare(fare)) return err('FARE_NOT_POSITIVE');
     }
 
     return ok(
@@ -177,6 +192,15 @@ export class Flight {
     };
     return ok(previous);
   }
+}
+
+/** A fare is a positive whole number of minor units in an ISO 4217 currency. */
+export function isPositiveFare(fare: Money): boolean {
+  return (
+    Number.isSafeInteger(fare.amountMinor) &&
+    fare.amountMinor > 0 &&
+    /^[A-Z]{3}$/.test(fare.currency)
+  );
 }
 
 export interface BookabilityView {
