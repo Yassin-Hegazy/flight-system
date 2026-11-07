@@ -8,5 +8,8 @@ export function baseDatabaseOptions(url: string) {
     // The schema is changed only through migrations, which the application never runs itself.
     synchronize: false,
     migrationsRun: false,
+    // UUID primary keys default to gen_random_uuid(), built into PostgreSQL 13+, so generated
+    // migrations need no uuid-ossp extension.
+    uuidExtension: 'pgcrypto',
   } satisfies DataSourceOptions;
 }
