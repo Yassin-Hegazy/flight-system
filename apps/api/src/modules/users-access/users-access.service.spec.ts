@@ -119,3 +119,122 @@ describe('US-USR-05 failed-attempt records do not grow without bound', () => {
     expect(repository.attempts).toEqual([]);
   });
 });
+
+describe('US-USR-02 / US-USR-07 / US-USR-06 account use cases', () => {
+  async function registered() {
+    const context = usersService();
+    const result = await context.service.register(ALICE);
+    if (!result.ok) throw new Error(result.error);
+    return { ...context, userId: result.value };
+  }
+
+  it('US-USR-04-T10 rejects a weak password and a taken email; createAdmin creates an ADMIN', async () => {
+    const { repository, service } = await registered();
+    expect(await service.register({ ...ALICE, password: 'short' })).toEqual({
+      ok: false,
+      error: 'WEAK_PASSWORD',
+    });
+    expect(await service.register({ ...ALICE, email: 'ALICE@example.com' })).toEqual({
+      ok: false,
+      error: 'EMAIL_TAKEN',
+    });
+    const admin = await service.createAdmin({ ...ALICE, email: 'ops@example.com' });
+    if (!admin.ok) throw new Error(admin.error);
+    expect((await repository.findUserById(admin.value))?.role).toBe(UserRole.Admin);
+  });
+
+  it('US-USR-02-T04 an email change needs the right current password and a free address', async () => {
+    const { service, userId } = await registered();
+    await service.register({ ...ALICE, email: 'taken@example.com' });
+
+    expect(await service.updateProfile(userId, { email: 'new@example.com' })).toEqual({
+      ok: false,
+      error: { code: 'VALIDATION_ERROR', fieldErrors: { currentPassword: expect.any(String) } },
+    });
+    expect(
+      await service.updateProfile(userId, { email: 'new@example.com', currentPassword: 'nope' }),
+    ).toEqual({
+      ok: false,
+      error: { code: 'VALIDATION_ERROR', fieldErrors: { currentPassword: expect.any(String) } },
+    });
+    expect(
+      await service.updateProfile(userId, {
+        email: 'Taken@Example.com',
+        currentPassword: ALICE.password,
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: 'EMAIL_TAKEN', fieldErrors: { email: expect.any(String) } },
+    });
+  });
+
+  it('US-USR-02-T05 name, phone and email update together; re-sending the same email needs no password', async () => {
+    const { repository, service, userId } = await registered();
+    expect(
+      await service.updateProfile(userId, {
+        name: '  Alice B ',
+        phone: '+20 100 000 0000',
+        email: 'alice@example.com',
+      }),
+    ).toEqual({ ok: true, value: undefined });
+    expect(await repository.findUserById(userId)).toMatchObject({
+      name: 'Alice B',
+      phone: '+20 100 000 0000',
+      email: 'alice@example.com',
+    });
+  });
+
+  it('US-USR-07-T03 a password change needs the current password and a strong new one', async () => {
+    const { service, userId } = await registered();
+    expect(await service.changePassword(userId, 'wrong', 'a new long password')).toEqual({
+      ok: false,
+      error: 'INVALID_CURRENT',
+    });
+    expect(await service.changePassword(userId, ALICE.password, 'short')).toEqual({
+      ok: false,
+      error: 'WEAK_PASSWORD',
+    });
+    expect((await service.changePassword(userId, ALICE.password, 'a new long password')).ok).toBe(
+      true,
+    );
+    expect((await service.signIn(ALICE.email, 'a new long password')).ok).toBe(true);
+  });
+
+  it('US-USR-06-T04 saved travelers: add up to 10, edit and delete only your own', async () => {
+    const { service, userId } = await registered();
+    const traveler = { name: '  Child ', dateOfBirth: '2015-01-01' };
+    const added = await service.addSavedTraveler(userId, traveler);
+    if (!added.ok) throw new Error(added.error);
+    expect(added.value.name).toBe('Child');
+
+    expect(await service.updateSavedTraveler('someone-else', added.value.id, traveler)).toEqual({
+      ok: false,
+      error: 'SAVED_TRAVELER_NOT_FOUND',
+    });
+    expect(await service.deleteSavedTraveler('someone-else', added.value.id)).toEqual({
+      ok: false,
+      error: 'SAVED_TRAVELER_NOT_FOUND',
+    });
+    expect(
+      (await service.updateSavedTraveler(userId, added.value.id, { ...traveler, name: 'Kid' })).ok,
+    ).toBe(true);
+    expect((await service.listSavedTravelers(userId)).map((saved) => saved.name)).toEqual(['Kid']);
+
+    for (let i = 2; i <= 10; i += 1) await service.addSavedTraveler(userId, traveler);
+    expect(await service.addSavedTraveler(userId, traveler)).toEqual({
+      ok: false,
+      error: 'SAVED_TRAVELER_LIMIT',
+    });
+    expect((await service.deleteSavedTraveler(userId, added.value.id)).ok).toBe(true);
+  });
+
+  it('US-USR-05-T13 no token, an unknown token, or a session whose user is gone resolves to nobody', async () => {
+    const { repository, service } = await registered();
+    expect(await service.currentUser(undefined)).toBeNull();
+    expect(await service.currentUser('not-a-real-token')).toBeNull();
+    const signedIn = await service.signIn(ALICE.email, ALICE.password);
+    if (!signedIn.ok) throw new Error(signedIn.error);
+    repository.users.clear();
+    expect(await service.currentUser(signedIn.value)).toBeNull();
+  });
+});
