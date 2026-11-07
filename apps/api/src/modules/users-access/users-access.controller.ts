@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -39,18 +40,23 @@ export class UsersAccessController {
     return this.service.register(input);
   }
 
+  /**
+   * On success the session token is set only as an HttpOnly cookie; the body carries who signed in,
+   * never the token (S1 section 3.3).
+   */
   @Post('sign-in')
+  @HttpCode(200)
   async signIn(@Body() input: SignInInput, @Res({ passthrough: true }) response: Response) {
     const result = await this.service.signIn(input.email, input.password);
-    if (result.ok)
-      response.cookie(SESSION_COOKIE, result.value, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 86_400_000,
-        path: '/',
-      });
-    return result;
+    if (!result.ok) return result;
+    response.cookie(SESSION_COOKIE, result.value, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 86_400_000,
+      path: '/',
+    });
+    return this.service.currentUser(result.value);
   }
 
   @Post('sign-out')
