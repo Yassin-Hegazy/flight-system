@@ -1,79 +1,61 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import { AirportEntity } from './airport.entity';
-import {
-  AirportCode,
+import { Inject, Injectable } from '@nestjs/common';
+import type { Tx } from '../../shared/db';
+import { err, ok, type Result } from '../../shared/result';
+import { CLOCK, type Clock } from '../../shared/time';
+import type {
+  AirportError,
+  AirportInput,
   AirportSuggestion,
-  Cabin,
+  CatalogApi,
+  ChangeStatusError,
+  CreateFlightError,
+  FareError,
   FlightInfo,
-  FlightNumber,
-  FlightStatus,
-  FlightStatusValue,
-  Money,
-  PassengerMix,
-  PriceQuote,
-  Route,
-  formatInTimezone,
-  isBookable,
-  priceParty,
-} from './flight-catalog.domain';
-import { FlightFareEntity } from './flight-fare.entity';
-import { FlightEntity } from './flight.entity';
-import { FlightCatalogRepository } from './flight-catalog.repository';
+} from './catalog-api';
+import { CATALOG_REPOSITORY, type CatalogRepository, type FareRecord } from './catalog.repository';
+import { Flight, isBookable, type NewFlight } from './flight';
+import { toFlightInfo } from './flight-info.mapper';
+import type { FlightStatus } from './flight-status';
+import { type Fare, type PassengerMix, type PriceQuote, priceParty } from './pricing';
+import { AirportCode, type Cabin, InvalidAirportCode, type Route } from './value-objects';
 
+const MAX_AIRPORT_SUGGESTIONS = 10;
+const MIN_AIRPORT_QUERY = 2;
+
+/**
+ * The Catalog's use cases. Rules live in the domain files, SQL in the repository; this class only
+ * loads, applies the rule and saves.
+ */
 @Injectable()
-export class FlightCatalogService {
-  constructor(private readonly repository: FlightCatalogRepository) {}
+export class FlightCatalogService implements CatalogApi {
+  constructor(
+    @Inject(CATALOG_REPOSITORY) private readonly repository: CatalogRepository,
+    @Inject(CLOCK) private readonly clock: Clock,
+  ) {}
 
-  async getFlight(id: string): Promise<FlightInfo> {
-    const flight = await this.repository.getFlight(id);
-    if (!flight) throw new NotFoundException('Flight not found');
-    const [airline, origin, destination, fares] = await Promise.all([
-      this.repository.getAirline(flight.airlineCode),
-      this.repository.getAirport(flight.originCode),
-      this.repository.getAirport(flight.destinationCode),
-      this.repository.getFares(flight.id),
-    ]);
-    if (!airline || !origin || !destination) {
-      throw new UnprocessableEntityException('Flight references missing catalog data');
-    }
-    return {
-      id: flight.id,
-      flightNumber: FlightNumber.of(flight.flightNumber).value,
-      airline: { code: airline.code, name: airline.name },
-      origin: { code: origin.code, name: origin.name, city: origin.city, timezone: origin.timezone },
-      destination: { code: destination.code, name: destination.name, city: destination.city, timezone: destination.timezone },
-      scheduledDepartureUtc: flight.scheduledDepartureUtc,
-      scheduledArrivalUtc: flight.scheduledArrivalUtc,
-      scheduledDepartureLocal: formatInTimezone(flight.scheduledDepartureUtc, origin.timezone),
-      scheduledArrivalLocal: formatInTimezone(flight.scheduledArrivalUtc, destination.timezone),
-      durationMinutes: Math.round((flight.scheduledArrivalUtc.getTime() - flight.scheduledDepartureUtc.getTime()) / 60000),
-      estimatedDepartureUtc: flight.estimatedDepartureUtc ?? undefined,
-      status: FlightStatusValue.of(flight.status).value,
-      cancelReason: flight.cancelReason ?? undefined,
-      fares: Object.fromEntries(fares.map((fare) => [fare.cabin, { amount: Number(fare.amount), currency: fare.currency }])),
-    };
+  async getFlight(id: string): Promise<FlightInfo | null> {
+    const flight = await this.repository.findFlight(id);
+    if (!flight) return null;
+    const [info] = await this.describe([flight]);
+    return info;
   }
 
   async findFlights(route: Route, localDate: string): Promise<FlightInfo[]> {
-    const origin = await this.repository.getAirport(route.origin.value);
-    const destination = await this.repository.getAirport(route.destination.value);
-    if (!origin || !destination) return [];
-    const startParts = localDate.split('-').map(Number);
-    const start = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2]));
+    const [year, month, day] = localDate.split('-').map(Number);
+    const start = new Date(Date.UTC(year, month - 1, day));
     const end = new Date(start.getTime() + 86_400_000);
-    const rows = await this.repository.findFlights(origin.code, destination.code, start, end);
-    return Promise.all(rows.map((row) => this.getFlight(row.id)));
+    const flights = await this.repository.findFlightsDeparting(route, { start, end });
+    return this.describe(flights);
   }
 
   async searchAirports(query: string): Promise<AirportSuggestion[]> {
     const normalized = query.trim();
-    if (normalized.length < 2) return [];
-    return (await this.repository.searchAirports(normalized)).map(({ code, name, city, country }) => ({
-      code, name, city, country,
-    }));
+    if (normalized.length < MIN_AIRPORT_QUERY) return [];
+    const airports = await this.repository.searchAirports(normalized, MAX_AIRPORT_SUGGESTIONS);
+    return airports.map(({ code, name, city, country }) => ({ code, name, city, country }));
   }
 
-  isBookable(flight: FlightInfo, now = new Date()): boolean {
+  isBookable(flight: FlightInfo, now: Date): boolean {
     return isBookable(flight, now);
   }
 
@@ -81,62 +63,89 @@ export class FlightCatalogService {
     return priceParty(flight, cabin, party);
   }
 
-  async changeStatus(id: string, next: FlightStatus, estimatedDepartureUtc?: Date, cancelReason?: string) {
-    const flight = await this.repository.getFlight(id);
-    if (!flight) throw new NotFoundException('Flight not found');
-    const current = FlightStatusValue.of(flight.status);
-    const nextValue = FlightStatusValue.of(next);
-    current.transitionTo(nextValue);
-    flight.status = nextValue.value;
-    flight.estimatedDepartureUtc = estimatedDepartureUtc ?? flight.estimatedDepartureUtc;
-    flight.cancelReason = nextValue.value === FlightStatus.Cancelled ? cancelReason ?? null : null;
-    await this.repository.saveFlight(flight);
-    return current.value;
+  async createFlight(tx: Tx, input: NewFlight): Promise<Result<string, CreateFlightError>> {
+    const scheduled = Flight.schedule(input, this.clock.now());
+    if (!scheduled.ok) return scheduled;
+    return this.repository.insertFlight(tx, scheduled.value);
   }
 
-  async setFare(flightId: string, cabin: Cabin, money: Money) {
-    if (money.amount <= 0 || !/^[A-Z]{3}$/.test(money.currency)) {
-      throw new UnprocessableEntityException('Fare must be positive and use a three-letter currency');
-    }
-    if (!(await this.repository.getFlight(flightId))) throw new NotFoundException('Flight not found');
-    const fare = new FlightFareEntity();
-    fare.flightId = flightId;
-    fare.cabin = cabin;
-    fare.amount = money.amount;
-    fare.currency = money.currency;
-    await this.repository.saveFare(fare);
-    return money;
+  async changeStatus(
+    tx: Tx,
+    id: string,
+    next: FlightStatus,
+    estimatedDepartureUtc?: Date,
+    cancelReason?: string,
+  ): Promise<Result<FlightStatus, ChangeStatusError>> {
+    const flight = await this.repository.findFlightForUpdate(tx, id);
+    if (!flight) return err('FLIGHT_NOT_FOUND');
+    const changed = flight.changeStatus(next, estimatedDepartureUtc, cancelReason);
+    if (!changed.ok) return changed;
+    await this.repository.updateFlight(tx, flight);
+    return changed;
   }
 
-  async createFlight(input: {
-    flightNumber: string; airlineCode: string; originCode: string; destinationCode: string;
-    scheduledDepartureUtc: Date; scheduledArrivalUtc: Date;
-  }) {
-    const origin = AirportCode.of(input.originCode);
-    const destination = AirportCode.of(input.destinationCode);
-    FlightNumber.of(input.flightNumber);
-    if (origin.equals(destination)) throw new UnprocessableEntityException('Origin and destination must differ');
-    if (input.scheduledArrivalUtc <= input.scheduledDepartureUtc) {
-      throw new UnprocessableEntityException('Arrival must be after departure');
-    }
-    if (input.scheduledDepartureUtc <= new Date()) {
-      throw new UnprocessableEntityException('Departure must be in the future');
-    }
-    const flight = Object.assign(new FlightEntity(), input, {
-      originCode: origin.value,
-      destinationCode: destination.value,
-      status: FlightStatus.Scheduled,
-      estimatedDepartureUtc: null,
-      cancelReason: null,
-    });
-    const saved = await this.repository.saveFlight(flight);
-    return saved.id;
+  async setFare(
+    tx: Tx,
+    flightId: string,
+    cabin: Cabin,
+    fare: Fare,
+  ): Promise<Result<Fare | null, FareError>> {
+    if (fare.amount <= 0 || !/^[A-Z]{3}$/.test(fare.currency)) return err('INVALID_FARE');
+    if (!(await this.repository.findFlightForUpdate(tx, flightId))) return err('FLIGHT_NOT_FOUND');
+    const previous = await this.repository.findFare(tx, flightId, cabin);
+    await this.repository.saveFare(tx, { flightId, cabin, fare });
+    return ok(previous?.fare ?? null);
   }
 
-  async upsertAirport(input: { code: string; name: string; city: string; country: string; timezone: string }) {
-    const airport = Object.assign(new AirportEntity(), input, {
-      code: AirportCode.of(input.code).value,
-    });
-    return (await this.repository.saveAirport(airport)).code;
+  async upsertAirport(tx: Tx, input: AirportInput): Promise<Result<string, AirportError>> {
+    let code: string;
+    try {
+      code = AirportCode.of(input.code).value;
+    } catch (error) {
+      if (error instanceof InvalidAirportCode) return err('INVALID_AIRPORT_CODE');
+      throw error;
+    }
+    await this.repository.saveAirport(tx, { ...input, code });
+    return ok(code);
   }
+
+  /** Loads the reference data for many flights in a fixed number of queries, then maps them. */
+  private async describe(flights: Flight[]): Promise<FlightInfo[]> {
+    if (flights.length === 0) return [];
+    const airportCodes = unique(
+      flights.flatMap((flight) => [flight.route.origin.value, flight.route.destination.value]),
+    );
+    const airlineCodes = unique(flights.map((flight) => flight.airlineCode));
+    const flightIds = flights.map((flight) => flight.id).filter((id): id is string => !!id);
+
+    const [airports, airlines, fares] = await Promise.all([
+      this.repository.findAirports(airportCodes),
+      this.repository.findAirlines(airlineCodes),
+      this.repository.findFares(flightIds),
+    ]);
+
+    const reference = {
+      airports: new Map(airports.map((airport) => [airport.code, airport])),
+      airlines: new Map(airlines.map((airline) => [airline.code, airline])),
+      faresByFlight: groupBy(fares, (fare) => fare.flightId),
+    };
+    return flights.map((flight) => toFlightInfo(flight, reference));
+  }
+}
+
+function unique(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+function groupBy(
+  fares: FareRecord[],
+  key: (fare: FareRecord) => string,
+): Map<string, FareRecord[]> {
+  const groups = new Map<string, FareRecord[]>();
+  for (const fare of fares) {
+    const group = groups.get(key(fare)) ?? [];
+    group.push(fare);
+    groups.set(key(fare), group);
+  }
+  return groups;
 }

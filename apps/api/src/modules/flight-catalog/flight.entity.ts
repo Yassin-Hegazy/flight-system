@@ -1,5 +1,5 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
-import { FlightStatus } from './flight-catalog.domain';
+import { FlightStatus } from './flight-status';
 
 @Entity('flights')
 @Index('flights_route_departure', ['originCode', 'destinationCode', 'scheduledDepartureUtc'])

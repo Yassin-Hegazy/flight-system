@@ -1,20 +1,20 @@
+// The Flight Catalog's front door: the only file other modules may import.
+// Other modules inject CATALOG_API and depend on the CatalogApi interface, never on the service.
 export { FlightCatalogModule } from './flight-catalog.module';
-export {
-  AirportCode,
-  FlightNumber,
-  FlightStatus,
-  FlightStatusValue,
-  formatInTimezone,
-  isBookable,
-  priceParty,
-} from './flight-catalog.domain';
+export { CATALOG_API } from './catalog-api';
 export type {
+  AirportError,
+  AirportInfo,
+  AirportInput,
   AirportSuggestion,
-  Cabin,
+  CatalogApi,
+  ChangeStatusError,
+  CreateFlightError,
+  FareError,
   FlightInfo,
-  Money,
-  PassengerMix,
-  PriceQuote,
-  Route,
-} from './flight-catalog.domain';
-export { FlightCatalogService } from './flight-catalog.service';
+} from './catalog-api';
+export type { NewFlight } from './flight';
+export { FlightStatus } from './flight-status';
+export type { Fare, PassengerMix, PriceQuote } from './pricing';
+export { AirportCode, CABINS, FlightNumber, Route } from './value-objects';
+export type { Cabin } from './value-objects';

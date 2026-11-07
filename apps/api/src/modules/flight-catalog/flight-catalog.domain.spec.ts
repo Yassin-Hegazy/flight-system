@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AirportCode,
-  FlightStatus,
-  FlightStatusValue,
-  formatInTimezone,
-  isBookable,
-  priceParty,
-  type FlightInfo,
-} from './flight-catalog.domain';
+import { formatLocal } from '../../shared/time';
+import type { FlightInfo } from './catalog-api';
+import { isBookable } from './flight';
+import { FlightStatus, canTransition, parseFlightStatus } from './flight-status';
+import { priceParty } from './pricing';
+import { AirportCode } from './value-objects';
 
 const flight = (status: FlightStatus): FlightInfo => ({
   id: 'flight-1',
@@ -31,14 +28,20 @@ describe('flight catalog domain', () => {
   });
 
   it('enforces the status state machine', () => {
-    expect(FlightStatusValue.of('scheduled').canTransitionTo(FlightStatusValue.of('DELAYED'))).toBe(true);
-    expect(() => FlightStatusValue.of('DEPARTED').transitionTo(FlightStatusValue.of('CANCELLED'))).toThrow();
-    expect(() => FlightStatusValue.of('LANDED')).toThrow();
+    expect(canTransition(parseFlightStatus('scheduled'), FlightStatus.Delayed)).toBe(true);
+    expect(canTransition(FlightStatus.Departed, FlightStatus.Cancelled)).toBe(false);
+    expect(() => parseFlightStatus('LANDED')).toThrow();
   });
 
   it('formats the Cairo-London example using airport time zones', () => {
-    const departure = formatInTimezone(flight(FlightStatus.Scheduled).scheduledDepartureUtc, 'Africa/Cairo');
-    const arrival = formatInTimezone(flight(FlightStatus.Scheduled).scheduledArrivalUtc, 'Europe/London');
+    const departure = formatLocal(
+      flight(FlightStatus.Scheduled).scheduledDepartureUtc,
+      'Africa/Cairo',
+    );
+    const arrival = formatLocal(
+      flight(FlightStatus.Scheduled).scheduledArrivalUtc,
+      'Europe/London',
+    );
     expect(departure).toContain('09:00');
     expect(arrival).toContain('12:00');
     expect(flight(FlightStatus.Scheduled).durationMinutes).toBe(300);
@@ -46,10 +49,14 @@ describe('flight catalog domain', () => {
 
   it('only considers future non-terminal flights bookable', () => {
     expect(isBookable(flight(FlightStatus.Scheduled), new Date('2026-01-01T00:00:00Z'))).toBe(true);
-    expect(isBookable(flight(FlightStatus.Cancelled), new Date('2026-01-01T00:00:00Z'))).toBe(false);
+    expect(isBookable(flight(FlightStatus.Cancelled), new Date('2026-01-01T00:00:00Z'))).toBe(
+      false,
+    );
   });
 
   it('calculates the same party total for consumers', () => {
-    expect(priceParty(flight(FlightStatus.Scheduled), 'ECONOMY', { adults: 2, children: 1 }).total).toBe(300);
+    expect(
+      priceParty(flight(FlightStatus.Scheduled), 'ECONOMY', { adults: 2, children: 1 }).total,
+    ).toBe(300);
   });
 });
