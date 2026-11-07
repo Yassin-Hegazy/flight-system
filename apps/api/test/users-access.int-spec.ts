@@ -23,7 +23,22 @@ describe('Users and Access over HTTP', () => {
     await database?.stop();
   });
 
-  const http = () => request(app.getHttpServer());
+  /**
+   * What the web app sends: state-changing requests carry X-Requested-With, which a cross-site
+   * form cannot set (NFR-SEC-04).
+   */
+  const http = () => {
+    const server = request(app.getHttpServer());
+    return {
+      get: (url: string) => server.get(url),
+      post: (url: string) => server.post(url).set('x-requested-with', 'fetch'),
+      patch: (url: string) => server.patch(url).set('x-requested-with', 'fetch'),
+      delete: (url: string) => server.delete(url).set('x-requested-with', 'fetch'),
+    };
+  };
+
+  /** A request as a cross-site form post would make it: no custom header. */
+  const crossSite = () => request(app.getHttpServer());
 
   /** A fresh, unique email for each test, so tests do not depend on each other. */
   const newEmail = () => `traveler${++emailCounter}@example.com`;
@@ -227,6 +242,39 @@ describe('Users and Access over HTTP', () => {
         .set('x-user-role', 'ADMIN')
         .send({ email: newEmail(), password: PASSWORD, name: 'Nope', role: 'ADMIN' })
         .expect((response) => expect([400, 403]).toContain(response.status));
+    });
+  });
+  describe('NFR-SEC-04 sessions and cross-site requests', () => {
+    it('NFR-SEC-04-T02 a state-changing request without the custom header is refused', async () => {
+      const { email, cookie } = await signedInTraveler();
+
+      const signInAttempt = await crossSite()
+        .post('/users/sign-in')
+        .send({ email, password: PASSWORD })
+        .expect(403);
+      expect(signInAttempt.body.code).toBe('CSRF_CHECK_FAILED');
+
+      await crossSite()
+        .patch('/users/me')
+        .set('cookie', cookie)
+        .send({ name: 'Changed By Attacker' })
+        .expect(403);
+      expect((await http().get('/users/me').set('cookie', cookie).expect(200)).body.name).toBe(
+        'Test Traveler',
+      );
+    });
+
+    it('NFR-SEC-04-T03 reading needs no header', async () => {
+      const { cookie } = await signedInTraveler();
+      await crossSite().get('/users/me').set('cookie', cookie).expect(200);
+    });
+
+    it('NFR-SEC-04-T04 activity renews the cookie for another 24 hours, matching the server session', async () => {
+      const { cookie } = await signedInTraveler();
+      const response = await http().get('/users/me').set('cookie', cookie).expect(200);
+      const renewed = sessionCookieOf(response);
+      expect(renewed).toMatch(/Max-Age=86400/);
+      expect(renewed).toMatch(/;\s*HttpOnly/i);
     });
   });
 });
