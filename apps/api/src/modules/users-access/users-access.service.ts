@@ -133,12 +133,17 @@ export class UsersAccessService implements UsersApi {
     userId: string,
     current: string,
     next: string,
+    keepSession?: string,
   ): Promise<Result<void, 'INVALID_CURRENT' | 'WEAK_PASSWORD'>> {
     const user = await this.requireUser(userId);
     if (!(await this.hasher.verify(user.passwordHash, current))) return err('INVALID_CURRENT');
     if (passwordProblem(next)) return err('WEAK_PASSWORD');
     await this.repository.updateUser({ ...user, passwordHash: await this.hasher.hash(next) });
-    await this.repository.deleteSessionsOfUser(userId);
+    // If the password leaked, an attacker's session must end with it; this one stays signed in.
+    await this.repository.deleteSessionsOfUser(
+      userId,
+      keepSession ? hashToken(keepSession) : undefined,
+    );
     return ok(undefined);
   }
 

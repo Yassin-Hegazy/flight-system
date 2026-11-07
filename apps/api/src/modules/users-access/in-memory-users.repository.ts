@@ -73,9 +73,9 @@ export class InMemoryUsersRepository implements UsersRepository {
     return Promise.resolve();
   }
 
-  deleteSessionsOfUser(userId: string): Promise<void> {
+  deleteSessionsOfUser(userId: string, exceptTokenHash?: string): Promise<void> {
     for (const [hash, session] of this.sessions) {
-      if (session.userId === userId) this.sessions.delete(hash);
+      if (session.userId === userId && hash !== exceptTokenHash) this.sessions.delete(hash);
     }
     return Promise.resolve();
   }

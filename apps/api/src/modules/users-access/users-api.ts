@@ -38,10 +38,12 @@ export interface UsersApi {
   signOut(token: string): Promise<void>;
   currentUser(token: string | undefined): Promise<Principal | null>;
   updateProfile(userId: string, input: ProfileInput): Promise<Result<void, ProfileError>>;
+  /** Signs out every other session of the user; the one given in keepSession stays (US-USR-07). */
   changePassword(
     userId: string,
     current: string,
     next: string,
+    keepSession?: string,
   ): Promise<Result<void, 'INVALID_CURRENT' | 'WEAK_PASSWORD'>>;
   listSavedTravelers(ownerId: string): Promise<SavedTraveler[]>;
   addSavedTraveler(

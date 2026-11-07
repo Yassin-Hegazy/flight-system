@@ -46,7 +46,8 @@ export interface UsersRepository {
   findSession(tokenHash: string): Promise<SessionRecord | null>;
   updateSession(session: SessionRecord): Promise<void>;
   deleteSession(tokenHash: string): Promise<void>;
-  deleteSessionsOfUser(userId: string): Promise<void>;
+  /** Deletes all of a user's sessions except the one with exceptTokenHash, if given. */
+  deleteSessionsOfUser(userId: string, exceptTokenHash?: string): Promise<void>;
 
   listSavedTravelers(ownerId: string): Promise<SavedTravelerRecord[]>;
   countSavedTravelers(ownerId: string): Promise<number>;

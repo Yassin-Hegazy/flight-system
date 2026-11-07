@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, type EntityManager, MoreThan } from 'typeorm';
+import { DataSource, type EntityManager, MoreThan, Not } from 'typeorm';
 import { isUniqueViolation } from '../../shared/db';
 import { err, ok, type Result } from '../../shared/result';
 import { LoginAttemptEntity } from './login-attempt.entity';
@@ -78,8 +78,11 @@ export class PgUsersRepository implements UsersRepository {
     await this.db.delete(SessionEntity, { tokenHash });
   }
 
-  async deleteSessionsOfUser(userId: string): Promise<void> {
-    await this.db.delete(SessionEntity, { userId });
+  async deleteSessionsOfUser(userId: string, exceptTokenHash?: string): Promise<void> {
+    await this.db.delete(
+      SessionEntity,
+      exceptTokenHash ? { userId, tokenHash: Not(exceptTokenHash) } : { userId },
+    );
   }
 
   listSavedTravelers(ownerId: string): Promise<SavedTravelerRecord[]> {

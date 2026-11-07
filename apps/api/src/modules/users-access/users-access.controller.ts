@@ -121,9 +121,18 @@ export class UsersAccessController {
 
   @Patch('me/password')
   @HttpCode(204)
-  changePassword(@Ctx() ctx: RequestContext, @Body() input: ChangePasswordInput): Promise<void> {
+  changePassword(
+    @Ctx() ctx: RequestContext,
+    @Req() request: Request,
+    @Body() input: ChangePasswordInput,
+  ): Promise<void> {
     return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.changePassword(principal.id, input.current, input.next);
+      const result = await this.users.changePassword(
+        principal.id,
+        input.current,
+        input.next,
+        sessionTokenFrom(request.headers.cookie),
+      );
       if (result.ok) return;
       throw result.error === 'INVALID_CURRENT'
         ? validationError({ current: 'Current password is incorrect' })
