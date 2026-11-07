@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request, { type Response } from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { seedAdmin } from '../src/database/seed-admin';
 import { createTestApp } from './support/app';
 import { startTestDatabase, type TestDatabase } from './support/postgres';
 
@@ -159,6 +160,73 @@ describe('Users and Access over HTTP', () => {
 
       await http().get('/users/me').set('cookie', laptop).expect(200);
       await http().get('/users/me').set('cookie', phone).expect(401);
+    });
+  });
+  describe('US-USR-03 / US-USR-04 administrators', () => {
+    const ADMIN_EMAIL = 'first.admin@example.com';
+
+    async function signedInAdmin(): Promise<string> {
+      await seedAdmin(app, { email: ADMIN_EMAIL, password: PASSWORD, name: 'First Admin' });
+      const response = await signIn(ADMIN_EMAIL).expect(200);
+      expect(response.body.role).toBe('ADMIN');
+      return sessionCookieOf(response).split(';')[0];
+    }
+
+    it('US-USR-04-T03 the seed script creates the first administrator, and running it again is harmless', async () => {
+      const first = await seedAdmin(app, { email: ADMIN_EMAIL, password: PASSWORD, name: 'Admin' });
+      const again = await seedAdmin(app, { email: ADMIN_EMAIL, password: PASSWORD, name: 'Admin' });
+      expect([first, again]).toContain('already-exists');
+      await signedInAdmin();
+    });
+
+    it('US-USR-04-T02 nobody can register as an administrator', async () => {
+      const email = newEmail();
+      const response = await http()
+        .post('/users/register')
+        .send({ email, password: PASSWORD, name: 'Sneaky', role: 'ADMIN' })
+        .expect(400);
+      expect(response.body.fieldErrors).toHaveProperty('role');
+      await signIn(email).expect(401);
+    });
+
+    it('US-USR-04-T09 an administrator can create another administrator', async () => {
+      const cookie = await signedInAdmin();
+      const email = newEmail();
+      await http()
+        .post('/users/admins')
+        .set('cookie', cookie)
+        .send({ email, password: PASSWORD, name: 'Second Admin' })
+        .expect(201);
+      expect((await signIn(email).expect(200)).body.role).toBe('ADMIN');
+    });
+
+    it('US-USR-03-T01 a signed-in traveler is forbidden from administrative routes', async () => {
+      const { cookie } = await signedInTraveler();
+      const email = newEmail();
+      const response = await http()
+        .post('/users/admins')
+        .set('cookie', cookie)
+        .send({ email, password: PASSWORD, name: 'Nope' })
+        .expect(403);
+      expect(response.body.code).toBe('FORBIDDEN');
+      await signIn(email).expect(401);
+    });
+
+    it('US-USR-03-T02 an anonymous request to an administrative route is unauthenticated', async () => {
+      await http()
+        .post('/users/admins')
+        .send({ email: newEmail(), password: PASSWORD, name: 'Nope' })
+        .expect(401);
+    });
+
+    it('US-USR-03-T03 a role sent by the client is ignored; the role comes from the session', async () => {
+      const { cookie } = await signedInTraveler();
+      await http()
+        .post('/users/admins')
+        .set('cookie', `${cookie}; role=ADMIN`)
+        .set('x-user-role', 'ADMIN')
+        .send({ email: newEmail(), password: PASSWORD, name: 'Nope', role: 'ADMIN' })
+        .expect((response) => expect([400, 403]).toContain(response.status));
     });
   });
 });
