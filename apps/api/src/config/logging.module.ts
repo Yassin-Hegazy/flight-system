@@ -28,7 +28,9 @@ function requestId(request: IncomingMessage, response: ServerResponse): string {
           genReqId: requestId,
           // Loggers used while handling a request carry only { reqId } rather than the whole request.
           quietReqLogger: true,
-          redact: ['req.headers.authorization', 'req.headers.cookie'],
+          // Session tokens travel in Cookie on the way in and Set-Cookie on the way out; neither
+          // may reach the logs (NFR-PRIV-01).
+          redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
           transport:
             config.get('NODE_ENV', { infer: true }) === NodeEnv.Development
               ? { target: 'pino-pretty', options: { singleLine: true } }
