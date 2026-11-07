@@ -139,4 +139,11 @@ describe('Users and Access over HTTP', () => {
       expect(eleventh.body.code).toBe('SAVED_TRAVELER_LIMIT');
     });
   });
+  describe('US-USR-04 concurrent registration', () => {
+    it('US-USR-04-T08 two simultaneous sign-ups for one mailbox: one 201, one 409, never a 500', async () => {
+      const email = newEmail();
+      const responses = await Promise.all([register(email), register(email.toUpperCase())]);
+      expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    });
+  });
 });
