@@ -101,6 +101,16 @@ describe('Flight Catalog against PostgreSQL', () => {
       expect(response.body.code).toBe('SAME_AIRPORT');
     });
 
+    it('US-FL-03-T06 LIKE wildcards in an airport query are plain characters', async () => {
+      for (const q of ['%%', '__', '%a']) {
+        const response = await request(app.getHttpServer())
+          .get('/flights/airports/suggestions')
+          .query({ q })
+          .expect(200);
+        expect(response.body).toEqual([]);
+      }
+    });
+
     it('NFR-SEC-03-T06 an injection string as an airport query is treated as text', async () => {
       const response = await request(app.getHttpServer())
         .get('/flights/airports/suggestions')

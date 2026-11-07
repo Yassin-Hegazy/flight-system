@@ -3,6 +3,7 @@ import type { Tx } from '../../shared/db';
 import { money } from '../../shared/money';
 import type { Clock } from '../../shared/time';
 import { Flight, type NewFlight } from './flight';
+import { FlightStatus } from './flight-status';
 import { FlightCatalogService } from './flight-catalog.service';
 import { InMemoryCatalogRepository } from './in-memory-catalog.repository';
 import { AirportCode, Route } from './value-objects';
@@ -78,6 +79,22 @@ describe('US-FL-01 View flight details (Catalog service)', () => {
     expect(info?.id).toBe(first);
     expect(info?.flightNumber).toBe('MS777');
     expect(info?.fares.ECONOMY).toEqual(money(10000, 'EGP'));
+  });
+});
+
+describe('US-FL-02 See current flight status (Catalog service)', () => {
+  it('US-FL-02-T03 a delayed flight shows the new estimated time beside the original', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const flight = scheduled(cairoToLondon());
+    const delay = flight.changeStatus(FlightStatus.Delayed, new Date('2026-12-10T09:30:00Z'));
+    if (!delay.ok) throw new Error(delay.error);
+    const id = repository.addFlight(flight);
+
+    const info = await service.getFlight(id);
+
+    expect(info?.status).toBe(FlightStatus.Delayed);
+    expect(info?.scheduledDepartureLocal).toBe('2026-12-10T09:00+02:00');
+    expect(info?.estimatedDepartureLocal).toBe('2026-12-10T11:30+02:00');
   });
 });
 
