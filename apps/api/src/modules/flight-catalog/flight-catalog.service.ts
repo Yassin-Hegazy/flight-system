@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
+import type { Money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
 import type {
@@ -16,7 +17,7 @@ import { CATALOG_REPOSITORY, type CatalogRepository, type FareRecord } from './c
 import { Flight, isBookable, type NewFlight } from './flight';
 import { toFlightInfo } from './flight-info.mapper';
 import type { FlightStatus } from './flight-status';
-import { type Fare, type PassengerMix, type PriceQuote, priceParty } from './pricing';
+import { type PassengerMix, type PriceQuote, type PricingError, priceParty } from './pricing';
 import { AirportCode, type Cabin, InvalidAirportCode, type Route } from './value-objects';
 
 const MAX_AIRPORT_SUGGESTIONS = 10;
@@ -59,7 +60,11 @@ export class FlightCatalogService implements CatalogApi {
     return isBookable(flight, now);
   }
 
-  priceParty(flight: FlightInfo, cabin: Cabin, party: PassengerMix): PriceQuote {
+  priceParty(
+    flight: FlightInfo,
+    cabin: Cabin,
+    party: PassengerMix,
+  ): Result<PriceQuote, PricingError> {
     return priceParty(flight, cabin, party);
   }
 
@@ -88,9 +93,9 @@ export class FlightCatalogService implements CatalogApi {
     tx: Tx,
     flightId: string,
     cabin: Cabin,
-    fare: Fare,
-  ): Promise<Result<Fare | null, FareError>> {
-    if (fare.amount <= 0 || !/^[A-Z]{3}$/.test(fare.currency)) return err('INVALID_FARE');
+    fare: Money,
+  ): Promise<Result<Money | null, FareError>> {
+    if (!isPositiveMoney(fare)) return err('INVALID_FARE');
     if (!(await this.repository.findFlightForUpdate(tx, flightId))) return err('FLIGHT_NOT_FOUND');
     const previous = await this.repository.findFare(tx, flightId, cabin);
     await this.repository.saveFare(tx, { flightId, cabin, fare });
@@ -131,6 +136,15 @@ export class FlightCatalogService implements CatalogApi {
     };
     return flights.map((flight) => toFlightInfo(flight, reference));
   }
+}
+
+/** A fare is a positive whole number of minor units in an ISO 4217 currency. */
+function isPositiveMoney(fare: Money): boolean {
+  return (
+    Number.isSafeInteger(fare.amountMinor) &&
+    fare.amountMinor > 0 &&
+    /^[A-Z]{3}$/.test(fare.currency)
+  );
 }
 
 function unique(values: readonly string[]): string[] {

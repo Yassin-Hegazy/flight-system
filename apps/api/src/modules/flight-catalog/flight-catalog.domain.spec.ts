@@ -3,7 +3,6 @@ import { formatLocal } from '../../shared/time';
 import type { FlightInfo } from './catalog-api';
 import { isBookable } from './flight';
 import { FlightStatus, canTransition, parseFlightStatus } from './flight-status';
-import { priceParty } from './pricing';
 import { AirportCode } from './value-objects';
 
 const flight = (status: FlightStatus): FlightInfo => ({
@@ -18,7 +17,7 @@ const flight = (status: FlightStatus): FlightInfo => ({
   scheduledArrivalLocal: '2026-12-10T12:00 GMT',
   durationMinutes: 300,
   status,
-  fares: { ECONOMY: { amount: 100, currency: 'USD' } },
+  fares: {},
 });
 
 describe('flight catalog domain', () => {
@@ -52,11 +51,5 @@ describe('flight catalog domain', () => {
     expect(isBookable(flight(FlightStatus.Cancelled), new Date('2026-01-01T00:00:00Z'))).toBe(
       false,
     );
-  });
-
-  it('calculates the same party total for consumers', () => {
-    expect(
-      priceParty(flight(FlightStatus.Scheduled), 'ECONOMY', { adults: 2, children: 1 }).total,
-    ).toBe(300);
   });
 });

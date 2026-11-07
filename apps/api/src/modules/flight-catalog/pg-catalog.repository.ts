@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, type EntityManager, In } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
+import { money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
 import { AirlineEntity } from './airline.entity';
 import { AirportEntity } from './airport.entity';
@@ -114,7 +115,7 @@ export class PgCatalogRepository implements CatalogRepository {
       {
         flightId: fare.flightId,
         cabin: fare.cabin,
-        amount: fare.fare.amount,
+        amountMinor: fare.fare.amountMinor,
         currency: fare.fare.currency,
       },
       ['flightId', 'cabin'],
@@ -157,6 +158,6 @@ function toFareRecord(row: FlightFareEntity): FareRecord {
   return {
     flightId: row.flightId,
     cabin: row.cabin as Cabin,
-    fare: { amount: Number(row.amount), currency: row.currency },
+    fare: money(row.amountMinor, row.currency),
   };
 }

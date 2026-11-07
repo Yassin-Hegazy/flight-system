@@ -12,8 +12,9 @@ export class FlightFareEntity {
   @Column({ length: 20 })
   cabin!: string;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2 })
-  amount!: number;
+  /** Whole minor units (piastres, cents), never a fraction (NFR-DATA-01). */
+  @Column({ type: 'integer' })
+  amountMinor!: number;
 
   @Column({ length: 3 })
   currency!: string;

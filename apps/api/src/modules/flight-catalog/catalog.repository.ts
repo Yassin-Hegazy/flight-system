@@ -1,7 +1,7 @@
 import type { Tx } from '../../shared/db';
 import type { Result } from '../../shared/result';
 import type { Flight } from './flight';
-import type { Fare } from './pricing';
+import type { Money } from '../../shared/money';
 import type { Cabin, Route } from './value-objects';
 
 export interface AirportRecord {
@@ -20,7 +20,7 @@ export interface AirlineRecord {
 export interface FareRecord {
   flightId: string;
   cabin: Cabin;
-  fare: Fare;
+  fare: Money;
 }
 
 /**

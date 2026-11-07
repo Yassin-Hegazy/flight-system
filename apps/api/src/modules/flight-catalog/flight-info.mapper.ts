@@ -2,7 +2,7 @@ import { formatLocal } from '../../shared/time';
 import type { AirportInfo, FlightInfo } from './catalog-api';
 import type { AirlineRecord, AirportRecord, FareRecord } from './catalog.repository';
 import type { Flight } from './flight';
-import type { Fare } from './pricing';
+import type { Money } from '../../shared/money';
 import type { Cabin } from './value-objects';
 
 export interface ReferenceData {
@@ -22,7 +22,7 @@ export function toFlightInfo(flight: Flight, reference: ReferenceData): FlightIn
     throw new Error(`Flight ${id ?? '(unsaved)'} references missing catalog data`);
   }
 
-  const fares: Partial<Record<Cabin, Fare>> = {};
+  const fares: Partial<Record<Cabin, Money>> = {};
   for (const record of reference.faresByFlight.get(id) ?? []) fares[record.cabin] = record.fare;
 
   return {

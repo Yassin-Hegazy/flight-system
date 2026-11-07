@@ -2,7 +2,8 @@ import type { Result } from '../../shared/result';
 import type { Tx } from '../../shared/db';
 import type { NewFlight, FlightRuleError, StatusRuleError } from './flight';
 import type { FlightStatus } from './flight-status';
-import type { Fare, PassengerMix, PriceQuote } from './pricing';
+import type { Money } from '../../shared/money';
+import type { PassengerMix, PriceQuote, PricingError } from './pricing';
 import type { Cabin, Route } from './value-objects';
 
 /** What other modules learn about a flight. Times are UTC instants plus airport-local strings. */
@@ -20,7 +21,8 @@ export interface FlightInfo {
   estimatedDepartureUtc?: Date;
   status: FlightStatus;
   cancelReason?: string;
-  fares: Partial<Record<Cabin, Fare>>;
+  /** Adult fare per cabin, in integer minor units. */
+  fares: Partial<Record<Cabin, Money>>;
 }
 
 export interface AirportInfo {
@@ -59,7 +61,11 @@ export interface CatalogApi {
   findFlights(route: Route, localDate: string): Promise<FlightInfo[]>;
   searchAirports(query: string): Promise<AirportSuggestion[]>;
   isBookable(flight: FlightInfo, now: Date): boolean;
-  priceParty(flight: FlightInfo, cabin: Cabin, party: PassengerMix): PriceQuote;
+  priceParty(
+    flight: FlightInfo,
+    cabin: Cabin,
+    party: PassengerMix,
+  ): Result<PriceQuote, PricingError>;
 
   createFlight(tx: Tx, input: NewFlight): Promise<Result<string, CreateFlightError>>;
   changeStatus(
@@ -69,7 +75,7 @@ export interface CatalogApi {
     estimatedDepartureUtc?: Date,
     cancelReason?: string,
   ): Promise<Result<FlightStatus, ChangeStatusError>>;
-  setFare(tx: Tx, id: string, cabin: Cabin, fare: Fare): Promise<Result<Fare | null, FareError>>;
+  setFare(tx: Tx, id: string, cabin: Cabin, fare: Money): Promise<Result<Money | null, FareError>>;
   upsertAirport(tx: Tx, input: AirportInput): Promise<Result<string, AirportError>>;
 }
 

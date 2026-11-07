@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Tx } from '../../shared/db';
+import { money } from '../../shared/money';
 import type { Clock } from '../../shared/time';
 import { Flight, type NewFlight } from './flight';
 import { FlightCatalogService } from './flight-catalog.service';
@@ -59,19 +60,19 @@ describe('US-FL-01 View flight details (Catalog service)', () => {
     await repository.saveFare(TX, {
       flightId: first,
       cabin: 'ECONOMY',
-      fare: { amount: 100, currency: 'EGP' },
+      fare: money(10000, 'EGP'),
     });
     await repository.saveFare(TX, {
       flightId: second,
       cabin: 'ECONOMY',
-      fare: { amount: 999, currency: 'EGP' },
+      fare: money(99900, 'EGP'),
     });
 
     const info = await service.getFlight(first);
 
     expect(info?.id).toBe(first);
     expect(info?.flightNumber).toBe('MS777');
-    expect(info?.fares.ECONOMY?.amount).toBe(100);
+    expect(info?.fares.ECONOMY).toEqual(money(10000, 'EGP'));
   });
 });
 
