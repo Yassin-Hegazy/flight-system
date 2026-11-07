@@ -1,38 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
-import {
-  UserRole,
-  normalizeEmail,
-  passwordProblem,
-  withOwnership,
-  withRole,
-} from './users-access.domain';
+import { describe, expect, it } from 'vitest';
+import { normalizeEmail, passwordProblem } from './users-access.domain';
 
-describe('users access domain', () => {
-  it('normalizes email and enforces the password boundary', () => {
+describe('US-USR-04 Register an account (rules)', () => {
+  it('US-USR-04-T06 emails are compared lower-case and without surrounding spaces', () => {
     expect(normalizeEmail('  ALI@Example.COM ')).toBe('ali@example.com');
-    expect(passwordProblem('short')).toBeTruthy();
+  });
+
+  it('US-USR-04-T07 boundary: 9 characters is too short, 10 is accepted, over 72 bytes is too long', () => {
+    expect(passwordProblem('a'.repeat(9))).toMatch(/at least 10/);
     expect(passwordProblem('a'.repeat(10))).toBeNull();
-    expect(passwordProblem('a'.repeat(73))).toBeTruthy();
-  });
-
-  it('rejects non-admin users before an administrative use case runs', () => {
-    const useCase = vi.fn(() => Promise.resolve('changed'));
-    const wrapped = withRole(UserRole.Admin, useCase, {
-      id: 'u1',
-      email: 'a@example.com',
-      name: 'A',
-      role: UserRole.Traveler,
-    });
-    expect(() => wrapped()).toThrow('FORBIDDEN');
-    expect(useCase).not.toHaveBeenCalled();
-  });
-
-  it('returns not-found for a resource owned by another user', () => {
-    const wrapped = withOwnership(
-      () => Promise.resolve({ ownerId: 'owner-a', value: 'secret' }),
-      () => Promise.resolve('read'),
-      { id: 'owner-b', email: 'b@example.com', name: 'B', role: UserRole.Traveler },
-    );
-    return expect(wrapped('record')).rejects.toThrow('NOT_FOUND');
+    expect(passwordProblem('a'.repeat(72))).toBeNull();
+    expect(passwordProblem('a'.repeat(73))).toMatch(/72 bytes/);
+    // Multi-byte characters count by bytes: 37 Arabic letters are 74 bytes.
+    expect(passwordProblem('ب'.repeat(37))).toMatch(/72 bytes/);
   });
 });

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoginAttemptEntity } from './login-attempt.entity';
 import { SavedTravelerEntity } from './saved-traveler.entity';
@@ -11,6 +11,7 @@ import { Argon2PasswordHasher, PASSWORD_HASHER } from './password-hasher';
 import { PgUsersRepository } from './pg-users.repository';
 import { USERS_API } from './users-api';
 import { USERS_REPOSITORY } from './users.repository';
+import { PrincipalMiddleware } from './principal.middleware';
 
 @Module({
   imports: [
@@ -24,6 +25,11 @@ import { USERS_REPOSITORY } from './users.repository';
     { provide: USERS_API, useExisting: UsersAccessService },
     { provide: CLOCK, useValue: systemClock },
   ],
-  exports: [UsersAccessService, USERS_API],
+  exports: [USERS_API],
 })
-export class UsersAccessModule {}
+export class UsersAccessModule implements NestModule {
+  /** Every request learns who is signed in before any route runs. */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(PrincipalMiddleware).forRoutes('*');
+  }
+}

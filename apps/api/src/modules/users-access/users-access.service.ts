@@ -14,7 +14,6 @@ import type {
 } from './users-api';
 import { type UserRecord, USERS_REPOSITORY, type UsersRepository } from './users.repository';
 
-export const SESSION_COOKIE = 'flight_session';
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
