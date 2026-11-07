@@ -25,7 +25,11 @@ export type FlightRuleError =
   | 'ARRIVAL_NOT_AFTER_DEPARTURE'
   | 'DEPARTURE_IN_PAST';
 
-export type StatusRuleError = 'INVALID_TRANSITION';
+export type StatusRuleError =
+  | 'INVALID_TRANSITION'
+  | 'ESTIMATE_REQUIRED'
+  | 'ESTIMATE_NOT_AFTER_SCHEDULED'
+  | 'ESTIMATE_NOT_ALLOWED';
 
 export interface FlightProps {
   id: string | null;
@@ -127,7 +131,11 @@ export class Flight {
     return new Flight({ ...this.props, id });
   }
 
-  /** Moves the flight to a new status; returns the status it had before. */
+  /**
+   * Moves the flight to a new status and returns the status it had before. A DELAYED update must
+   * carry an estimated departure later than the scheduled one (overview 4.2); no other status
+   * takes an estimate.
+   */
   changeStatus(
     next: FlightStatus,
     estimatedDepartureUtc?: Date,
@@ -135,6 +143,14 @@ export class Flight {
   ): Result<FlightStatus, StatusRuleError> {
     const previous = this.props.status;
     if (!canTransition(previous, next)) return err('INVALID_TRANSITION');
+    if (next === FlightStatus.Delayed) {
+      if (!estimatedDepartureUtc) return err('ESTIMATE_REQUIRED');
+      if (estimatedDepartureUtc.getTime() <= this.props.scheduledDepartureUtc.getTime()) {
+        return err('ESTIMATE_NOT_AFTER_SCHEDULED');
+      }
+    } else if (estimatedDepartureUtc) {
+      return err('ESTIMATE_NOT_ALLOWED');
+    }
     this.props = {
       ...this.props,
       status: next,

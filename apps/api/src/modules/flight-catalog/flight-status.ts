@@ -13,7 +13,8 @@ export enum FlightStatus {
 
 const TRANSITIONS: Record<FlightStatus, readonly FlightStatus[]> = {
   [FlightStatus.Scheduled]: [FlightStatus.Delayed, FlightStatus.Boarding, FlightStatus.Cancelled],
-  [FlightStatus.Delayed]: [FlightStatus.Boarding, FlightStatus.Cancelled],
+  // A delay can be extended with a new estimated time.
+  [FlightStatus.Delayed]: [FlightStatus.Delayed, FlightStatus.Boarding, FlightStatus.Cancelled],
   [FlightStatus.Boarding]: [FlightStatus.Departed, FlightStatus.Cancelled],
   [FlightStatus.Departed]: [FlightStatus.Arrived],
   [FlightStatus.Arrived]: [],
