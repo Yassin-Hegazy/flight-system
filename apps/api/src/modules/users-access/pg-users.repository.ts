@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, type EntityManager, MoreThan, Not } from 'typeorm';
+import { DataSource, type EntityManager, LessThan, MoreThan, Not } from 'typeorm';
 import { isUniqueViolation } from '../../shared/db';
 import { err, ok, type Result } from '../../shared/result';
 import { LoginAttemptEntity } from './login-attempt.entity';
@@ -56,6 +56,13 @@ export class PgUsersRepository implements UsersRepository {
 
   async recordFailedAttempt(email: string, at: Date): Promise<void> {
     await this.db.insert(LoginAttemptEntity, { email, attemptedAt: at });
+  }
+
+  async deleteFailedAttempts(email: string, before?: Date): Promise<void> {
+    await this.db.delete(
+      LoginAttemptEntity,
+      before ? { email, attemptedAt: LessThan(before) } : { email },
+    );
   }
 
   async insertSession(session: SessionRecord): Promise<void> {

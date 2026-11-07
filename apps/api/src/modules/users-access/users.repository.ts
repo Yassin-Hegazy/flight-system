@@ -41,6 +41,8 @@ export interface UsersRepository {
   /** Failed sign-in times for an email since a given instant, oldest first. */
   failedAttemptsSince(email: string, since: Date): Promise<Date[]>;
   recordFailedAttempt(email: string, at: Date): Promise<void>;
+  /** Deletes an email's failed attempts, all of them or only those before a given instant. */
+  deleteFailedAttempts(email: string, before?: Date): Promise<void>;
 
   insertSession(session: SessionRecord): Promise<void>;
   findSession(tokenHash: string): Promise<SessionRecord | null>;

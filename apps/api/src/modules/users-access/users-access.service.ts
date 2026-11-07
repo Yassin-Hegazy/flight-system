@@ -65,8 +65,11 @@ export class UsersAccessService implements UsersApi {
     const valid = await this.hasher.verify(hash, password);
     if (!user || !valid) {
       await this.repository.recordFailedAttempt(email, now);
+      // Failures older than the lookback can no longer affect a lock.
+      await this.repository.deleteFailedAttempts(email, lookback);
       return err('INVALID_CREDENTIALS');
     }
+    await this.repository.deleteFailedAttempts(email);
     const token = randomBytes(32).toString('base64url');
     await this.repository.insertSession({
       tokenHash: hashToken(token),

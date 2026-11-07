@@ -53,6 +53,14 @@ export class InMemoryUsersRepository implements UsersRepository {
     return Promise.resolve();
   }
 
+  deleteFailedAttempts(email: string, before?: Date): Promise<void> {
+    const keep = this.attempts.filter(
+      (attempt) => attempt.email !== email || (before !== undefined && attempt.at >= before),
+    );
+    this.attempts.splice(0, this.attempts.length, ...keep);
+    return Promise.resolve();
+  }
+
   insertSession(session: SessionRecord): Promise<void> {
     this.sessions.set(session.tokenHash, { ...session });
     return Promise.resolve();
