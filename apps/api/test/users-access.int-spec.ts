@@ -277,4 +277,61 @@ describe('Users and Access over HTTP', () => {
       expect(renewed).toMatch(/;\s*HttpOnly/i);
     });
   });
+  describe('S1 traceability', () => {
+    it('US-USR-05-T02 signing out revokes the session on the server: a copied cookie stops working', async () => {
+      const { cookie } = await signedInTraveler();
+      await http().post('/users/sign-out').set('cookie', cookie).expect(204);
+      await http().get('/users/me').set('cookie', cookie).expect(401);
+    });
+
+    it('US-USR-02-T02 a profile update with one invalid field saves no field at all', async () => {
+      const { cookie } = await signedInTraveler();
+      await http()
+        .patch('/users/me')
+        .set('cookie', cookie)
+        .send({ name: 'Valid New Name', phone: 'not a phone' })
+        .expect(400);
+      expect((await http().get('/users/me').set('cookie', cookie)).body.name).toBe('Test Traveler');
+    });
+
+    it('US-USR-02-T03 a valid profile update changes the name; an email change needs the password', async () => {
+      const { cookie } = await signedInTraveler();
+      await http().patch('/users/me').set('cookie', cookie).send({ name: 'New Name' }).expect(204);
+      const newEmail = `renamed${Date.now()}@example.com`;
+      await http()
+        .patch('/users/me')
+        .set('cookie', cookie)
+        .send({ email: newEmail, currentPassword: PASSWORD })
+        .expect(204);
+      expect((await http().get('/users/me').set('cookie', cookie)).body).toMatchObject({
+        name: 'New Name',
+        email: newEmail,
+      });
+    });
+
+    it('US-USR-06-T02 a saved traveler needs a real past date of birth, like a booking passenger', async () => {
+      const { cookie } = await signedInTraveler();
+      for (const dateOfBirth of ['2999-01-01', '1990-02-30', '01/02/1990', '1850-01-01']) {
+        const response = await http()
+          .post('/users/me/saved-travelers')
+          .set('cookie', cookie)
+          .send({ name: 'Someone', dateOfBirth })
+          .expect(400);
+        expect(response.body.fieldErrors).toHaveProperty('dateOfBirth');
+      }
+    });
+
+    it("US-USR-06-T03 a traveler's list holds only their own saved travelers", async () => {
+      const alice = await signedInTraveler();
+      const bob = await signedInTraveler();
+      await http()
+        .post('/users/me/saved-travelers')
+        .set('cookie', alice.cookie)
+        .send({ name: 'Alice Child', dateOfBirth: '2015-06-01' })
+        .expect(201);
+
+      const bobs = await http().get('/users/me/saved-travelers').set('cookie', bob.cookie);
+      expect(bobs.body).toEqual([]);
+    });
+  });
 });
