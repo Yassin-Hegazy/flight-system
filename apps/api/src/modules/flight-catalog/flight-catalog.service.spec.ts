@@ -166,6 +166,98 @@ describe('US-AD-01 a new flight carries its airline and both cabin fares', () =>
   });
 });
 
+describe('Administration commands on the Catalog (US-AD stories)', () => {
+  it('US-AD-02-T01 changes a status and returns the previous one; an unknown flight is reported', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const id = repository.addFlight(scheduled(cairoToLondon()));
+
+    expect(await service.changeStatus(TX, id, FlightStatus.Boarding)).toEqual({
+      ok: true,
+      value: FlightStatus.Scheduled,
+    });
+    expect((await repository.findFlight(id))?.status).toBe(FlightStatus.Boarding);
+    expect(await service.changeStatus(TX, 'missing', FlightStatus.Boarding)).toEqual({
+      ok: false,
+      error: 'FLIGHT_NOT_FOUND',
+    });
+  });
+
+  it('US-AD-02-T02 an illegal status change leaves the stored flight untouched', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const id = repository.addFlight(scheduled(cairoToLondon()));
+
+    expect(await service.changeStatus(TX, id, FlightStatus.Arrived)).toEqual({
+      ok: false,
+      error: 'INVALID_TRANSITION',
+    });
+    expect((await repository.findFlight(id))?.status).toBe(FlightStatus.Scheduled);
+  });
+
+  it('US-AD-03-T01 sets a fare, returning the fare it replaced', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const created = await service.createFlight(TX, cairoToLondon());
+    if (!created.ok) throw new Error(created.error);
+
+    expect(await service.setFare(TX, created.value, 'ECONOMY', money(12000, 'EGP'))).toEqual({
+      ok: true,
+      value: money(10000, 'EGP'),
+    });
+    expect((await repository.findFare(TX, created.value, 'ECONOMY'))?.fare).toEqual(
+      money(12000, 'EGP'),
+    );
+  });
+
+  it('US-AD-03-T02 rejects a fare for an unknown flight, or one that is not a positive whole amount', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const id = repository.addFlight(scheduled(cairoToLondon()));
+
+    expect(await service.setFare(TX, 'missing', 'ECONOMY', money(100, 'EGP'))).toEqual({
+      ok: false,
+      error: 'FLIGHT_NOT_FOUND',
+    });
+    expect(await service.setFare(TX, id, 'ECONOMY', { amountMinor: 0, currency: 'EGP' })).toEqual({
+      ok: false,
+      error: 'INVALID_FARE',
+    });
+  });
+
+  it('US-AD-04-T01 an airport code that is not 3 letters is rejected', async () => {
+    const { service } = catalogWithReferenceData();
+    expect(
+      await service.upsertAirport(TX, {
+        code: 'CAIRO',
+        name: 'Cairo International',
+        city: 'Cairo',
+        country: 'Egypt',
+        timezone: 'Africa/Cairo',
+      }),
+    ).toEqual({ ok: false, error: 'INVALID_AIRPORT_CODE' });
+  });
+
+  it('US-FS-04-T07 prices a party through the Catalog boundary from loaded flight data', async () => {
+    const { service } = catalogWithReferenceData();
+    const created = await service.createFlight(TX, cairoToLondon());
+    if (!created.ok) throw new Error(created.error);
+    const info = await service.getFlight(created.value);
+    if (!info) throw new Error('flight not found');
+
+    const quote = service.priceParty(info, 'BUSINESS', { adults: 1, children: 1 });
+
+    expect(quote.ok && quote.value.total).toEqual(money(70000, 'EGP'));
+    expect(service.isBookable(info, NOW)).toBe(true);
+  });
+});
+
+describe('US-FL-03 airport suggestions (Catalog service)', () => {
+  it('US-FL-03-T07 trims the query and returns only the suggestion fields', async () => {
+    const { service } = catalogWithReferenceData();
+    expect(await service.searchAirports('  lhr ')).toEqual([
+      { code: 'LHR', name: 'Heathrow', city: 'London', country: 'United Kingdom' },
+    ]);
+    expect(await service.searchAirports(' c ')).toEqual([]);
+  });
+});
+
 describe('NFR-PERF-01 search loads reference data in a fixed number of queries', () => {
   it('NFR-PERF-01-T01 50 results need one query each for airports, airlines and fares', async () => {
     const { repository, service } = catalogWithReferenceData();
