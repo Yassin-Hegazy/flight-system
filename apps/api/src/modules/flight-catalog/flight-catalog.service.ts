@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
 import type { Money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
-import { CLOCK, type Clock } from '../../shared/time';
+import { CLOCK, type Clock, isValidTimeZone } from '../../shared/time';
 import type {
   AirportError,
   AirportInput,
@@ -111,7 +111,13 @@ export class FlightCatalogService implements CatalogApi {
       if (error instanceof InvalidAirportCode) return err('INVALID_AIRPORT_CODE');
       throw error;
     }
-    await this.repository.saveAirport(tx, { ...input, code });
+    // A bad zone would make every read of this airport's flights fail (formatLocal throws).
+    if (!isValidTimeZone(input.timezone)) return err('INVALID_TIMEZONE');
+    const name = input.name.trim();
+    const city = input.city.trim();
+    const country = input.country.trim();
+    if (!name || !city || !country) return err('INVALID_AIRPORT_DETAILS');
+    await this.repository.saveAirport(tx, { code, name, city, country, timezone: input.timezone });
     return ok(code);
   }
 
