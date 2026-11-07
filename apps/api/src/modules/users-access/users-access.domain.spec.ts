@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   UserRole,
   normalizeEmail,
-  validatePassword,
+  passwordProblem,
   withOwnership,
   withRole,
 } from './users-access.domain';
@@ -10,9 +10,9 @@ import {
 describe('users access domain', () => {
   it('normalizes email and enforces the password boundary', () => {
     expect(normalizeEmail('  ALI@Example.COM ')).toBe('ali@example.com');
-    expect(validatePassword('short')).toBeTruthy();
-    expect(validatePassword('a'.repeat(10))).toBeNull();
-    expect(validatePassword('a'.repeat(73))).toBeTruthy();
+    expect(passwordProblem('short')).toBeTruthy();
+    expect(passwordProblem('a'.repeat(10))).toBeNull();
+    expect(passwordProblem('a'.repeat(73))).toBeTruthy();
   });
 
   it('rejects non-admin users before an administrative use case runs', () => {

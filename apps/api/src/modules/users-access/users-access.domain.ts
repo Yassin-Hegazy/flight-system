@@ -14,28 +14,19 @@ export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
-export function validatePassword(password: string): string | null {
-  if (password.length < 10) return 'Password must be at least 10 characters';
-  if (Buffer.byteLength(password, 'utf8') > 72) return 'Password must not exceed 72 bytes';
-  return null;
-}
+const MIN_PASSWORD_LENGTH = 10;
+// bcrypt-style limit kept for portability: anything past 72 bytes would be ignored by bcrypt.
+const MAX_PASSWORD_BYTES = 72;
 
-export function fieldErrors(input: {
-  name?: string;
-  phone?: string;
-  email?: string;
-}): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (input.name !== undefined && (input.name.trim().length < 2 || input.name.length > 120)) {
-    errors.name = 'Name must be between 2 and 120 characters';
+/** Why a password is unacceptable, or null when it is fine (US-USR-04 AC-1). */
+export function passwordProblem(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
   }
-  if (input.phone !== undefined && !/^[+0-9 ()-]{7,30}$/.test(input.phone)) {
-    errors.phone = 'Phone number is invalid';
+  if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+    return `Password must not exceed ${MAX_PASSWORD_BYTES} bytes`;
   }
-  if (input.email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
-    errors.email = 'Email address is invalid';
-  }
-  return errors;
+  return null;
 }
 
 export interface OwnershipLoader<T> {

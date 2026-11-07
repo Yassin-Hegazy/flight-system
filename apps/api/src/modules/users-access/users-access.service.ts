@@ -1,29 +1,18 @@
 import { createHash, randomBytes } from 'node:crypto';
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
 import { PASSWORD_HASHER, type PasswordHasher } from './password-hasher';
-import {
-  type Principal,
-  UserRole,
-  fieldErrors,
-  normalizeEmail,
-  validatePassword,
-} from './users-access.domain';
+import { type Principal, UserRole, normalizeEmail, passwordProblem } from './users-access.domain';
 import type {
+  ProfileError,
   ProfileInput,
   RegisterInput,
   SavedTraveler,
   SavedTravelerInput,
   UsersApi,
 } from './users-api';
-import { USERS_REPOSITORY, type UsersRepository } from './users.repository';
+import { type UserRecord, USERS_REPOSITORY, type UsersRepository } from './users.repository';
 
 export const SESSION_COOKIE = 'flight_session';
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
@@ -31,7 +20,10 @@ const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
 const MAX_SAVED_TRAVELERS = 10;
 
-/** The Users and Access use cases. SQL lives in the repository, hashing in the hasher. */
+/**
+ * The Users and Access use cases. Field formats are checked by the DTOs at the boundary; these
+ * methods apply the business rules and return expected failures as Result error codes.
+ */
 @Injectable()
 export class UsersAccessService implements UsersApi {
   constructor(
@@ -41,18 +33,15 @@ export class UsersAccessService implements UsersApi {
   ) {}
 
   async register(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>> {
+    if (passwordProblem(input.password)) return err('WEAK_PASSWORD');
     const email = normalizeEmail(input.email);
     if (await this.repository.findUserByEmail(email)) return err('EMAIL_TAKEN');
-    if (validatePassword(input.password)) return err('WEAK_PASSWORD');
-    const errors = fieldErrors({ email, name: input.name, phone: input.phone });
-    if (Object.keys(errors).length) {
-      throw new UnprocessableEntityException({ code: 'VALIDATION_ERROR', fieldErrors: errors });
-    }
     const id = await this.repository.insertUser({
       email,
       passwordHash: await this.hasher.hash(input.password),
       name: input.name.trim(),
       phone: input.phone?.trim() ?? null,
+      // Self-registration always creates a traveler (US-USR-04 AC-2).
       role: UserRole.Traveler,
     });
     return ok(id);
@@ -104,36 +93,29 @@ export class UsersAccessService implements UsersApi {
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 
-  async updateProfile(
-    userId: string,
-    input: ProfileInput,
-  ): Promise<Result<void, Record<string, string>>> {
-    const user = await this.repository.findUserById(userId);
-    if (!user) throw new NotFoundException('User not found');
-    const errors = fieldErrors(input);
-    if (input.email && !input.currentPassword) {
-      errors.currentPassword = 'Current password is required to change email';
+  /** A new email needs the current password and must not belong to another account (US-USR-02). */
+  async updateProfile(userId: string, input: ProfileInput): Promise<Result<void, ProfileError>> {
+    const user = await this.requireUser(userId);
+    const newEmail = input.email !== undefined ? normalizeEmail(input.email) : undefined;
+    if (newEmail !== undefined && newEmail !== user.email) {
+      if (!input.currentPassword) {
+        return err(invalid('currentPassword', 'Current password is required to change email'));
+      }
+      if (!(await this.hasher.verify(user.passwordHash, input.currentPassword))) {
+        return err(invalid('currentPassword', 'Current password is incorrect'));
+      }
+      if (await this.repository.findUserByEmail(newEmail)) {
+        return err({
+          code: 'EMAIL_TAKEN',
+          fieldErrors: { email: 'Email address is already in use' },
+        });
+      }
     }
-    if (
-      input.email &&
-      input.currentPassword &&
-      !(await this.hasher.verify(user.passwordHash, input.currentPassword))
-    ) {
-      errors.currentPassword = 'Current password is invalid';
-    }
-    if (
-      input.email &&
-      normalizeEmail(input.email) !== user.email &&
-      (await this.repository.findUserByEmail(normalizeEmail(input.email)))
-    ) {
-      errors.email = 'Email address is already in use';
-    }
-    if (Object.keys(errors).length) return err(errors);
     await this.repository.updateUser({
       ...user,
       name: input.name !== undefined ? input.name.trim() : user.name,
       phone: input.phone !== undefined ? input.phone.trim() : user.phone,
-      email: input.email !== undefined ? normalizeEmail(input.email) : user.email,
+      email: newEmail ?? user.email,
     });
     return ok(undefined);
   }
@@ -143,10 +125,9 @@ export class UsersAccessService implements UsersApi {
     current: string,
     next: string,
   ): Promise<Result<void, 'INVALID_CURRENT' | 'WEAK_PASSWORD'>> {
-    const user = await this.repository.findUserById(userId);
-    if (!user) throw new NotFoundException('User not found');
+    const user = await this.requireUser(userId);
     if (!(await this.hasher.verify(user.passwordHash, current))) return err('INVALID_CURRENT');
-    if (validatePassword(next)) return err('WEAK_PASSWORD');
+    if (passwordProblem(next)) return err('WEAK_PASSWORD');
     await this.repository.updateUser({ ...user, passwordHash: await this.hasher.hash(next) });
     await this.repository.deleteSessionsOfUser(userId);
     return ok(undefined);
@@ -156,41 +137,56 @@ export class UsersAccessService implements UsersApi {
     return this.repository.listSavedTravelers(ownerId);
   }
 
-  async addSavedTraveler(ownerId: string, input: SavedTravelerInput): Promise<SavedTraveler> {
+  async addSavedTraveler(
+    ownerId: string,
+    input: SavedTravelerInput,
+  ): Promise<Result<SavedTraveler, 'SAVED_TRAVELER_LIMIT'>> {
     if ((await this.repository.countSavedTravelers(ownerId)) >= MAX_SAVED_TRAVELERS) {
-      throw new ConflictException('Saved traveler limit reached');
+      return err('SAVED_TRAVELER_LIMIT');
     }
-    const errors = fieldErrors({ name: input.name });
-    if (Object.keys(errors).length) {
-      throw new UnprocessableEntityException({ code: 'VALIDATION_ERROR', fieldErrors: errors });
-    }
-    return this.repository.insertSavedTraveler({
-      ownerId,
-      name: input.name.trim(),
-      dateOfBirth: input.dateOfBirth,
-    });
+    return ok(
+      await this.repository.insertSavedTraveler({
+        ownerId,
+        name: input.name.trim(),
+        dateOfBirth: input.dateOfBirth,
+      }),
+    );
   }
 
+  /** Only the owner's own travelers are found; anyone else's look as if they do not exist. */
   async updateSavedTraveler(
     ownerId: string,
     id: string,
     input: SavedTravelerInput,
-  ): Promise<SavedTraveler> {
+  ): Promise<Result<SavedTraveler, 'SAVED_TRAVELER_NOT_FOUND'>> {
     const updated = await this.repository.updateSavedTraveler({
       id,
       ownerId,
       name: input.name.trim(),
       dateOfBirth: input.dateOfBirth,
     });
-    if (!updated) throw new NotFoundException('Saved traveler not found');
-    return updated;
+    return updated ? ok(updated) : err('SAVED_TRAVELER_NOT_FOUND');
   }
 
-  async deleteSavedTraveler(ownerId: string, id: string): Promise<void> {
-    if (!(await this.repository.deleteSavedTraveler(ownerId, id))) {
-      throw new NotFoundException('Saved traveler not found');
-    }
+  async deleteSavedTraveler(
+    ownerId: string,
+    id: string,
+  ): Promise<Result<void, 'SAVED_TRAVELER_NOT_FOUND'>> {
+    return (await this.repository.deleteSavedTraveler(ownerId, id))
+      ? ok(undefined)
+      : err('SAVED_TRAVELER_NOT_FOUND');
   }
+
+  /** The signed-in user; a session for a deleted account is already rejected by currentUser. */
+  private async requireUser(userId: string): Promise<UserRecord> {
+    const user = await this.repository.findUserById(userId);
+    if (!user) throw new Error(`User ${userId} has a session but no account`);
+    return user;
+  }
+}
+
+function invalid(field: string, message: string): ProfileError {
+  return { code: 'VALIDATION_ERROR', fieldErrors: { [field]: message } };
 }
 
 function hashToken(token: string): string {
