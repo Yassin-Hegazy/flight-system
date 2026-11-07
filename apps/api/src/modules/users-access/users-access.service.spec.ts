@@ -96,3 +96,26 @@ describe('US-USR-05 sign-in lockout and timing', () => {
     expect(verifications).toBe(1);
   });
 });
+
+describe('US-USR-05 failed-attempt records do not grow without bound', () => {
+  it("US-USR-05-T11 recording a failure deletes that email's failures too old to affect a lock", async () => {
+    const { clock, repository, service } = usersService('2026-11-07T09:00:00Z');
+    await service.signIn('alice@example.com', 'wrong password!');
+
+    clock.set('2026-11-07T10:00:00Z');
+    await service.signIn('alice@example.com', 'wrong password!');
+
+    expect(repository.attempts.map((attempt) => attempt.at.toISOString())).toEqual([
+      '2026-11-07T10:00:00.000Z',
+    ]);
+  });
+
+  it("US-USR-05-T12 a successful sign-in clears the email's failures", async () => {
+    const { repository, service } = usersService();
+    await service.register(ALICE);
+    await service.signIn(ALICE.email, 'wrong password!');
+
+    expect((await service.signIn(ALICE.email, ALICE.password)).ok).toBe(true);
+    expect(repository.attempts).toEqual([]);
+  });
+});
