@@ -148,12 +148,20 @@ export interface BookabilityView {
   estimatedDepartureUtc?: Date | null;
 }
 
-/** Whether seats on this flight may still be sold at `now`. Pure: no I/O. */
+/** Sales close this long before departure (overview 4.2, proposed). */
+export const BOOKING_CUTOFF_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Whether seats on this flight may still be sold at `now`: only while SCHEDULED or DELAYED and more
+ * than 2 hours before departure, measured from the estimated departure when delayed. Pure: no I/O.
+ */
 export function isBookable(flight: BookabilityView, now: Date): boolean {
-  return (
-    flight.status !== FlightStatus.Cancelled &&
-    flight.status !== FlightStatus.Departed &&
-    flight.status !== FlightStatus.Arrived &&
-    flight.scheduledDepartureUtc.getTime() > now.getTime()
-  );
+  if (flight.status !== FlightStatus.Scheduled && flight.status !== FlightStatus.Delayed) {
+    return false;
+  }
+  const departure =
+    flight.status === FlightStatus.Delayed && flight.estimatedDepartureUtc
+      ? flight.estimatedDepartureUtc
+      : flight.scheduledDepartureUtc;
+  return departure.getTime() - now.getTime() > BOOKING_CUTOFF_MS;
 }
