@@ -15,7 +15,8 @@
     "db:migration:generate": "pnpm run typeorm migration:generate",
     "db:migration:create": "node ./node_modules/typeorm/cli.js migration:create",
     "db:migrate": "pnpm run typeorm migration:run",
-    "db:migrate:revert": "pnpm run typeorm migration:revert"
+    "db:migrate:revert": "pnpm run typeorm migration:revert",
+    "db:seed:admin": "pnpm run build && node --env-file-if-exists=.env dist/database/seed-admin.main.js"
   },
   "dependencies": {
     "@nestjs/common": "12.1.2",

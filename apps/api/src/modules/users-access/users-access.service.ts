@@ -40,18 +40,13 @@ export class UsersAccessService implements UsersApi {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  async register(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>> {
-    if (passwordProblem(input.password)) return err('WEAK_PASSWORD');
-    const email = normalizeEmail(input.email);
-    if (await this.repository.findUserByEmail(email)) return err('EMAIL_TAKEN');
-    return this.repository.insertUser({
-      email,
-      passwordHash: await this.hasher.hash(input.password),
-      name: input.name.trim(),
-      phone: input.phone?.trim() ?? null,
-      // Self-registration always creates a traveler (US-USR-04 AC-2).
-      role: UserRole.Traveler,
-    });
+  register(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>> {
+    // Self-registration always creates a traveler (US-USR-04 AC-2).
+    return this.createUser(input, UserRole.Traveler);
+  }
+
+  createAdmin(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>> {
+    return this.createUser(input, UserRole.Admin);
   }
 
   async signIn(
@@ -189,6 +184,22 @@ export class UsersAccessService implements UsersApi {
     return (await this.repository.deleteSavedTraveler(ownerId, id))
       ? ok(undefined)
       : err('SAVED_TRAVELER_NOT_FOUND');
+  }
+
+  private async createUser(
+    input: RegisterInput,
+    role: UserRole,
+  ): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>> {
+    if (passwordProblem(input.password)) return err('WEAK_PASSWORD');
+    const email = normalizeEmail(input.email);
+    if (await this.repository.findUserByEmail(email)) return err('EMAIL_TAKEN');
+    return this.repository.insertUser({
+      email,
+      passwordHash: await this.hasher.hash(input.password),
+      name: input.name.trim(),
+      phone: input.phone?.trim() ?? null,
+      role,
+    });
   }
 
   private timingDummyHash(): Promise<string> {

@@ -52,7 +52,6 @@ function IsBirthDate(options?: ValidationOptions): PropertyDecorator {
 }
 
 const PHONE = /^[+0-9 ()-]{7,30}$/;
-const NAME_LENGTH = [2, 120] as const;
 
 export class RegisterInput {
   @IsEmail()
@@ -62,7 +61,7 @@ export class RegisterInput {
   password!: string;
 
   @IsString()
-  @Length(...NAME_LENGTH)
+  @Length(2, 120)
   name!: string;
 
   @IsOptional()
@@ -82,7 +81,7 @@ export class SignInInput {
 export class ProfileInput {
   @IsOptional()
   @IsString()
-  @Length(...NAME_LENGTH)
+  @Length(2, 120)
   name?: string;
 
   @IsOptional()
@@ -111,7 +110,7 @@ export class ChangePasswordInput {
 /** The same name and date-of-birth rules a booking passenger has (US-USR-06 AC-2). */
 export class SavedTravelerInput {
   @IsString()
-  @Length(...NAME_LENGTH)
+  @Length(2, 120)
   name!: string;
 
   @IsBirthDate()

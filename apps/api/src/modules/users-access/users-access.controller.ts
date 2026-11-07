@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AppError, validationError } from '../../shared/errors';
+import type { Result } from '../../shared/result';
 import { Ctx, type Principal, type RequestContext, secure } from './access';
 import { SESSION_COOKIE, sessionTokenFrom } from './principal.middleware';
 import {
@@ -27,6 +28,7 @@ import { type SavedTraveler, USERS_API, type UsersApi } from './users-api';
 
 const PUBLIC = { access: 'public' } as const;
 const SIGNED_IN = { access: 'signedIn' } as const;
+const ADMIN = { access: 'admin' } as const;
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -37,6 +39,16 @@ const COOKIE_OPTIONS = {
 
 function travelerNotFound(): AppError {
   return AppError.notFound('SAVED_TRAVELER_NOT_FOUND', 'Saved traveler not found.');
+}
+
+function created(result: Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>): { id: string } {
+  if (result.ok) return { id: result.value };
+  if (result.error === 'EMAIL_TAKEN') {
+    throw AppError.conflict('EMAIL_TAKEN', 'An account with this email already exists.', {
+      email: 'Email address is already in use',
+    });
+  }
+  throw validationError({ password: 'Password does not meet the requirements' });
 }
 
 // A malformed ID gets the same answer as an unknown one, so the response reveals nothing extra.
@@ -52,16 +64,13 @@ export class UsersAccessController {
 
   @Post('register')
   register(@Ctx() ctx: RequestContext, @Body() input: RegisterInput): Promise<{ id: string }> {
-    return secure(PUBLIC, async () => {
-      const result = await this.users.register(input);
-      if (result.ok) return { id: result.value };
-      if (result.error === 'EMAIL_TAKEN') {
-        throw AppError.conflict('EMAIL_TAKEN', 'An account with this email already exists.', {
-          email: 'Email address is already in use',
-        });
-      }
-      throw validationError({ password: 'Password does not meet the requirements' });
-    })(ctx, undefined);
+    return secure(PUBLIC, async () => created(await this.users.register(input)))(ctx, undefined);
+  }
+
+  /** Only an administrator creates another administrator (US-USR-04 AC-3). */
+  @Post('admins')
+  createAdmin(@Ctx() ctx: RequestContext, @Body() input: RegisterInput): Promise<{ id: string }> {
+    return secure(ADMIN, async () => created(await this.users.createAdmin(input)))(ctx, undefined);
   }
 
   /**

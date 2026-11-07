@@ -30,7 +30,10 @@ export interface ProfileError {
 
 /** The Users and Access boundary (S1 pack, section 2). */
 export interface UsersApi {
+  /** Self-registration: always a TRAVELER (US-USR-04 AC-2). */
   register(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>>;
+  /** For the seed script and for administrators only (US-USR-04 AC-3). */
+  createAdmin(input: RegisterInput): Promise<Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>>;
   signIn(
     email: string,
     password: string,
