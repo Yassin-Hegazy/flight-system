@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -65,6 +66,45 @@ describe('Flight Catalog against PostgreSQL', () => {
       // 20:00 UTC is 22:00 in Cairo: still 20 December at the origin.
       const sameDay = await schedule(ms777('2027-12-20T20:00:00Z', '2027-12-21T01:00:00Z'));
       expect(sameDay).toEqual({ ok: false, error: 'DUPLICATE_FLIGHT' });
+    });
+  });
+
+  describe('NFR-SEC-03 malformed input is a 400, never a 500', () => {
+    it('NFR-SEC-03-T03 a full timestamp as the search date is rejected per field', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/flights')
+        .query({ origin: 'CAI', destination: 'LHR', date: '2026-12-10T05:00:00Z' })
+        .expect(400);
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+      expect(response.body.fieldErrors).toEqual({ date: expect.any(String) });
+    });
+
+    it('NFR-SEC-03-T04 a flight ID that is not a UUID is a 400', async () => {
+      const response = await request(app.getHttpServer()).get('/flights/abc').expect(400);
+      expect(response.body.requestId).toBe(response.headers['x-request-id']);
+    });
+
+    it('US-FL-01-T06 a well-formed but unknown flight ID is a 404', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/flights/00000000-0000-4000-8000-000000000000')
+        .expect(404);
+      expect(response.body.code).toBe('FLIGHT_NOT_FOUND');
+    });
+
+    it('NFR-SEC-03-T05 a search from an airport to itself is a 400, not an empty list', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/flights')
+        .query({ origin: 'CAI', destination: 'cai', date: '2026-12-10' })
+        .expect(400);
+      expect(response.body.code).toBe('SAME_AIRPORT');
+    });
+
+    it('NFR-SEC-03-T06 an injection string as an airport query is treated as text', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/flights/airports/suggestions')
+        .query({ q: "' OR 1=1 --" })
+        .expect(200);
+      expect(response.body).toEqual([]);
     });
   });
 });
