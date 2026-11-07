@@ -3,7 +3,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
 import { PASSWORD_HASHER, type PasswordHasher } from './password-hasher';
-import { type Principal, UserRole, normalizeEmail, passwordProblem } from './users-access.domain';
+import {
+  LOCKOUT_DURATION_MS,
+  LOCKOUT_WINDOW_MS,
+  lockedUntil,
+  type Principal,
+  UserRole,
+  normalizeEmail,
+  passwordProblem,
+} from './users-access.domain';
 import type {
   ProfileError,
   ProfileInput,
@@ -15,8 +23,6 @@ import type {
 import { type UserRecord, USERS_REPOSITORY, type UsersRepository } from './users.repository';
 
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
-const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILED_ATTEMPTS = 5;
 const MAX_SAVED_TRAVELERS = 10;
 
 /**
@@ -25,6 +31,9 @@ const MAX_SAVED_TRAVELERS = 10;
  */
 @Injectable()
 export class UsersAccessService implements UsersApi {
+  /** Verified against when the email is unknown, so both paths cost one password check. */
+  private dummyHash?: Promise<string>;
+
   constructor(
     @Inject(USERS_REPOSITORY) private readonly repository: UsersRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
@@ -52,12 +61,14 @@ export class UsersAccessService implements UsersApi {
   ): Promise<Result<string, 'INVALID_CREDENTIALS' | 'LOCKED'>> {
     const email = normalizeEmail(emailInput);
     const now = this.clock.now();
-    const since = new Date(now.getTime() - LOCKOUT_WINDOW_MS);
-    if ((await this.repository.countFailedAttempts(email, since)) >= MAX_FAILED_ATTEMPTS) {
-      return err('LOCKED');
-    }
+    const lookback = new Date(now.getTime() - LOCKOUT_WINDOW_MS - LOCKOUT_DURATION_MS);
+    const unlocksAt = lockedUntil(await this.repository.failedAttemptsSince(email, lookback));
+    if (unlocksAt && unlocksAt > now) return err('LOCKED');
+
     const user = await this.repository.findUserByEmail(email);
-    const valid = user ? await this.hasher.verify(user.passwordHash, password) : false;
+    // Always one hash check, so the response time does not reveal whether the email exists.
+    const hash = user?.passwordHash ?? (await this.timingDummyHash());
+    const valid = await this.hasher.verify(hash, password);
     if (!user || !valid) {
       await this.repository.recordFailedAttempt(email, now);
       return err('INVALID_CREDENTIALS');
@@ -174,6 +185,11 @@ export class UsersAccessService implements UsersApi {
     return (await this.repository.deleteSavedTraveler(ownerId, id))
       ? ok(undefined)
       : err('SAVED_TRAVELER_NOT_FOUND');
+  }
+
+  private timingDummyHash(): Promise<string> {
+    this.dummyHash ??= this.hasher.hash(randomBytes(16).toString('hex'));
+    return this.dummyHash;
   }
 
   /** The signed-in user; a session for a deleted account is already rejected by currentUser. */

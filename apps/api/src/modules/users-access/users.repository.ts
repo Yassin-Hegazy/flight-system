@@ -36,7 +36,8 @@ export interface UsersRepository {
   insertUser(user: NewUserRecord): Promise<string>;
   updateUser(user: UserRecord): Promise<void>;
 
-  countFailedAttempts(email: string, since: Date): Promise<number>;
+  /** Failed sign-in times for an email since a given instant, oldest first. */
+  failedAttemptsSince(email: string, since: Date): Promise<Date[]>;
   recordFailedAttempt(email: string, at: Date): Promise<void>;
 
   insertSession(session: SessionRecord): Promise<void>;

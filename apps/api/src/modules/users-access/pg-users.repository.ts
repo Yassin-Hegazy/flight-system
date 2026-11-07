@@ -39,8 +39,12 @@ export class PgUsersRepository implements UsersRepository {
     await this.db.update(UserEntity, { id: user.id }, { ...user });
   }
 
-  countFailedAttempts(email: string, since: Date): Promise<number> {
-    return this.db.count(LoginAttemptEntity, { where: { email, attemptedAt: MoreThan(since) } });
+  async failedAttemptsSince(email: string, since: Date): Promise<Date[]> {
+    const rows = await this.db.find(LoginAttemptEntity, {
+      where: { email, attemptedAt: MoreThan(since) },
+      order: { attemptedAt: 'ASC' },
+    });
+    return rows.map((row) => row.attemptedAt);
   }
 
   async recordFailedAttempt(email: string, at: Date): Promise<void> {

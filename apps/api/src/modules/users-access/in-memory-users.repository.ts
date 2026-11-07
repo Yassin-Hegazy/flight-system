@@ -35,9 +35,12 @@ export class InMemoryUsersRepository implements UsersRepository {
     return Promise.resolve();
   }
 
-  countFailedAttempts(email: string, since: Date): Promise<number> {
+  failedAttemptsSince(email: string, since: Date): Promise<Date[]> {
     return Promise.resolve(
-      this.attempts.filter((attempt) => attempt.email === email && attempt.at > since).length,
+      this.attempts
+        .filter((attempt) => attempt.email === email && attempt.at > since)
+        .map((attempt) => attempt.at)
+        .sort((a, b) => a.getTime() - b.getTime()),
     );
   }
 
