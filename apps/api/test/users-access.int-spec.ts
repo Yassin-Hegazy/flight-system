@@ -146,4 +146,19 @@ describe('Users and Access over HTTP', () => {
       expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     });
   });
+  describe('US-USR-07 Change my password', () => {
+    it('US-USR-07-T02 the session that changes the password stays; every other session is signed out', async () => {
+      const { email, cookie: laptop } = await signedInTraveler();
+      const phone = sessionCookieOf(await signIn(email).expect(200)).split(';')[0];
+
+      await http()
+        .patch('/users/me/password')
+        .set('cookie', laptop)
+        .send({ current: PASSWORD, next: 'a completely new password' })
+        .expect(204);
+
+      await http().get('/users/me').set('cookie', laptop).expect(200);
+      await http().get('/users/me').set('cookie', phone).expect(401);
+    });
+  });
 });
