@@ -24,6 +24,7 @@
     "db:migration:create": "pnpm --filter api run db:migration:create",
     "db:migrate": "pnpm --filter api run db:migrate",
     "db:migrate:revert": "pnpm --filter api run db:migrate:revert",
+    "db:seed:admin": "pnpm --filter api run db:seed:admin",
     "prepare": "husky"
   },
   "lint-staged": {

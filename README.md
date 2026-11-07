@@ -58,6 +58,7 @@ Run every script from the repository root.
 | `pnpm db:migration:create`   | Creates an empty migration. Pass the path, e.g. `pnpm db:migration:create src/database/migrations/SeedAirports`.                                                      |
 | `pnpm db:migrate`            | Applies all pending migrations.                                                                                                                                       |
 | `pnpm db:migrate:revert`     | Reverts the most recently applied migration.                                                                                                                          |
+| `pnpm db:seed:admin`         | Creates the first administrator from `ADMIN_EMAIL`, `ADMIN_PASSWORD` and optional `ADMIN_NAME`. Running it again for the same email changes nothing.                  |
 
 Migration paths are relative to `apps/api`. The `db:*` scripts build the API first and run the TypeORM CLI against the compiled output, using the connection in `apps/api/.env`. The application never changes the schema itself (`synchronize` is off), so every schema change needs a migration.
 
@@ -131,7 +132,7 @@ Two conventions follow from the tooling:
 
 Each app reads its settings from a `.env` file, copied from the committed `.env.example`. Real `.env` files are not committed.
 
-- `apps/api/.env`: `NODE_ENV`, `PORT`, `DATABASE_URL` and `LOG_LEVEL`. The API validates them at startup and stops with a list of errors if any is missing or invalid.
+- `apps/api/.env`: `NODE_ENV`, `PORT`, `DATABASE_URL` and `LOG_LEVEL`. The API validates them at startup and stops with a list of errors if any is missing or invalid. `pnpm db:seed:admin` also reads `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME` from here.
 - `apps/web/.env`: `API_URL`, the address of the API. The web app forwards every request for `/api/*` to this address, so the browser only talks to one origin.
 
 To use a hosted Neon database instead of Docker, set `DATABASE_URL` to the connection string from the Neon console.
