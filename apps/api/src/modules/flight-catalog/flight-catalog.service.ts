@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
 import type { Money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
-import { CLOCK, type Clock, isValidTimeZone } from '../../shared/time';
+import { CLOCK, type Clock, isValidTimeZone, localDayToUtcRange } from '../../shared/time';
 import type {
   AirportError,
   AirportInput,
@@ -13,7 +13,12 @@ import type {
   FareError,
   FlightInfo,
 } from './catalog-api';
-import { CATALOG_REPOSITORY, type CatalogRepository, type FareRecord } from './catalog.repository';
+import {
+  type AirportRecord,
+  CATALOG_REPOSITORY,
+  type CatalogRepository,
+  type FareRecord,
+} from './catalog.repository';
 import { Flight, isBookable, type NewFlight } from './flight';
 import { toFlightInfo } from './flight-info.mapper';
 import type { FlightStatus } from './flight-status';
@@ -41,12 +46,17 @@ export class FlightCatalogService implements CatalogApi {
     return info;
   }
 
+  /** Flights on a route departing during one calendar day at the origin airport (YYYY-MM-DD). */
   async findFlights(route: Route, localDate: string): Promise<FlightInfo[]> {
-    const [year, month, day] = localDate.split('-').map(Number);
-    const start = new Date(Date.UTC(year, month - 1, day));
-    const end = new Date(start.getTime() + 86_400_000);
-    const flights = await this.repository.findFlightsDeparting(route, { start, end });
-    return this.describe(flights);
+    const routeAirports = await this.repository.findAirports([
+      route.origin.value,
+      route.destination.value,
+    ]);
+    const origin = routeAirports.find((airport) => airport.code === route.origin.value);
+    if (!origin) return [];
+    const day = localDayToUtcRange(localDate, origin.timezone);
+    const flights = await this.repository.findFlightsDeparting(route, day);
+    return this.describe(flights, routeAirports);
   }
 
   async searchAirports(query: string): Promise<AirportSuggestion[]> {
@@ -129,23 +139,32 @@ export class FlightCatalogService implements CatalogApi {
     return ok(code);
   }
 
-  /** Loads the reference data for many flights in a fixed number of queries, then maps them. */
-  private async describe(flights: Flight[]): Promise<FlightInfo[]> {
+  /**
+   * Loads the reference data for many flights in a fixed number of queries, then maps them.
+   * Airports the caller already loaded are not fetched again.
+   */
+  private async describe(
+    flights: Flight[],
+    knownAirports: AirportRecord[] = [],
+  ): Promise<FlightInfo[]> {
     if (flights.length === 0) return [];
+    const known = new Set(knownAirports.map((airport) => airport.code));
     const airportCodes = unique(
       flights.flatMap((flight) => [flight.route.origin.value, flight.route.destination.value]),
-    );
+    ).filter((code) => !known.has(code));
     const airlineCodes = unique(flights.map((flight) => flight.airlineCode));
     const flightIds = flights.map((flight) => flight.id).filter((id): id is string => !!id);
 
-    const [airports, airlines, fares] = await Promise.all([
-      this.repository.findAirports(airportCodes),
+    const [fetchedAirports, airlines, fares] = await Promise.all([
+      airportCodes.length ? this.repository.findAirports(airportCodes) : Promise.resolve([]),
       this.repository.findAirlines(airlineCodes),
       this.repository.findFares(flightIds),
     ]);
 
     const reference = {
-      airports: new Map(airports.map((airport) => [airport.code, airport])),
+      airports: new Map(
+        [...knownAirports, ...fetchedAirports].map((airport) => [airport.code, airport]),
+      ),
       airlines: new Map(airlines.map((airline) => [airline.code, airline])),
       faresByFlight: groupBy(fares, (fare) => fare.flightId),
     };
