@@ -1,11 +1,31 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthGuard } from './users-access.guards';
-import { ChangePasswordInput, ProfileInput, RegisterInput, SavedTravelerInput, SignInInput } from './users-access.dto';
+import {
+  ChangePasswordInput,
+  ProfileInput,
+  RegisterInput,
+  SavedTravelerInput,
+  SignInInput,
+} from './users-access.dto';
 import { SESSION_COOKIE, UsersAccessService } from './users-access.service';
 
 const tokenFrom = (request: Request): string | undefined => {
-  const value = request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${SESSION_COOKIE}=`));
+  const value = request.headers.cookie
+    ?.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
   return value?.slice(SESSION_COOKIE.length + 1);
 };
 type AuthRequest = Request & { user: { id: string } };
@@ -22,7 +42,14 @@ export class UsersAccessController {
   @Post('sign-in')
   async signIn(@Body() input: SignInInput, @Res({ passthrough: true }) response: Response) {
     const result = await this.service.signIn(input.email, input.password);
-    if (result.ok) response.cookie(SESSION_COOKIE, result.value, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 86_400_000, path: '/' });
+    if (result.ok)
+      response.cookie(SESSION_COOKIE, result.value, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 86_400_000,
+        path: '/',
+      });
     return result;
   }
 
@@ -30,7 +57,12 @@ export class UsersAccessController {
   async signOut(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const token = tokenFrom(request);
     if (token) await this.service.signOut(token);
-    response.clearCookie(SESSION_COOKIE, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/' });
+    response.clearCookie(SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
   }
 
   @Get('me')
@@ -65,7 +97,11 @@ export class UsersAccessController {
 
   @Patch('me/saved-travelers/:id')
   @UseGuards(AuthGuard)
-  updateSavedTraveler(@Req() request: AuthRequest, @Param('id') id: string, @Body() input: SavedTravelerInput) {
+  updateSavedTraveler(
+    @Req() request: AuthRequest,
+    @Param('id') id: string,
+    @Body() input: SavedTravelerInput,
+  ) {
     return this.service.updateSavedTraveler(request.user.id, id, input);
   }
 

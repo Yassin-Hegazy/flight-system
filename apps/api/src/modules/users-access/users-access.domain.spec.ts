@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { UserRole, normalizeEmail, validatePassword, withOwnership, withRole } from './users-access.domain';
+import {
+  UserRole,
+  normalizeEmail,
+  validatePassword,
+  withOwnership,
+  withRole,
+} from './users-access.domain';
 
 describe('users access domain', () => {
   it('normalizes email and enforces the password boundary', () => {
@@ -12,7 +18,10 @@ describe('users access domain', () => {
   it('rejects non-admin users before an administrative use case runs', () => {
     const useCase = vi.fn(() => Promise.resolve('changed'));
     const wrapped = withRole(UserRole.Admin, useCase, {
-      id: 'u1', email: 'a@example.com', name: 'A', role: UserRole.Traveler,
+      id: 'u1',
+      email: 'a@example.com',
+      name: 'A',
+      role: UserRole.Traveler,
     });
     expect(() => wrapped()).toThrow('FORBIDDEN');
     expect(useCase).not.toHaveBeenCalled();

@@ -20,7 +20,11 @@ export function validatePassword(password: string): string | null {
   return null;
 }
 
-export function fieldErrors(input: { name?: string; phone?: string; email?: string }): Record<string, string> {
+export function fieldErrors(input: {
+  name?: string;
+  phone?: string;
+  email?: string;
+}): Record<string, string> {
   const errors: Record<string, string> = {};
   if (input.name !== undefined && (input.name.trim().length < 2 || input.name.length > 120)) {
     errors.name = 'Name must be between 2 and 120 characters';
