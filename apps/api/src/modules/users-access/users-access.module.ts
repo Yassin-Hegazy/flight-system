@@ -11,7 +11,7 @@ import { Argon2PasswordHasher, PASSWORD_HASHER } from './password-hasher';
 import { PgUsersRepository } from './pg-users.repository';
 import { USERS_API } from './users-api';
 import { USERS_REPOSITORY } from './users.repository';
-import { PrincipalMiddleware } from './principal.middleware';
+import { CsrfMiddleware, PrincipalMiddleware } from './principal.middleware';
 
 @Module({
   imports: [
@@ -28,8 +28,8 @@ import { PrincipalMiddleware } from './principal.middleware';
   exports: [USERS_API],
 })
 export class UsersAccessModule implements NestModule {
-  /** Every request learns who is signed in before any route runs. */
+  /** Every request passes the CSRF check and learns who is signed in before any route runs. */
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(PrincipalMiddleware).forRoutes('*');
+    consumer.apply(CsrfMiddleware, PrincipalMiddleware).forRoutes('*');
   }
 }

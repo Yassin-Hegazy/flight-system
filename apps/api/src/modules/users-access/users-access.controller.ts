@@ -16,7 +16,12 @@ import type { Request, Response } from 'express';
 import { AppError, validationError } from '../../shared/errors';
 import type { Result } from '../../shared/result';
 import { Ctx, type Principal, type RequestContext, secure } from './access';
-import { SESSION_COOKIE, sessionTokenFrom } from './principal.middleware';
+import {
+  COOKIE_OPTIONS,
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_MS,
+  sessionTokenFrom,
+} from './principal.middleware';
 import {
   ChangePasswordInput,
   ProfileInput,
@@ -29,13 +34,6 @@ import { type SavedTraveler, USERS_API, type UsersApi } from './users-api';
 const PUBLIC = { access: 'public' } as const;
 const SIGNED_IN = { access: 'signedIn' } as const;
 const ADMIN = { access: 'admin' } as const;
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
-} as const;
 
 function travelerNotFound(): AppError {
   return AppError.notFound('SAVED_TRAVELER_NOT_FOUND', 'Saved traveler not found.');
@@ -90,7 +88,10 @@ export class UsersAccessController {
         ? AppError.unauthenticated('SIGN_IN_LOCKED', 'Too many failed attempts. Try again later.')
         : AppError.unauthenticated('INVALID_CREDENTIALS', 'Invalid email or password.');
     }
-    response.cookie(SESSION_COOKIE, result.value, { ...COOKIE_OPTIONS, maxAge: 86_400_000 });
+    response.cookie(SESSION_COOKIE, result.value, {
+      ...COOKIE_OPTIONS,
+      maxAge: SESSION_MAX_AGE_MS,
+    });
     return this.users.currentUser(result.value);
   }
 
