@@ -38,11 +38,16 @@ const cairoToLondon = (overrides: Partial<NewFlight> = {}): NewFlight => ({
   destinationCode: 'LHR',
   scheduledDepartureUtc: new Date('2026-12-10T07:00:00Z'),
   scheduledArrivalUtc: new Date('2026-12-10T12:00:00Z'),
+  fares: { ECONOMY: money(10000, 'EGP'), BUSINESS: money(40000, 'EGP') },
   ...overrides,
 });
 
 function scheduled(input: NewFlight): Flight {
-  const result = Flight.schedule(input, { now: NOW, timeZoneOf: () => 'Africa/Cairo' });
+  const result = Flight.schedule(input, {
+    now: NOW,
+    timeZoneOf: () => 'Africa/Cairo',
+    airlineExists: () => true,
+  });
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
@@ -101,6 +106,46 @@ describe('US-AD-01 flight schedule rules (Catalog)', () => {
     );
     if (!result.ok) throw new Error(result.error);
     expect((await repository.findFlight(result.value))?.departureLocalDate).toBe('2026-12-10');
+  });
+});
+
+describe('US-AD-01 a new flight carries its airline and both cabin fares', () => {
+  it('US-AD-01-T14 rejects an airline the Catalog does not know', async () => {
+    const { service } = catalogWithReferenceData();
+    const result = await service.createFlight(
+      TX,
+      cairoToLondon({ flightNumber: 'XX123', airlineCode: 'XX' }),
+    );
+    expect(result).toEqual({ ok: false, error: 'UNKNOWN_AIRLINE' });
+  });
+
+  it('US-AD-01-T15 stores the ECONOMY and BUSINESS fares with the new flight', async () => {
+    const { service } = catalogWithReferenceData();
+    const created = await service.createFlight(TX, cairoToLondon());
+    if (!created.ok) throw new Error(created.error);
+    expect((await service.getFlight(created.value))?.fares).toEqual({
+      ECONOMY: money(10000, 'EGP'),
+      BUSINESS: money(40000, 'EGP'),
+    });
+  });
+
+  it('US-AD-01-T16 rejects a missing fare, and a fare that is not a positive whole amount', async () => {
+    const { service } = catalogWithReferenceData();
+    const economyOnly = { ECONOMY: money(10000, 'EGP') } as NewFlight['fares'];
+    expect(await service.createFlight(TX, cairoToLondon({ fares: economyOnly }))).toEqual({
+      ok: false,
+      error: 'MISSING_FARE',
+    });
+    for (const amountMinor of [0, -100, 99.5]) {
+      const fares = {
+        ECONOMY: { amountMinor, currency: 'EGP' },
+        BUSINESS: money(40000, 'EGP'),
+      };
+      expect(await service.createFlight(TX, cairoToLondon({ fares }))).toEqual({
+        ok: false,
+        error: 'FARE_NOT_POSITIVE',
+      });
+    }
   });
 });
 
