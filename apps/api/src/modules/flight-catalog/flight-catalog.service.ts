@@ -18,7 +18,7 @@ import { Flight, isBookable, type NewFlight } from './flight';
 import { toFlightInfo } from './flight-info.mapper';
 import type { FlightStatus } from './flight-status';
 import { type PassengerMix, type PriceQuote, type PricingError, priceParty } from './pricing';
-import { AirportCode, type Cabin, InvalidAirportCode, type Route } from './value-objects';
+import { AirportCode, type Cabin, InvalidAirportCode, isCabin, type Route } from './value-objects';
 
 const MAX_AIRPORT_SUGGESTIONS = 10;
 const MIN_AIRPORT_QUERY = 2;
@@ -95,6 +95,7 @@ export class FlightCatalogService implements CatalogApi {
     cabin: Cabin,
     fare: Money,
   ): Promise<Result<Money | null, FareError>> {
+    if (!isCabin(cabin)) return err('INVALID_CABIN');
     if (!isPositiveMoney(fare)) return err('INVALID_FARE');
     if (!(await this.repository.findFlightForUpdate(tx, flightId))) return err('FLIGHT_NOT_FOUND');
     const previous = await this.repository.findFare(tx, flightId, cabin);

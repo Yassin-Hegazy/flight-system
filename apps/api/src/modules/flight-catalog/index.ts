@@ -16,5 +16,5 @@ export type {
 export type { NewFlight } from './flight';
 export { FlightStatus } from './flight-status';
 export type { PassengerMix, PassengerType, PriceLine, PriceQuote, PricingError } from './pricing';
-export { AirportCode, CABINS, FlightNumber, Route } from './value-objects';
+export { AirportCode, CABINS, FlightNumber, isCabin, Route } from './value-objects';
 export type { Cabin } from './value-objects';

@@ -16,8 +16,9 @@ export class CreateFlightCatalog1762470000000 implements MigrationInterface {
     await queryRunner.query(
       `CREATE TABLE "flights" ("id" uuid NOT NULL DEFAULT gen_random_uuid(), "flightNumber" character varying(10) NOT NULL, "airlineCode" character varying(2) NOT NULL, "originCode" character varying(3) NOT NULL, "destinationCode" character varying(3) NOT NULL, "scheduledDepartureUtc" TIMESTAMP WITH TIME ZONE NOT NULL, "scheduledArrivalUtc" TIMESTAMP WITH TIME ZONE NOT NULL, "estimatedDepartureUtc" TIMESTAMP WITH TIME ZONE, "status" "public"."flight_status_enum" NOT NULL DEFAULT 'SCHEDULED', "cancelReason" character varying(255), CONSTRAINT "UQ_flights_number" UNIQUE ("flightNumber"), CONSTRAINT "PK_flights_id" PRIMARY KEY ("id"))`,
     );
+    await queryRunner.query(`CREATE TYPE "flight_fares_cabin_enum" AS ENUM ('ECONOMY','BUSINESS')`);
     await queryRunner.query(
-      `CREATE TABLE "flight_fares" ("id" uuid NOT NULL DEFAULT gen_random_uuid(), "flightId" uuid NOT NULL, "cabin" character varying(20) NOT NULL, "amountMinor" integer NOT NULL, "currency" character varying(3) NOT NULL, CONSTRAINT "UQ_flight_fares_flight_cabin" UNIQUE ("flightId","cabin"), CONSTRAINT "PK_flight_fares_id" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "flight_fares" ("id" uuid NOT NULL DEFAULT gen_random_uuid(), "flightId" uuid NOT NULL, "cabin" "public"."flight_fares_cabin_enum" NOT NULL, "amountMinor" integer NOT NULL, "currency" character varying(3) NOT NULL, CONSTRAINT "UQ_flight_fares_flight_cabin" UNIQUE ("flightId","cabin"), CONSTRAINT "PK_flight_fares_id" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(`CREATE INDEX "IDX_airports_name" ON "airports" ("name")`);
     await queryRunner.query(`CREATE INDEX "IDX_airports_city" ON "airports" ("city")`);
@@ -31,6 +32,7 @@ export class CreateFlightCatalog1762470000000 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "public"."IDX_airports_city"`);
     await queryRunner.query(`DROP INDEX "public"."IDX_airports_name"`);
     await queryRunner.query(`DROP TABLE "flight_fares"`);
+    await queryRunner.query(`DROP TYPE "flight_fares_cabin_enum"`);
     await queryRunner.query(`DROP TABLE "flights"`);
     await queryRunner.query(`DROP TABLE "airports"`);
     await queryRunner.query(`DROP TABLE "airlines"`);

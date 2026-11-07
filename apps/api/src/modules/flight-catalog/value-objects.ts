@@ -62,5 +62,10 @@ export class Route {
   }
 }
 
-export const CABINS = ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'] as const;
+/** Every flight has exactly these two cabins, each with its own capacity and fare (overview 4.3). */
+export const CABINS = ['ECONOMY', 'BUSINESS'] as const;
 export type Cabin = (typeof CABINS)[number];
+
+export function isCabin(value: string): value is Cabin {
+  return (CABINS as readonly string[]).includes(value);
+}

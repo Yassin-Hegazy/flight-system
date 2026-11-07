@@ -157,7 +157,7 @@ function toRow(flight: Flight): Partial<FlightEntity> {
 function toFareRecord(row: FlightFareEntity): FareRecord {
   return {
     flightId: row.flightId,
-    cabin: row.cabin as Cabin,
+    cabin: row.cabin,
     fare: money(row.amountMinor, row.currency),
   };
 }

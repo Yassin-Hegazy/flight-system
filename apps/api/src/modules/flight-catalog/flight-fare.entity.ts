@@ -1,4 +1,5 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { CABINS, type Cabin } from './value-objects';
 
 @Entity('flight_fares')
 @Index(['flightId', 'cabin'], { unique: true })
@@ -9,8 +10,8 @@ export class FlightFareEntity {
   @Column('uuid')
   flightId!: string;
 
-  @Column({ length: 20 })
-  cabin!: string;
+  @Column({ type: 'enum', enum: CABINS })
+  cabin!: Cabin;
 
   /** Whole minor units (piastres, cents), never a fraction (NFR-DATA-01). */
   @Column({ type: 'integer' })

@@ -49,7 +49,7 @@ export interface AirportInput {
 
 export type CreateFlightError = FlightRuleError | 'DUPLICATE_FLIGHT';
 export type ChangeStatusError = StatusRuleError | 'FLIGHT_NOT_FOUND';
-export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_FARE';
+export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_CABIN' | 'INVALID_FARE';
 export type AirportError = 'INVALID_AIRPORT_CODE';
 
 /**
