@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { err, ok, type Result } from '../../shared/result';
 import type {
   NewUserRecord,
   SavedTravelerRecord,
@@ -24,10 +25,13 @@ export class InMemoryUsersRepository implements UsersRepository {
     return Promise.resolve(user ? { ...user } : null);
   }
 
-  insertUser(user: NewUserRecord): Promise<string> {
+  insertUser(user: NewUserRecord): Promise<Result<string, 'EMAIL_TAKEN'>> {
+    if ([...this.users.values()].some((existing) => existing.email === user.email)) {
+      return Promise.resolve(err('EMAIL_TAKEN'));
+    }
     const id = randomUUID();
     this.users.set(id, { ...user, id });
-    return Promise.resolve(id);
+    return Promise.resolve(ok(id));
   }
 
   updateUser(user: UserRecord): Promise<void> {

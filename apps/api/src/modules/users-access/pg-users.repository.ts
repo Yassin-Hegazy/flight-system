@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, type EntityManager, MoreThan } from 'typeorm';
+import { isUniqueViolation } from '../../shared/db';
+import { err, ok, type Result } from '../../shared/result';
 import { LoginAttemptEntity } from './login-attempt.entity';
 import { SavedTravelerEntity } from './saved-traveler.entity';
 import { SessionEntity } from './session.entity';
@@ -30,9 +32,14 @@ export class PgUsersRepository implements UsersRepository {
     return this.db.findOne(UserEntity, { where: { id } });
   }
 
-  async insertUser(user: NewUserRecord): Promise<string> {
-    const saved = await this.db.save(UserEntity, { ...user });
-    return saved.id;
+  async insertUser(user: NewUserRecord): Promise<Result<string, 'EMAIL_TAKEN'>> {
+    try {
+      const saved = await this.db.save(UserEntity, { ...user });
+      return ok(saved.id);
+    } catch (error) {
+      if (isUniqueViolation(error)) return err('EMAIL_TAKEN');
+      throw error;
+    }
   }
 
   async updateUser(user: UserRecord): Promise<void> {

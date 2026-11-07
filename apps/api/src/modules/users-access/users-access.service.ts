@@ -44,7 +44,7 @@ export class UsersAccessService implements UsersApi {
     if (passwordProblem(input.password)) return err('WEAK_PASSWORD');
     const email = normalizeEmail(input.email);
     if (await this.repository.findUserByEmail(email)) return err('EMAIL_TAKEN');
-    const id = await this.repository.insertUser({
+    return this.repository.insertUser({
       email,
       passwordHash: await this.hasher.hash(input.password),
       name: input.name.trim(),
@@ -52,7 +52,6 @@ export class UsersAccessService implements UsersApi {
       // Self-registration always creates a traveler (US-USR-04 AC-2).
       role: UserRole.Traveler,
     });
-    return ok(id);
   }
 
   async signIn(

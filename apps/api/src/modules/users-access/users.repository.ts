@@ -1,3 +1,4 @@
+import type { Result } from '../../shared/result';
 import type { UserRole } from './users-access.domain';
 
 export interface UserRecord {
@@ -33,7 +34,8 @@ export interface SavedTravelerRecord {
 export interface UsersRepository {
   findUserByEmail(email: string): Promise<UserRecord | null>;
   findUserById(id: string): Promise<UserRecord | null>;
-  insertUser(user: NewUserRecord): Promise<string>;
+  /** The unique email constraint decides a race between two sign-ups, not a prior lookup. */
+  insertUser(user: NewUserRecord): Promise<Result<string, 'EMAIL_TAKEN'>>;
   updateUser(user: UserRecord): Promise<void>;
 
   /** Failed sign-in times for an email since a given instant, oldest first. */
