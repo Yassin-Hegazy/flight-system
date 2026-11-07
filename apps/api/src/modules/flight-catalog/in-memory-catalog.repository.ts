@@ -60,7 +60,9 @@ export class InMemoryCatalogRepository implements CatalogRepository {
 
   insertFlight(_tx: Tx, flight: Flight): Promise<Result<string, 'DUPLICATE_FLIGHT'>> {
     const duplicate = [...this.flights.values()].some(
-      (existing) => existing.number.value === flight.number.value,
+      (existing) =>
+        existing.number.value === flight.number.value &&
+        existing.departureLocalDate === flight.departureLocalDate,
     );
     if (duplicate) return Promise.resolve(err('DUPLICATE_FLIGHT'));
     return Promise.resolve(ok(this.addFlight(flight)));
@@ -137,6 +139,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       route: flight.route,
       scheduledDepartureUtc: flight.scheduledDepartureUtc,
       scheduledArrivalUtc: flight.scheduledArrivalUtc,
+      departureLocalDate: flight.departureLocalDate,
       estimatedDepartureUtc: flight.estimatedDepartureUtc,
       status: flight.status,
       cancelReason: flight.cancelReason,

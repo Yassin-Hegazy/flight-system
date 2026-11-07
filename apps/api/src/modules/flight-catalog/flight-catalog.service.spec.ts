@@ -42,7 +42,7 @@ const cairoToLondon = (overrides: Partial<NewFlight> = {}): NewFlight => ({
 });
 
 function scheduled(input: NewFlight): Flight {
-  const result = Flight.schedule(input, NOW);
+  const result = Flight.schedule(input, { now: NOW, timeZoneOf: () => 'Africa/Cairo' });
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
@@ -81,6 +81,26 @@ describe('US-AD-01 flight schedule rules (Catalog)', () => {
     const { service } = catalogWithReferenceData();
     const result = await service.createFlight(TX, cairoToLondon({ destinationCode: 'CAI' }));
     expect(result).toEqual({ ok: false, error: 'SAME_AIRPORT' });
+  });
+
+  it('US-AD-01-T12 rejects a flight to or from an airport the Catalog does not know', async () => {
+    const { service } = catalogWithReferenceData();
+    const result = await service.createFlight(TX, cairoToLondon({ destinationCode: 'JFK' }));
+    expect(result).toEqual({ ok: false, error: 'UNKNOWN_AIRPORT' });
+  });
+
+  it('US-AD-01-T13 records the departure date at the origin, not the UTC date', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    // 22:30 UTC on 9 December is 00:30 on 10 December in Cairo.
+    const result = await service.createFlight(
+      TX,
+      cairoToLondon({
+        scheduledDepartureUtc: new Date('2026-12-09T22:30:00Z'),
+        scheduledArrivalUtc: new Date('2026-12-10T03:30:00Z'),
+      }),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect((await repository.findFlight(result.value))?.departureLocalDate).toBe('2026-12-10');
   });
 });
 

@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '../../shared/result';
+import { localDateOf } from '../../shared/time';
 import { canTransition, FlightStatus } from './flight-status';
 import {
   AirportCode,
@@ -22,6 +23,7 @@ export type FlightRuleError =
   | 'INVALID_AIRPORT_CODE'
   | 'AIRLINE_MISMATCH'
   | 'SAME_AIRPORT'
+  | 'UNKNOWN_AIRPORT'
   | 'ARRIVAL_NOT_AFTER_DEPARTURE'
   | 'DEPARTURE_IN_PAST';
 
@@ -31,6 +33,12 @@ export type StatusRuleError =
   | 'ESTIMATE_NOT_AFTER_SCHEDULED'
   | 'ESTIMATE_NOT_ALLOWED';
 
+/** What scheduling needs from outside the flight: the time and the airports' time zones. */
+export interface ScheduleContext {
+  now: Date;
+  timeZoneOf(airportCode: string): string | undefined;
+}
+
 export interface FlightProps {
   id: string | null;
   number: FlightNumber;
@@ -38,6 +46,8 @@ export interface FlightProps {
   route: Route;
   scheduledDepartureUtc: Date;
   scheduledArrivalUtc: Date;
+  /** The calendar date of departure at the origin airport (YYYY-MM-DD). */
+  departureLocalDate: string;
   estimatedDepartureUtc: Date | null;
   status: FlightStatus;
   cancelReason: string | null;
@@ -53,7 +63,7 @@ export class Flight {
   }
 
   /** Validates a new flight; the first broken rule is the one reported. */
-  static schedule(input: NewFlight, now: Date): Result<Flight, FlightRuleError> {
+  static schedule(input: NewFlight, context: ScheduleContext): Result<Flight, FlightRuleError> {
     let number: FlightNumber;
     let origin: AirportCode;
     let destination: AirportCode;
@@ -71,10 +81,14 @@ export class Flight {
     if (number.airlineCode !== airlineCode) return err('AIRLINE_MISMATCH');
     const route = Route.between(origin, destination);
     if (!route.ok) return route;
+    const originTimeZone = context.timeZoneOf(origin.value);
+    if (!originTimeZone || !context.timeZoneOf(destination.value)) return err('UNKNOWN_AIRPORT');
     if (input.scheduledArrivalUtc.getTime() <= input.scheduledDepartureUtc.getTime()) {
       return err('ARRIVAL_NOT_AFTER_DEPARTURE');
     }
-    if (input.scheduledDepartureUtc.getTime() <= now.getTime()) return err('DEPARTURE_IN_PAST');
+    if (input.scheduledDepartureUtc.getTime() <= context.now.getTime()) {
+      return err('DEPARTURE_IN_PAST');
+    }
 
     return ok(
       new Flight({
@@ -84,6 +98,7 @@ export class Flight {
         route: route.value,
         scheduledDepartureUtc: input.scheduledDepartureUtc,
         scheduledArrivalUtc: input.scheduledArrivalUtc,
+        departureLocalDate: localDateOf(input.scheduledDepartureUtc, originTimeZone),
         estimatedDepartureUtc: null,
         status: FlightStatus.Scheduled,
         cancelReason: null,
@@ -108,6 +123,9 @@ export class Flight {
   }
   get scheduledArrivalUtc(): Date {
     return this.props.scheduledArrivalUtc;
+  }
+  get departureLocalDate(): string {
+    return this.props.departureLocalDate;
   }
   get estimatedDepartureUtc(): Date | null {
     return this.props.estimatedDepartureUtc;

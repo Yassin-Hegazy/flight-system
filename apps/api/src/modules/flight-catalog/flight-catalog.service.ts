@@ -69,7 +69,15 @@ export class FlightCatalogService implements CatalogApi {
   }
 
   async createFlight(tx: Tx, input: NewFlight): Promise<Result<string, CreateFlightError>> {
-    const scheduled = Flight.schedule(input, this.clock.now());
+    const codes = [input.originCode, input.destinationCode].map((code) =>
+      code.trim().toUpperCase(),
+    );
+    const airports = await this.repository.findAirports(codes);
+    const timeZones = new Map(airports.map((airport) => [airport.code, airport.timezone]));
+    const scheduled = Flight.schedule(input, {
+      now: this.clock.now(),
+      timeZoneOf: (code) => timeZones.get(code),
+    });
     if (!scheduled.ok) return scheduled;
     return this.repository.insertFlight(tx, scheduled.value);
   }

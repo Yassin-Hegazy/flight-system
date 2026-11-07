@@ -28,7 +28,7 @@ describe('Overview 4.3 two cabins per flight', () => {
         scheduledDepartureUtc: new Date('2026-12-10T07:00:00Z'),
         scheduledArrivalUtc: new Date('2026-12-10T12:00:00Z'),
       },
-      NOW,
+      { now: NOW, timeZoneOf: () => 'Africa/Cairo' },
     );
     if (!scheduled.ok) throw new Error(scheduled.error);
     const flightId = repository.addFlight(scheduled.value);

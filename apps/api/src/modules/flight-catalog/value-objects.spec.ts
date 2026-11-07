@@ -39,7 +39,12 @@ describe('US-AD-01 flight numbers (overview 4.5: 2-character airline code + 1 to
   });
 
   it('US-AD-01-T07 rejects a flight whose number belongs to another airline', () => {
-    expect(Flight.schedule(newFlight({ flightNumber: 'BA123', airlineCode: 'MS' }), NOW)).toEqual({
+    expect(
+      Flight.schedule(newFlight({ flightNumber: 'BA123', airlineCode: 'MS' }), {
+        now: NOW,
+        timeZoneOf: () => 'Africa/Cairo',
+      }),
+    ).toEqual({
       ok: false,
       error: 'AIRLINE_MISMATCH',
     });

@@ -16,6 +16,7 @@ function flightIn(status: FlightStatus): Flight {
     route: route.value,
     scheduledDepartureUtc: SCHEDULED_DEPARTURE,
     scheduledArrivalUtc: new Date('2026-12-10T12:00:00Z'),
+    departureLocalDate: '2026-12-10',
     estimatedDepartureUtc:
       status === FlightStatus.Delayed ? new Date('2026-12-10T08:00:00Z') : null,
     status,
