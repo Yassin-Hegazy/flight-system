@@ -70,6 +70,9 @@ const ROUTES: RouteSpec[] = [
     body: () => ({ name: 'Renamed Person', dateOfBirth: '1990-05-01' }),
   },
   { method: 'delete', path: '/users/me/saved-travelers/:id', access: 'owner' },
+  { method: 'get', path: '/notifications', access: 'signedIn' },
+  { method: 'post', path: '/notifications/read-all', access: 'signedIn' },
+  { method: 'patch', path: '/notifications/:id/read', access: 'owner' },
   {
     method: 'post',
     path: '/users/admins',
