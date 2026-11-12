@@ -15,7 +15,16 @@ import {
 import type { Request, Response } from 'express';
 import { AppError, validationError } from '../../shared/errors';
 import type { Result } from '../../shared/result';
-import { Ctx, type Principal, type RequestContext, secure } from './access';
+import {
+  Action,
+  Ctx,
+  type Principal,
+  type RequestContext,
+  signedIn,
+  WithAuth,
+  WithOwnership,
+  WithRole,
+} from './access';
 import {
   COOKIE_OPTIONS,
   SESSION_COOKIE,
@@ -29,14 +38,13 @@ import {
   SavedTravelerInput,
   SignInInput,
 } from './users-access.dto';
+import { UserRole } from './users-access.domain';
 import { type SavedTraveler, USERS_API, type UsersApi } from './users-api';
 
-const PUBLIC = { access: 'public' } as const;
-const SIGNED_IN = { access: 'signedIn' } as const;
-const ADMIN = { access: 'admin' } as const;
-
+// The same body WithOwnership answers with, so a malformed ID, a missing traveler and someone
+// else's traveler are indistinguishable.
 function travelerNotFound(): AppError {
-  return AppError.notFound('SAVED_TRAVELER_NOT_FOUND', 'Saved traveler not found.');
+  return AppError.notFound('NOT_FOUND', 'Not found.');
 }
 
 function created(result: Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>): { id: string } {
@@ -53,22 +61,28 @@ function created(result: Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>): { id:
 const TRAVELER_ID = new ParseUUIDPipe({ exceptionFactory: travelerNotFound });
 
 /**
- * Account routes. Each route names its access policy and runs its use case through secure(), which
- * builds the matching decorator stack; the controller only maps results to HTTP.
+ * Account routes. Each protected route wraps its use case (an Action) in the access decorators it
+ * needs and executes the result; a public route calls its use case directly. The controller only
+ * maps results to HTTP.
  */
 @Controller('users')
 export class UsersAccessController {
   constructor(@Inject(USERS_API) private readonly users: UsersApi) {}
 
   @Post('register')
-  register(@Ctx() ctx: RequestContext, @Body() input: RegisterInput): Promise<{ id: string }> {
-    return secure(PUBLIC, async () => created(await this.users.register(input)))(ctx, undefined);
+  async register(@Body() input: RegisterInput): Promise<{ id: string }> {
+    return created(await this.users.register(input));
   }
 
   /** Only an administrator creates another administrator (US-USR-04 AC-3). */
   @Post('admins')
   createAdmin(@Ctx() ctx: RequestContext, @Body() input: RegisterInput): Promise<{ id: string }> {
-    return secure(ADMIN, async () => created(await this.users.createAdmin(input)))(ctx, undefined);
+    return new WithAuth(
+      new WithRole(
+        new Action(async () => created(await this.users.createAdmin(input))),
+        UserRole.Admin,
+      ),
+    ).execute(ctx, undefined);
   }
 
   /**
@@ -109,24 +123,29 @@ export class UsersAccessController {
 
   @Get('me')
   me(@Ctx() ctx: RequestContext): Promise<Principal> {
-    return secure(SIGNED_IN, ({ principal }) => Promise.resolve(principal))(ctx, undefined);
+    return new WithAuth(
+      new Action((caller: RequestContext) => Promise.resolve(signedIn(caller))),
+    ).execute(ctx, undefined);
   }
 
   @Patch('me')
   @HttpCode(204)
   updateProfile(@Ctx() ctx: RequestContext, @Body() input: ProfileInput): Promise<void> {
-    return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.updateProfile(principal.id, input);
-      if (result.ok) return;
-      if (result.error.code === 'EMAIL_TAKEN') {
-        throw AppError.conflict(
-          'EMAIL_TAKEN',
-          'An account with this email already exists.',
-          result.error.fieldErrors,
-        );
-      }
-      throw validationError(result.error.fieldErrors);
-    })(ctx, undefined);
+    return new WithAuth(
+      new Action(async (caller: RequestContext) => {
+        const principal = signedIn(caller);
+        const result = await this.users.updateProfile(principal.id, input);
+        if (result.ok) return;
+        if (result.error.code === 'EMAIL_TAKEN') {
+          throw AppError.conflict(
+            'EMAIL_TAKEN',
+            'An account with this email already exists.',
+            result.error.fieldErrors,
+          );
+        }
+        throw validationError(result.error.fieldErrors);
+      }),
+    ).execute(ctx, undefined);
   }
 
   @Patch('me/password')
@@ -136,29 +155,32 @@ export class UsersAccessController {
     @Req() request: Request,
     @Body() input: ChangePasswordInput,
   ): Promise<void> {
-    return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.changePassword(
-        principal.id,
-        input.current,
-        input.next,
-        sessionTokenFrom(request.headers.cookie),
-      );
-      if (result.ok) return;
-      throw result.error === 'INVALID_CURRENT'
-        ? validationError({ current: 'Current password is incorrect' })
-        : validationError({ next: 'Password does not meet the requirements' });
-    })(ctx, undefined);
+    return new WithAuth(
+      new Action(async (caller: RequestContext) => {
+        const principal = signedIn(caller);
+        const result = await this.users.changePassword(
+          principal.id,
+          input.current,
+          input.next,
+          sessionTokenFrom(request.headers.cookie),
+        );
+        if (result.ok) return;
+        throw result.error === 'INVALID_CURRENT'
+          ? validationError({ current: 'Current password is incorrect' })
+          : validationError({ next: 'Password does not meet the requirements' });
+      }),
+    ).execute(ctx, undefined);
   }
 
-  // Saved travelers are always read and written through the signed-in owner's ID, so another
-  // user's traveler is simply not found (US-USR-06 AC-3).
+  // A saved traveler is changed or deleted only through WithOwnership, so another user's traveler
+  // answers exactly like one that does not exist (US-USR-01 AC-1, US-USR-06 AC-3).
+  private readonly travelerOwner = (ref: string) => this.users.savedTravelerOwner(ref);
 
   @Get('me/saved-travelers')
   listSavedTravelers(@Ctx() ctx: RequestContext): Promise<SavedTraveler[]> {
-    return secure(SIGNED_IN, ({ principal }) => this.users.listSavedTravelers(principal.id))(
-      ctx,
-      undefined,
-    );
+    return new WithAuth(
+      new Action((caller: RequestContext) => this.users.listSavedTravelers(signedIn(caller).id)),
+    ).execute(ctx, undefined);
   }
 
   @Post('me/saved-travelers')
@@ -166,13 +188,16 @@ export class UsersAccessController {
     @Ctx() ctx: RequestContext,
     @Body() input: SavedTravelerInput,
   ): Promise<SavedTraveler> {
-    return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.addSavedTraveler(principal.id, input);
-      if (!result.ok) {
-        throw AppError.conflict('SAVED_TRAVELER_LIMIT', 'You can save up to 10 travelers.');
-      }
-      return result.value;
-    })(ctx, undefined);
+    return new WithAuth(
+      new Action(async (caller: RequestContext) => {
+        const principal = signedIn(caller);
+        const result = await this.users.addSavedTraveler(principal.id, input);
+        if (!result.ok) {
+          throw AppError.conflict('SAVED_TRAVELER_LIMIT', 'You can save up to 10 travelers.');
+        }
+        return result.value;
+      }),
+    ).execute(ctx, undefined);
   }
 
   @Patch('me/saved-travelers/:id')
@@ -181,11 +206,16 @@ export class UsersAccessController {
     @Param('id', TRAVELER_ID) id: string,
     @Body() input: SavedTravelerInput,
   ): Promise<SavedTraveler> {
-    return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.updateSavedTraveler(principal.id, id, input);
-      if (!result.ok) throw travelerNotFound();
-      return result.value;
-    })(ctx, undefined);
+    return new WithAuth(
+      new WithOwnership(
+        new Action(async (caller: RequestContext, { ref }: { ref: string }) => {
+          const result = await this.users.updateSavedTraveler(signedIn(caller).id, ref, input);
+          if (!result.ok) throw travelerNotFound();
+          return result.value;
+        }),
+        this.travelerOwner,
+      ),
+    ).execute(ctx, { ref: id });
   }
 
   @Delete('me/saved-travelers/:id')
@@ -194,9 +224,14 @@ export class UsersAccessController {
     @Ctx() ctx: RequestContext,
     @Param('id', TRAVELER_ID) id: string,
   ): Promise<void> {
-    return secure(SIGNED_IN, async ({ principal }) => {
-      const result = await this.users.deleteSavedTraveler(principal.id, id);
-      if (!result.ok) throw travelerNotFound();
-    })(ctx, undefined);
+    return new WithAuth(
+      new WithOwnership(
+        new Action(async (caller: RequestContext, { ref }: { ref: string }) => {
+          const result = await this.users.deleteSavedTraveler(signedIn(caller).id, ref);
+          if (!result.ok) throw travelerNotFound();
+        }),
+        this.travelerOwner,
+      ),
+    ).execute(ctx, { ref: id });
   }
 }

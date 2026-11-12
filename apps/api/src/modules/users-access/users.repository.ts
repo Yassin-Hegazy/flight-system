@@ -28,7 +28,7 @@ export interface SavedTravelerRecord {
 }
 
 /**
- * Everything Users and Access needs from storage (Repository pattern). PgUsersRepository is the
+ * Everything Users and Access needs from storage. PgUsersRepository is the
  * only file with SQL for this module's tables; InMemoryUsersRepository replaces it in unit tests.
  */
 export interface UsersRepository {
@@ -53,6 +53,8 @@ export interface UsersRepository {
 
   listSavedTravelers(ownerId: string): Promise<SavedTravelerRecord[]>;
   countSavedTravelers(ownerId: string): Promise<number>;
+  /** The user a saved traveler belongs to, or null when there is no such traveler. */
+  findSavedTravelerOwner(id: string): Promise<string | null>;
   insertSavedTraveler(traveler: Omit<SavedTravelerRecord, 'id'>): Promise<SavedTravelerRecord>;
   /** Updates the traveler only if it belongs to ownerId; returns null when it does not. */
   updateSavedTraveler(traveler: SavedTravelerRecord): Promise<SavedTravelerRecord | null>;

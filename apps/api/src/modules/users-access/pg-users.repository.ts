@@ -100,6 +100,14 @@ export class PgUsersRepository implements UsersRepository {
     return this.db.count(SavedTravelerEntity, { where: { ownerId } });
   }
 
+  async findSavedTravelerOwner(id: string): Promise<string | null> {
+    const traveler = await this.db.findOne(SavedTravelerEntity, {
+      where: { id },
+      select: { ownerId: true },
+    });
+    return traveler?.ownerId ?? null;
+  }
+
   insertSavedTraveler(traveler: Omit<SavedTravelerRecord, 'id'>): Promise<SavedTravelerRecord> {
     return this.db.save(SavedTravelerEntity, { ...traveler });
   }

@@ -207,6 +207,8 @@ describe('US-USR-02 / US-USR-07 / US-USR-06 account use cases', () => {
     if (!added.ok) throw new Error(added.error);
     expect(added.value.name).toBe('Child');
 
+    expect(await service.savedTravelerOwner(added.value.id)).toBe(userId);
+    expect(await service.savedTravelerOwner('no-such-traveler')).toBeNull();
     expect(await service.updateSavedTraveler('someone-else', added.value.id, traveler)).toEqual({
       ok: false,
       error: 'SAVED_TRAVELER_NOT_FOUND',

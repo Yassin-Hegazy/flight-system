@@ -13,13 +13,63 @@ export interface RequestContext {
   principal: Principal | null;
 }
 
-/** The context a use case receives once withAuth has run: someone is signed in. */
-export interface SignedInContext {
-  principal: Principal;
+/**
+ * Component (the lecture's IComponent): a use case. Given who is asking and the input, it produces
+ * the output. Decorators have this same interface, which is why they can wrap one another.
+ */
+export interface UseCase<I, O> {
+  execute(ctx: RequestContext, input: I): Promise<O>;
 }
 
-/** A use case: given who is asking and the input, produce the output. */
-export type UseCase<I, O, C = RequestContext> = (ctx: C, input: I) => Promise<O>;
+/** Concrete component: the action itself, with no access checks of its own. */
+export class Action<I, O> implements UseCase<I, O> {
+  constructor(private readonly run: (ctx: RequestContext, input: I) => Promise<O>) {}
+
+  execute(ctx: RequestContext, input: I): Promise<O> {
+    return this.run(ctx, input);
+  }
+}
+
+/** The signed-in user of a request, or a 401 when nobody is signed in. */
+export function signedIn(ctx: RequestContext): Principal {
+  if (!ctx.principal) throw AppError.unauthenticated();
+  return ctx.principal;
+}
+
+/**
+ * Decorator: holds the component it wraps and passes the call on to it. The concrete decorators
+ * below add one access check each before doing the same.
+ */
+export abstract class UseCaseDecorator<I, O> implements UseCase<I, O> {
+  constructor(protected readonly component: UseCase<I, O>) {}
+
+  execute(ctx: RequestContext, input: I): Promise<O> {
+    return this.component.execute(ctx, input);
+  }
+}
+
+/** Concrete decorator: the wrapped use case runs only for a signed-in user (401 otherwise). */
+export class WithAuth<I, O> extends UseCaseDecorator<I, O> {
+  override async execute(ctx: RequestContext, input: I): Promise<O> {
+    signedIn(ctx);
+    return super.execute(ctx, input);
+  }
+}
+
+/** Concrete decorator: the wrapped use case runs only for the given role (403 otherwise). */
+export class WithRole<I, O> extends UseCaseDecorator<I, O> {
+  constructor(
+    component: UseCase<I, O>,
+    private readonly role: UserRole,
+  ) {
+    super(component);
+  }
+
+  override async execute(ctx: RequestContext, input: I): Promise<O> {
+    if (signedIn(ctx).role !== this.role) throw AppError.forbidden();
+    return super.execute(ctx, input);
+  }
+}
 
 export type OwnerLookup = (ref: string) => Promise<string | null>;
 
@@ -28,83 +78,28 @@ export type OwnerLookup = (ref: string) => Promise<string | null>;
 const notFound = () => AppError.notFound('NOT_FOUND', 'Not found.');
 
 /**
- * Decorator: the wrapped use case runs only for a signed-in user (401 otherwise). Like every
- * decorator here, it returns a function with the same shape, so decorators stack.
+ * Concrete decorator: the wrapped use case runs only on the caller's own record (S1 section 6.2).
+ * The order of the steps is the security property: authenticate, load the owner, compare, and only
+ * then act. Admins may read anyone's record only where the route opts in with adminMayRead
+ * (US-USR-01 AC-3).
  */
-export function withAuth<I, O>(useCase: UseCase<I, O, SignedInContext>): UseCase<I, O> {
-  return async (ctx, input) => {
-    if (!ctx.principal) throw AppError.unauthenticated();
-    return useCase({ principal: ctx.principal }, input);
-  };
-}
+export class WithOwnership<I extends { ref: string }, O> extends UseCaseDecorator<I, O> {
+  constructor(
+    component: UseCase<I, O>,
+    private readonly ownerOf: OwnerLookup,
+    private readonly options: { adminMayRead?: boolean } = {},
+  ) {
+    super(component);
+  }
 
-/** Decorator: the wrapped use case runs only for the given role (403 otherwise). */
-export function withRole(role: UserRole) {
-  return <I, O>(useCase: UseCase<I, O, SignedInContext>): UseCase<I, O, SignedInContext> =>
-    async (ctx, input) => {
-      if (ctx.principal.role !== role) throw AppError.forbidden();
-      return useCase(ctx, input);
-    };
-}
-
-/**
- * Decorator: the wrapped use case runs only on the caller's own record (S1 section 6.2). The order
- * of the steps is the security property: load the owner, compare, and only then act. Admins may
- * read anyone's record only where the route opts in with adminMayRead (US-USR-01 AC-3).
- */
-export function withOwnership(ownerOf: OwnerLookup, options: { adminMayRead?: boolean } = {}) {
-  return <I extends { ref: string }, O>(
-      useCase: UseCase<I, O, SignedInContext>,
-    ): UseCase<I, O, SignedInContext> =>
-    async (ctx, input) => {
-      const owner = await ownerOf(input.ref);
-      if (owner === null) throw notFound();
-      const isOwner = owner === ctx.principal.id;
-      const adminRead = ctx.principal.role === UserRole.Admin && options.adminMayRead === true;
-      if (!isOwner && !adminRead) throw notFound();
-      return useCase(ctx, input);
-    };
-}
-
-/** Who may call a route, as data a reviewer can read at a glance (S1 section 6.1). */
-export type AccessPolicy =
-  | { access: 'public' }
-  | { access: 'signedIn' }
-  | { access: 'admin' }
-  | { access: 'owner'; ownerOf: OwnerLookup; adminMayRead?: boolean };
-
-/**
- * Simple Factory: builds the decorator stack a policy calls for, so routes name a policy instead of
- * assembling guards by hand.
- */
-export function secure<I, O>(policy: { access: 'public' }, useCase: UseCase<I, O>): UseCase<I, O>;
-export function secure<I, O>(
-  policy: { access: 'signedIn' } | { access: 'admin' },
-  useCase: UseCase<I, O, SignedInContext>,
-): UseCase<I, O>;
-export function secure<I extends { ref: string }, O>(
-  policy: { access: 'owner'; ownerOf: OwnerLookup; adminMayRead?: boolean },
-  useCase: UseCase<I, O, SignedInContext>,
-): UseCase<I, O>;
-export function secure(
-  policy: AccessPolicy,
-  useCase: UseCase<{ ref: string }, unknown, SignedInContext> | UseCase<unknown, unknown>,
-): UseCase<{ ref: string }, unknown> {
-  switch (policy.access) {
-    case 'public':
-      return useCase as UseCase<{ ref: string }, unknown>;
-    case 'signedIn':
-      return withAuth(useCase as UseCase<{ ref: string }, unknown, SignedInContext>);
-    case 'admin':
-      return withAuth(
-        withRole(UserRole.Admin)(useCase as UseCase<{ ref: string }, unknown, SignedInContext>),
-      );
-    case 'owner':
-      return withAuth(
-        withOwnership(policy.ownerOf, { adminMayRead: policy.adminMayRead })(
-          useCase as UseCase<{ ref: string }, unknown, SignedInContext>,
-        ),
-      );
+  override async execute(ctx: RequestContext, input: I): Promise<O> {
+    const principal = signedIn(ctx);
+    const owner = await this.ownerOf(input.ref);
+    if (owner === null) throw notFound();
+    const isOwner = owner === principal.id;
+    const adminRead = principal.role === UserRole.Admin && this.options.adminMayRead === true;
+    if (!isOwner && !adminRead) throw notFound();
+    return super.execute(ctx, input);
   }
 }
 
