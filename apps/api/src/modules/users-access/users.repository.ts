@@ -28,7 +28,7 @@ export interface SavedTravelerRecord {
 }
 
 /**
- * Everything Users and Access needs from storage (Repository pattern). PgUsersRepository is the
+ * Everything Users and Access needs from storage. PgUsersRepository is the
  * only file with SQL for this module's tables; InMemoryUsersRepository replaces it in unit tests.
  */
 export interface UsersRepository {
