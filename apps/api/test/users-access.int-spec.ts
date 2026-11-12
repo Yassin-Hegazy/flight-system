@@ -194,14 +194,13 @@ describe('Users and Access over HTTP', () => {
       await signedInAdmin();
     });
 
-    it('US-USR-04-T02 nobody can register as an administrator', async () => {
+    it('US-USR-04-T02 a registration body with role ADMIN creates a traveler', async () => {
       const email = newEmail();
-      const response = await http()
+      await http()
         .post('/users/register')
         .send({ email, password: PASSWORD, name: 'Sneaky', role: 'ADMIN' })
-        .expect(400);
-      expect(response.body.fieldErrors).toHaveProperty('role');
-      await signIn(email).expect(401);
+        .expect(201);
+      expect((await signIn(email).expect(200)).body.role).toBe('TRAVELER');
     });
 
     it('US-USR-04-T09 an administrator can create another administrator', async () => {
@@ -241,7 +240,7 @@ describe('Users and Access over HTTP', () => {
         .set('cookie', `${cookie}; role=ADMIN`)
         .set('x-user-role', 'ADMIN')
         .send({ email: newEmail(), password: PASSWORD, name: 'Nope', role: 'ADMIN' })
-        .expect((response) => expect([400, 403]).toContain(response.status));
+        .expect(403);
     });
   });
   describe('NFR-SEC-04 sessions and cross-site requests', () => {
