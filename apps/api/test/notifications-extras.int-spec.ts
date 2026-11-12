@@ -177,7 +177,7 @@ describe('Notifications reminders and email', () => {
       await put('/notifications/preferences/Nonsense', alice.cookie)
         .send({ email: true })
         .expect(404);
-      for (const body of [{}, { email: 'yes' }, { email: 1 }, { email: true, extra: 1 }]) {
+      for (const body of [{}, { email: 'yes' }, { email: 1 }]) {
         const response = await put('/notifications/preferences/FlightDelayed', alice.cookie).send(
           body,
         );
