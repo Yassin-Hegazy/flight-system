@@ -14,6 +14,12 @@ exported from `index.ts`, alongside `InventoryFacade`, `AvailabilityRequest`, `A
 The token resolves to the same singleton as `InventoryFacade`.
 Services, repositories and entities stay private.
 
+FBS-23 extends this boundary with `commit`, `setCapacity`, and `cabinLoad`, plus their public
+`CommitError`, `CapacityError`, `CabinLoad`, and `CabinLoadError` types. See
+[FBS-23 test records](FBS-23-tests.md) for executed evidence and integration limits.
+Read-only prepayment validation is also exported through the Facade, with
+`HoldPaymentEligibility` and `HoldValidationError` public types.
+
 ```ts
 import { Inject, Injectable, Module } from '@nestjs/common';
 import { INVENTORY_API, InventoryModule, type InventoryApi } from '../inventory/index';
@@ -139,6 +145,115 @@ Its pool size of 55 is test-only, not a production configuration change.
 
 ## Schema and implementation
 
+### Payment commitment and Administration support (FBS-23 extended scope)
+
+```ts
+commit(tx: Tx, holdId: string): Promise<Result<void, CommitError>>;
+validateForPayment(holdId: string, bookingId: string): Promise<Result<HoldPaymentEligibility, HoldValidationError>>;
+setCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number): Promise<Result<void, CapacityError>>;
+cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>>;
+```
+
+Both new writers require the same active caller-owned **READ COMMITTED** transaction as `hold`.
+They never begin an independent transaction or commit/roll back the caller's transaction. As with
+`hold`, business errors do not automatically undo earlier caller writes; Booking/Administration
+must abort their complete operation on failure. Usage and unexpected database errors propagate.
+
+`commit` validates/normalizes the UUID and reads the hold's identity without locking it. It then
+locks the cabin row, locks the hold row, rechecks identity/state and samples the clock after both
+locks. Identity (`flightId`, `cabin`) is immutable; detecting a change is an unexpected writer
+contract violation. Future release/cleanup writers must also lock **cabin before hold**, with
+multiple cabins in the existing ascending normalized UUID/cabin order. A hold-first writer could
+deadlock against the cabin-first protocol and is not supported.
+
+An eligible HELD row becomes COMMITTED and its seat count is added to `committedSeats` in the same
+caller transaction. These two updates roll back together if either the database or later Booking
+confirmation fails. `COMMITTED` rows are excluded from active held counts, so they are never counted
+twice. Errors: `INVALID_HOLD_ID` for malformed IDs, `NOT_HELD` for missing, released, or already
+committed holds, and `HOLD_EXPIRED` for an EXPIRED status or a HELD row with `expiresAt <= now`.
+Duplicate commitment returns `NOT_HELD`, even after the original expiration; it never adds seats
+again. A valid late commit does not revive an expired reservation or alter its persisted status.
+Capacity CHECK violations propagate and abort the transaction rather than becoming false success.
+
+`setCapacity` validates the UUID, cabin and nonnegative integer capacity (maximum 2,147,483,647).
+It provisions a missing Inventory row with zero capacity using `INSERT ... ON CONFLICT DO NOTHING`,
+then locks that row, samples the clock and reads committed/active held counts. PostgreSQL's composite
+primary key serializes concurrent first provisioning; attempting `FOR UPDATE` on a nonexistent row
+alone would not suffice. A savepoint recovers only the named `cabin_inventory_flight_fk` violation
+as `FLIGHT_NOT_FOUND`, keeping the outer transaction usable. Other database failures propagate.
+There is no Catalog entity relationship or invented flight. This supports an uncommitted Catalog
+flight created in the same caller transaction. Savepoints do not commit the outer transaction.
+
+Updates preserve all committed/held data. Capacity must be at least `committedSeats + activeHeldSeats`.
+An invalid reduction returns a structured error:
+
+```ts
+{ code: 'BELOW_SOLD', committedSeats: number, activeHeldSeats: number }
+```
+
+Other capacity errors are `INVALID_FLIGHT_ID`, `INVALID_CABIN`, `INVALID_CAPACITY`, and
+`FLIGHT_NOT_FOUND`. Expired holds do not block a reduction. Both increases and decreases coordinate
+with `hold` and `commit` through the same cabin row lock. No new schema or migration is needed.
+
+`cabinLoad` returns each provisioned cabin with `flightId`, `cabin`, `capacity`, `committedSeats`,
+`activeHeldSeats`, and `availableSeats`, ordered by flight ID and the existing cabin enum order.
+Missing flights and valid but unprovisioned flights return `ok([])`; the operation does not assert
+Catalog existence. Malformed IDs return `INVALID_FLIGHT_ID`. One aggregate SQL statement and one
+clock instant provide a consistent view of all counts, with expired and non-HELD rows excluded.
+The FBS-21 availability query is now a projection of that same aggregate, retaining its original
+formula, zero clamp, batching and results. For valid stored states,
+`capacity = committedSeats + activeHeldSeats + availableSeats`. If legacy/direct SQL has already
+oversold a cabin, load reporting throws an explicit invariant error rather than fabricating counts;
+FBS-21 availability continues to clamp negative availability to zero as before.
+
+### Read-only prepayment validation and payment integration
+
+Booking must associate each hold with its own booking/authorization, validate the hold before
+calling a gateway, charge through Payments, then run Inventory commitment and Booking confirmation
+inside one caller-owned transaction. Never keep an Inventory database lock open across an external
+payment call. Expiry may happen during the gateway request; Booking must handle `HOLD_EXPIRED` and
+Payments must refund/compensate a successful late charge. Inventory performs no charge or refund.
+
+`validateForPayment(holdId, bookingId)` now provides that read-only prepayment check. Both UUIDs
+are required and normalized to lowercase. The second argument is the expected booking association;
+this prevents accidentally validating another booking's hold. Booking/Payments currently expose
+only scaffold modules, so there is no existing payment contract to change. The new return types are:
+
+```ts
+interface HoldPaymentEligibility {
+  readonly holdId: string;
+  readonly bookingId: string;
+  readonly expiresAt: Date;
+}
+type HoldValidationError = CommitError | 'INVALID_BOOKING_ID';
+```
+
+Malformed IDs return `INVALID_HOLD_ID` or `INVALID_BOOKING_ID` before querying. Unknown holds or
+booking mismatches return `NOT_HELD`; a mismatch does not disclose whether the other hold expired.
+For a matching booking, COMMITTED/RELEASED return `NOT_HELD`, EXPIRED returns `HOLD_EXPIRED`, and HELD
+with `expiresAt <= now` returns `HOLD_EXPIRED`. These state/expiry rules are shared with `commit`.
+An eligible hold returns its original expiration as a copied Date; callers cannot mutate an
+internal record through that Date. Unexpected persistence/clock errors propagate.
+
+The repository executes one parameterized SELECT through its default manager, with no row lock,
+write, transaction, cache, renewal, or extension. The clock is sampled after that lookup. Call after
+the booking/hold creation transaction commits: an uncommitted new hold is intentionally invisible
+to this separate committed-data read. Success is a snapshot of persisted state, not an entitlement
+or a promise about a later gateway response. `commit()` still independently rechecks the hold after
+its cabin and hold locks, so expiry or a competing state transition cannot bypass confirmation rules.
+
+**Authorization stays with Booking.** It must load the booking, verify the authenticated customer's
+right to pay, obtain the expected hold ID and booking ID from authoritative server-side records,
+and pass those values to Inventory. Supplying either or both UUIDs is not proof of ownership.
+Inventory verifies the hold-to-booking association, not customer identity, authorization, payment
+amounts, or booking status. Aggregate availability/cabinLoad do not replace this hold-specific check,
+and commit must not be used for prepayment validation because it mutates state.
+
+The Inventory-side precharge and late-commit rejection paths are tested. Actual gateway invocation
+gating, booking confirmation, and refunds remain Booking/Payments integration responsibilities;
+no real gateway-not-called guarantee or refund integration is claimed by these tests. No HTTP
+endpoint or FBS-24 release operation is added.
+
 `1794355200000-CreateInventory.ts` creates only Inventory-owned tables and enum types:
 
 | Table             | Keys and fields                                                                                        | Constraints and indexes                                                                                                                |
@@ -206,8 +321,9 @@ delete tests also enforce the relationship. The existing CI runs these tests aft
 migrations, so an accidental generated removal cannot pass the integration suite silently.
 
 FBS-22 reuses this schema, including the existing committed-seat CHECK and flight foreign key.
-No migration is needed. FBS-23 and FBS-24 remain unimplemented: there are no payment confirmation,
-release or expiration jobs, capacity administration endpoints, or Search/Booking changes.
+No migration is needed. FBS-23's Inventory commitment and the additional capacity/load operations
+are implemented. FBS-24 release, expiration jobs, Administration endpoints, and Search/Booking/
+Payments workflows remain separate work. Historical FBS-22 evidence is preserved in its own document.
 
 ## Verification and acceptance criteria
 
@@ -236,8 +352,9 @@ availability assertions, now using real flights and the seeded MS/CAI/LHR refere
   `GET /flights/airports/suggestions`, and Users/Access routes. They can be exercised with Postman;
   the normal application bootstrap publishes Swagger at `/docs`. T20 specifically checks a
   provisioned Catalog flight still appears in the flight list and detail endpoint.
-- Inventory availability and concurrency-safe hold creation are internal Nest Facade operations.
-  The PostgreSQL integration suite demonstrates their calculations, contention outcomes, rollback,
+- Inventory availability, hold creation/commitment, capacity changes and load reporting are internal
+  Nest Facade operations. The PostgreSQL integration suite demonstrates their calculations,
+  contention outcomes, rollback,
   DI boundary and database constraints, but there is no
   Inventory HTTP controller or Search/Booking route exposing availability to Swagger/Postman.
   That HTTP integration remains a **separate team requirement** for a live availability API demo;

@@ -13,6 +13,14 @@ const request: HoldRequest = { bookingId: BOOKING, flightId: FLIGHT, cabin: 'ECO
 
 function fixture() {
   const repository = {
+    assertTransaction: vi.fn(),
+    findHold: vi.fn(),
+    findPaymentHold: vi.fn(),
+    lockHold: vi.fn(),
+    commitHeld: vi.fn(),
+    ensureCabin: vi.fn(),
+    updateCapacity: vi.fn(),
+    findCabinLoad: vi.fn(),
     lockCabin: vi.fn().mockResolvedValue(true),
     findAvailability: vi
       .fn()

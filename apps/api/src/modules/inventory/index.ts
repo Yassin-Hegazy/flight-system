@@ -8,4 +8,10 @@ export type {
   InventoryApi,
   HoldError,
   HoldRequest,
+  CommitError,
+  HoldValidationError,
+  HoldPaymentEligibility,
+  CapacityError,
+  CabinLoad,
+  CabinLoadError,
 } from './inventory-api';
