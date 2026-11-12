@@ -49,8 +49,9 @@ import { UsersAccessModule } from './modules/users-access/index';
     {
       provide: APP_PIPE,
       useValue: new ValidationPipe({
+        // Fields a DTO does not declare are dropped, never trusted: a role sent by the client is
+        // ignored (US-USR-03 AC-3, US-USR-04 AC-2).
         whitelist: true,
-        forbidNonWhitelisted: true,
         transform: true,
         // Invalid input is a 400 listing each bad field, in the shared error shape (NFR-ERR-01).
         exceptionFactory: (errors) => validationError(fieldErrorsFrom(errors)),
