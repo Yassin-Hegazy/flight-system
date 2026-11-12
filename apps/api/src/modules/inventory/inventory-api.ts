@@ -46,6 +46,12 @@ export type HoldError =
 
 export type CommitError = 'INVALID_HOLD_ID' | 'HOLD_EXPIRED' | 'NOT_HELD';
 export type HoldValidationError = CommitError | 'INVALID_BOOKING_ID';
+export type ReleaseOutcome = 'RELEASED' | 'ALREADY_RELEASED';
+export type ReleaseError = 'INVALID_HOLD_ID' | 'INVALID_REQUEST';
+export interface ReleaseOptions {
+  /** Expiry callers must use this: only a still-HELD row at/past expiry may be released. */
+  readonly expiredOnly?: boolean;
+}
 export interface HoldPaymentEligibility {
   readonly holdId: string;
   readonly bookingId: string;
@@ -96,6 +102,14 @@ export interface InventoryApi {
   /** Cabin first, then hold lock; validates expiry after both. Duplicate commits return NOT_HELD.
    * Requires an active caller-owned READ COMMITTED transaction, as does setCapacity. */
   commit(tx: Tx, holdId: string): Promise<Result<void, CommitError>>;
+  /** Caller-owned READ COMMITTED transaction; cabin then hold locks. Missing/already released
+   * rows are idempotent no-ops. Expiry-only calls also skip unexpired or non-HELD reservations.
+   * Only releasing COMMITTED seats decrements the committed count. Caller owns authorization. */
+  release(
+    tx: Tx,
+    holdId: string,
+    options?: ReleaseOptions,
+  ): Promise<Result<ReleaseOutcome, ReleaseError>>;
   /** Read-only eligibility snapshot for the expected booking; not customer authorization.
    * Call after booking/hold creation commits. No locks or transaction span an external payment.
    * Booking must authorize the customer and still call commit after payment, which revalidates. */

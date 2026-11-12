@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
 import type { Cabin } from '../flight-catalog/index';
-import type { AvailabilityRequest, HoldRequest, InventoryApi } from './inventory-api';
+import type {
+  AvailabilityRequest,
+  HoldRequest,
+  InventoryApi,
+  ReleaseOptions,
+} from './inventory-api';
 import { InventoryService } from './inventory.service';
 
 /** The only Inventory use-case entry point exported to other modules. */
@@ -19,6 +24,9 @@ export class InventoryFacade implements InventoryApi {
 
   commit(tx: Tx, holdId: string) {
     return this.inventory.commit(tx, holdId);
+  }
+  release(tx: Tx, holdId: string, options?: ReleaseOptions) {
+    return this.inventory.release(tx, holdId, options);
   }
   validateForPayment(holdId: string, bookingId: string) {
     return this.inventory.validateForPayment(holdId, bookingId);

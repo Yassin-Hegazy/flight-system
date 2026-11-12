@@ -17,7 +17,8 @@ Services, repositories and entities stay private.
 FBS-23 extends this boundary with `commit`, `setCapacity`, and `cabinLoad`, plus their public
 `CommitError`, `CapacityError`, `CabinLoad`, and `CabinLoadError` types. See
 [FBS-23 test records](FBS-23-tests.md) for executed evidence and integration limits.
-Read-only prepayment validation is also exported through the Facade, with
+FBS-24 adds the `release` operation and its `ReleaseOutcome`, `ReleaseError`, and `ReleaseOptions`
+types. Read-only prepayment validation is also exported through the Facade, with
 `HoldPaymentEligibility` and `HoldValidationError` public types.
 
 ```ts
@@ -125,8 +126,8 @@ All future writes that consume capacity or reduce it must honor the same cabin-l
 The committed-seat CHECK constraint alone cannot enforce aggregate active holds across rows.
 Direct SQL fixtures are for isolated tests; production modules must use the Facade. Retrying a
 successful request is not idempotent: callers must not blindly retry an uncertain commit without
-their future booking/idempotency policy. No payment-time hold extension, confirmation, cleanup,
-release, cancellation, or HTTP endpoint is implemented here.
+their future booking/idempotency policy. Payment-time hold extension, scheduled cleanup,
+cancellation workflows and HTTP endpoints are not part of the hold primitive.
 
 ### Construction and test evidence
 
@@ -162,7 +163,7 @@ must abort their complete operation on failure. Usage and unexpected database er
 `commit` validates/normalizes the UUID and reads the hold's identity without locking it. It then
 locks the cabin row, locks the hold row, rechecks identity/state and samples the clock after both
 locks. Identity (`flightId`, `cabin`) is immutable; detecting a change is an unexpected writer
-contract violation. Future release/cleanup writers must also lock **cabin before hold**, with
+contract violation. Release uses this same ordering; future cleanup writers must lock **cabin before hold**, with
 multiple cabins in the existing ascending normalized UUID/cabin order. A hold-first writer could
 deadlock against the cabin-first protocol and is not supported.
 
@@ -252,7 +253,75 @@ and commit must not be used for prepayment validation because it mutates state.
 The Inventory-side precharge and late-commit rejection paths are tested. Actual gateway invocation
 gating, booking confirmation, and refunds remain Booking/Payments integration responsibilities;
 no real gateway-not-called guarantee or refund integration is claimed by these tests. No HTTP
-endpoint or FBS-24 release operation is added.
+payment endpoint is added. FBS-24 release is described below.
+
+### Release seats exactly once (FBS-24)
+
+```ts
+release(tx: Tx, holdId: string, options?: ReleaseOptions):
+  Promise<Result<ReleaseOutcome, ReleaseError>>;
+
+type ReleaseOutcome = 'RELEASED' | 'ALREADY_RELEASED';
+type ReleaseError = 'INVALID_HOLD_ID' | 'INVALID_REQUEST';
+interface ReleaseOptions { readonly expiredOnly?: boolean; }
+```
+
+The PDF's two release outcomes are retained inside the existing Inventory `Result` convention,
+so malformed UUIDs can use the established typed validation pattern. IDs normalize to lowercase.
+Only the documented `expiredOnly` option key is accepted. Unknown own keys, including misspellings,
+non-enumerable keys and symbols, or a defined non-boolean `expiredOnly`, return `INVALID_REQUEST`
+before any repository/database access. Omitted options, `{}`, and the existing explicit-undefined
+handling remain unchanged; `{ expiredOnly: true }` enables the guard and `false` uses normal
+cancellation behavior. Missing holds return `ok('ALREADY_RELEASED')`: there is no existing reservation left to
+change, so retries remain idempotent without a new not-found business error. The original PDF was
+not available locally; these choices follow the owner's requirements and verified live Jira AC.
+
+Every valid request requires an active caller-owned READ COMMITTED transaction, including a
+well-formed unknown ID. Inventory does not start or complete another transaction. The shared
+lifecycle helper reads hold identity without a row lock, locks the cabin first, locks the hold
+second, verifies immutable identity and rereads current state. Commit and release share this
+sequence. Callers processing multiple holds must follow the existing ascending flight-ID/cabin
+order, await writes sequentially and sort hold IDs within a cabin when applicable.
+
+| Locked state                                 | Cancellation/default behavior                         | Committed-seat effect            |
+| -------------------------------------------- | ----------------------------------------------------- | -------------------------------- |
+| HELD, active or expired                      | Transition to RELEASED; return RELEASED               | None                             |
+| COMMITTED, regardless of original expiration | Transition to RELEASED; return RELEASED               | Subtract exactly the row's seats |
+| RELEASED                                     | No mutation; return ALREADY_RELEASED                  | None                             |
+| EXPIRED                                      | Explicit cancellation transitions history to RELEASED | None                             |
+| Missing                                      | No mutation; return ALREADY_RELEASED                  | None                             |
+
+Only status changes; booking/flight/cabin association, seat count and original expiry are preserved.
+The conditional status update and any committed-seat decrement share the caller transaction.
+Neither an already-released call nor a duplicate concurrent call performs an UPDATE. Counts are
+never clamped on decrement: PostgreSQL's existing CHECK rejects inconsistent negative counts,
+and unexpected database/programming failures propagate for rollback. A caller failure after release
+also restores both count and status. Availability and cabinLoad remain derived, with no manual
+available-seat increment. Cleaning an expired HELD row cannot add availability a second time.
+
+**Expiry callers must use `release(tx, holdId, { expiredOnly: true })`.** This additive option is
+a seat-state predicate, not a second release mechanism. It rechecks, after both locks, that the
+row is still HELD and `expiresAt <= clock.now()`. An unexpired, COMMITTED, RELEASED or EXPIRED row
+is skipped with `ALREADY_RELEASED`, meaning no release was applicable to that guarded request;
+it does not imply every skipped row has persisted RELEASED status. This prevents stale expiry
+discovery from cancelling a newly paid reservation. An ordinary cancellation can still release
+COMMITTED seats after the old payment-window deadline. Never treat a paid booking as temporary
+merely because its original hold timestamp has passed.
+
+Traveler cancellation must authorize the customer and cancellation eligibility in Booking before
+calling default release in its cancellation transaction. Airline cancellation must identify the
+affected bookings/holds, authorize the flight cancellation in its owning workflow, sort locks and
+call this same Facade. Payments owns refunds; Ticketing/Notifications own their side effects.
+None of those workflow decisions belongs to Inventory.
+
+An expiry worker still needs scheduling, retries and **Inventory-owned candidate discovery** for
+expired HELD IDs; no discovery method or scheduler currently exists. Other modules must not query
+private Inventory tables directly. This change supplies safe per-ID release, including protection
+against stale discovery, without inventing a job framework. Failed caller transactions must roll
+back rather than commit earlier partial work. Persisted hold identity is immutable for all writers.
+
+See [FBS-24 test records and FBS-69 readiness](FBS-24-tests.md) for the real PostgreSQL race tests,
+fault injection, repeated-release evidence and outstanding system-level testing dependencies.
 
 `1794355200000-CreateInventory.ts` creates only Inventory-owned tables and enum types:
 
@@ -322,8 +391,9 @@ migrations, so an accidental generated removal cannot pass the integration suite
 
 FBS-22 reuses this schema, including the existing committed-seat CHECK and flight foreign key.
 No migration is needed. FBS-23's Inventory commitment and the additional capacity/load operations
-are implemented. FBS-24 release, expiration jobs, Administration endpoints, and Search/Booking/
-Payments workflows remain separate work. Historical FBS-22 evidence is preserved in its own document.
+are implemented, as is FBS-24 per-ID release. Expiration scheduling/discovery, Administration endpoints,
+and Search/Booking/Payments workflows remain separate work. No new schema or migration is needed;
+historical FBS-22 and FBS-23 evidence is preserved in its own documents.
 
 ## Verification and acceptance criteria
 
@@ -352,7 +422,7 @@ availability assertions, now using real flights and the seeded MS/CAI/LHR refere
   `GET /flights/airports/suggestions`, and Users/Access routes. They can be exercised with Postman;
   the normal application bootstrap publishes Swagger at `/docs`. T20 specifically checks a
   provisioned Catalog flight still appears in the flight list and detail endpoint.
-- Inventory availability, hold creation/commitment, capacity changes and load reporting are internal
+- Inventory availability, hold creation/commitment/release, capacity changes and load reporting are internal
   Nest Facade operations. The PostgreSQL integration suite demonstrates their calculations,
   contention outcomes, rollback,
   DI boundary and database constraints, but there is no

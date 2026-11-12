@@ -103,6 +103,24 @@ export class PgInventoryRepository implements InventoryRepository {
     }
   }
 
+  async releaseLocked(tx: Tx, hold: StoredSeatHold): Promise<void> {
+    if (hold.status === 'COMMITTED') {
+      // Never clamp: the database CHECK must reject inconsistent or negative committed counts.
+      const [, affected] = await tx.query<[unknown[], number]>(
+        `UPDATE "cabin_inventory" SET "committedSeats" = "committedSeats" - $3
+         WHERE "flightId" = $1 AND "cabin" = $2`,
+        [hold.flightId, hold.cabin, hold.seats],
+      );
+      if (affected !== 1) throw new Error('Locked cabin disappeared during release');
+    }
+    const [, affected] = await tx.query<[{ id: string }[], number]>(
+      `UPDATE "seat_holds" SET "status" = 'RELEASED'
+       WHERE "id" = $1 AND "status" = $2 RETURNING "id"`,
+      [hold.id, hold.status],
+    );
+    if (affected !== 1) throw new Error('Locked hold changed during release');
+  }
+
   async updateCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number): Promise<void> {
     await tx.query(
       'UPDATE "cabin_inventory" SET "capacity" = $3 WHERE "flightId" = $1 AND "cabin" = $2',
