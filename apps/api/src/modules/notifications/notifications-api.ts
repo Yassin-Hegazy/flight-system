@@ -12,6 +12,12 @@ export interface NotificationView {
   createdAt: string;
 }
 
+export interface NotificationPreference {
+  type: string;
+  /** Whether this type is also sent by email. In-app is always on. Off until the user opts in. */
+  email: boolean;
+}
+
 export interface InboxPage {
   /** This page's notifications, newest first. */
   items: NotificationView[];
@@ -29,6 +35,16 @@ export interface NotificationsApi {
   markRead(id: string, userId: string): Promise<Result<void, 'NOT_FOUND'>>;
   /** Marks all of the user's unread notifications as read; returns how many changed. */
   markAllRead(userId: string): Promise<number>;
+  /** Every notification type with the user's email choice, off unless they opted in. */
+  preferences(userId: string): Promise<NotificationPreference[]>;
+  /** Opts in to, or out of, email for one notification type. */
+  setEmailPreference(
+    userId: string,
+    type: string,
+    enabled: boolean,
+  ): Promise<Result<void, 'UNKNOWN_TYPE'>>;
+  /** Sends the day-before reminders for departures 23 to 24 hours after `now`; returns how many. */
+  sendDepartureReminders(now: Date): Promise<number>;
   /** The owner of a notification, or null when there is none (including a malformed ID). */
   ownerOf(id: string): Promise<string | null>;
 }

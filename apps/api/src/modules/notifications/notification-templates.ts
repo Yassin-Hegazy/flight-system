@@ -1,4 +1,5 @@
 import type { DomainEvent, DomainEventType, EventOf } from '../../shared/events';
+import type { UpcomingDeparture } from './departure-source';
 import { formatLocal, isValidTimeZone } from '../../shared/time';
 
 /** What an event turns into: who is told, and what they read. */
@@ -92,3 +93,18 @@ export function draftFor(event: DomainEvent): NotificationDraft | null {
   const template = TEMPLATES[event.type] as (event: DomainEvent) => NotificationDraft | null;
   return template(event);
 }
+
+/** The reminder sent the day before a flight (US-NT-06). It is created by a scheduled job, not by an event. */
+export function reminderDraft(departure: UpcomingDeparture): NotificationDraft {
+  const when = localTime(departure.departureUtc, departure.departureTimeZone);
+  return {
+    to: [departure.ownerId],
+    title: `Flight ${departure.flightNumber} departs tomorrow`,
+    body: `Booking ${departure.ref}: flight ${departure.flightNumber} departs ${when} (local to the departure airport).`,
+    link: `/bookings/${departure.ref}`,
+  };
+}
+
+/** Every type a notification can have: the six events Notifications observes, plus the reminder. */
+export const NOTIFICATION_TYPES = [...NOTIFIED_EVENT_TYPES, 'DepartureReminder'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

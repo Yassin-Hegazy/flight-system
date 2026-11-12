@@ -4,7 +4,10 @@ import { Test } from '@nestjs/testing';
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type DomainEvent, publishDomainEvent } from '../../shared/events';
 import { CLOCK } from '../../shared/time';
+import { EmailChannel } from './email.channel';
 import { InMemoryNotificationsRepository } from './in-memory-notifications.repository';
+import { InMemoryPreferencesRepository } from './in-memory-preferences.repository';
+import { LocalMailCatcher } from './local-mail-catcher';
 import {
   NOTIFICATION_CHANNELS,
   type NotificationChannel,
@@ -150,7 +153,7 @@ describe('US-NT-01 Get booking notifications', () => {
     ]);
   });
 
-  it('US-NT-01-T04 a failure while storing does not fail the publisher, and is logged with the event ID', async () => {
+  it('US-NT-01-T04 / NFR-OBS-01-T01 a failure while storing does not fail the publisher, and is logged with the event ID', async () => {
     harness = await startHarness();
     vi.spyOn(harness.repository, 'insertIgnoringDuplicate').mockRejectedValue(
       new Error('database down'),
@@ -318,5 +321,60 @@ describe('NFR-INTEROP-01 the email/SMS gateway is isolated from the main flow (M
     await harness.dispatcher.drain();
 
     expect(working.sent).toHaveLength(1);
+  });
+});
+
+describe('US-NT-07 email through the real event path', () => {
+  const ADDRESSES: Record<string, string> = {
+    [ALICE]: 'alice@example.com',
+    [BOB]: 'bob@example.com',
+  };
+  const directory = { emailOf: (userId: string) => Promise.resolve(ADDRESSES[userId] ?? null) };
+
+  it('US-NT-07-T01 an event emails only the traveler who opted in, and everyone still gets the in-app notification', async () => {
+    const preferences = new InMemoryPreferencesRepository();
+    const mail = new LocalMailCatcher();
+    await preferences.setEmail(ALICE, 'FlightDelayed', true); // Bob has not opted in
+    harness = await startHarness([new EmailChannel(preferences, directory, mail)]);
+
+    await harness.publish(flightDelayed({ affectedUserIds: [ALICE, BOB] }));
+    await harness.dispatcher.drain();
+
+    expect(mail.outbox.map((message) => message.to)).toEqual(['alice@example.com']);
+    expect(harness.inboxOf(ALICE)).toHaveLength(1);
+    expect(harness.inboxOf(BOB)).toHaveLength(1);
+  });
+
+  it('US-NT-07-T02 fault injection: the email transport is down, yet the in-app notification is stored and the publisher succeeds', async () => {
+    const preferences = new InMemoryPreferencesRepository();
+    await preferences.setEmail(ALICE, 'BookingConfirmed', true);
+    const brokenMail = { send: () => Promise.reject(new Error('smtp unreachable')) };
+    harness = await startHarness([new EmailChannel(preferences, directory, brokenMail)]);
+
+    await expect(harness.publish(bookingEvent('BookingConfirmed'))).resolves.toBeUndefined();
+    await harness.dispatcher.drain();
+
+    expect(harness.inboxOf(ALICE)).toHaveLength(1);
+    expect(logged).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'email',
+        err: expect.objectContaining({ message: 'smtp unreachable' }),
+      }),
+      'Channel delivery failed',
+    );
+  });
+
+  it('US-NT-07-T01 the same event delivered twice emails once', async () => {
+    const preferences = new InMemoryPreferencesRepository();
+    const mail = new LocalMailCatcher();
+    await preferences.setEmail(ALICE, 'BookingConfirmed', true);
+    harness = await startHarness([new EmailChannel(preferences, directory, mail)]);
+    const event = bookingEvent('BookingConfirmed');
+
+    await harness.publish(event);
+    await harness.publish(event);
+    await harness.dispatcher.drain();
+
+    expect(mail.outbox).toHaveLength(1);
   });
 });

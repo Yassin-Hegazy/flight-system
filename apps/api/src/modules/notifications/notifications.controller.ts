@@ -1,8 +1,24 @@
-import { Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { AppError } from '../../shared/errors';
 import { Ctx, type RequestContext, secure } from '../users-access/index';
-import { InboxQuery } from './notifications.dto';
-import { type InboxPage, NOTIFICATIONS_API, type NotificationsApi } from './notifications-api';
+import { InboxQuery, PreferenceBody } from './notifications.dto';
+import {
+  type InboxPage,
+  NOTIFICATIONS_API,
+  type NotificationPreference,
+  type NotificationsApi,
+} from './notifications-api';
 
 const SIGNED_IN = { access: 'signedIn' } as const;
 
@@ -47,5 +63,27 @@ export class NotificationsController {
       const result = await this.notifications.markRead(input.ref, principal.id);
       if (!result.ok) throw AppError.notFound('NOT_FOUND', 'Not found.');
     })(ctx, { ref: id });
+  }
+
+  /** Every notification type with the user's email choice (US-NT-07). */
+  @Get('preferences')
+  preferences(@Ctx() ctx: RequestContext): Promise<{ preferences: NotificationPreference[] }> {
+    return secure(SIGNED_IN, async ({ principal }) => ({
+      preferences: await this.notifications.preferences(principal.id),
+    }))(ctx, undefined);
+  }
+
+  /** Opts in to, or out of, email for one notification type (US-NT-07 AC-1). */
+  @Put('preferences/:type')
+  @HttpCode(204)
+  setPreference(
+    @Ctx() ctx: RequestContext,
+    @Param('type') type: string,
+    @Body() body: PreferenceBody,
+  ): Promise<void> {
+    return secure(SIGNED_IN, async ({ principal }) => {
+      const result = await this.notifications.setEmailPreference(principal.id, type, body.email);
+      if (!result.ok) throw AppError.notFound('NOT_FOUND', 'Not found.');
+    })(ctx, undefined);
   }
 }

@@ -63,6 +63,12 @@ jobs:
       - name: Check architecture rules
         run: pnpm depcruise
 
+      - name: Script tests
+        run: pnpm test:scripts
+
+      - name: Story and NFR traceability (beta scope)
+        run: pnpm traceability --through=beta --strict
+
       - name: Unit tests
         run: pnpm test
 

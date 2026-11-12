@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DepartureReminderService } from './departure-reminder.service';
 import { InMemoryNotificationsRepository } from './in-memory-notifications.repository';
+import { InMemoryPreferencesRepository } from './in-memory-preferences.repository';
+import { NOTIFICATION_TYPES } from './notification-templates';
 import { NotificationsService, PAGE_SIZE } from './notifications.service';
 import { ALICE, BOB, ManualClock } from './test-support';
 
@@ -8,11 +11,20 @@ const START = new Date('2026-11-07T10:00:00Z');
 let repository: InMemoryNotificationsRepository;
 let clock: ManualClock;
 let service: NotificationsService;
+let preferences: InMemoryPreferencesRepository;
+const sendDueReminders = vi.fn();
 
 beforeEach(() => {
   repository = new InMemoryNotificationsRepository();
   clock = new ManualClock(START);
-  service = new NotificationsService(repository, clock);
+  preferences = new InMemoryPreferencesRepository();
+  sendDueReminders.mockReset();
+  service = new NotificationsService(
+    repository,
+    clock,
+    { sendDueReminders } as unknown as DepartureReminderService,
+    preferences,
+  );
 });
 
 /** Stores a notification for a user, created `minutesAfterStart` after the start. */
@@ -174,5 +186,50 @@ describe('US-NT-05 Mark all as read', () => {
 
     expect(await service.markAllRead(ALICE)).toBe(1);
     expect(repository.notifications[0].readAt).toEqual(START);
+  });
+});
+
+describe('US-NT-07 email preferences', () => {
+  it('US-NT-07-T03 every notification type is listed, with email off until the traveler opts in', async () => {
+    const list = await service.preferences(ALICE);
+
+    expect(list.map((p) => p.type)).toEqual([...NOTIFICATION_TYPES]);
+    expect(list.every((p) => p.email === false)).toBe(true);
+  });
+
+  it('US-NT-07-T03 opting in changes only that type, for only that traveler', async () => {
+    expect(await service.setEmailPreference(ALICE, 'FlightDelayed', true)).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    const alices = await service.preferences(ALICE);
+    expect(alices.filter((p) => p.email).map((p) => p.type)).toEqual(['FlightDelayed']);
+    expect((await service.preferences(BOB)).some((p) => p.email)).toBe(false);
+  });
+
+  it('US-NT-07-T03 opting out again turns it back off', async () => {
+    await service.setEmailPreference(ALICE, 'FlightDelayed', true);
+    await service.setEmailPreference(ALICE, 'FlightDelayed', false);
+
+    expect((await service.preferences(ALICE)).some((p) => p.email)).toBe(false);
+  });
+
+  it('US-NT-07-T03 a type that does not exist is refused, and nothing is stored', async () => {
+    expect(await service.setEmailPreference(ALICE, 'Nonsense', true)).toEqual({
+      ok: false,
+      error: 'UNKNOWN_TYPE',
+    });
+    expect(await preferences.list(ALICE)).toEqual([]);
+  });
+});
+
+describe('US-NT-06 departure reminders through the API', () => {
+  it('US-NT-06-T01 sendDepartureReminders hands the moment to the reminder service and returns its count', async () => {
+    sendDueReminders.mockResolvedValue(4);
+    const now = new Date('2026-12-09T08:00:00Z');
+
+    expect(await service.sendDepartureReminders(now)).toBe(4);
+    expect(sendDueReminders).toHaveBeenCalledWith(now);
   });
 });

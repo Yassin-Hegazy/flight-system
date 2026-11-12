@@ -49,26 +49,49 @@ await publishDomainEvent(this.events, {
 
 All routes need a signed-in user and only ever touch the caller's own notifications.
 
-| Route                           | Story    | Result                                                                             |
-| ------------------------------- | -------- | ---------------------------------------------------------------------------------- |
-| `GET /notifications?page=1`     | US-NT-04 | `{ items, unread, total, page, pageSize }`, newest first, 20 per page              |
-| `PATCH /notifications/:id/read` | US-NT-03 | 204. Another user's (or an unknown) ID is a 404 with the same body, for admins too |
-| `POST /notifications/read-all`  | US-NT-05 | `{ updated }`, the number of notifications changed                                 |
+| Route                                  | Story    | Result                                                                             |
+| -------------------------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `GET /notifications?page=1`            | US-NT-04 | `{ items, unread, total, page, pageSize }`, newest first, 20 per page              |
+| `PATCH /notifications/:id/read`        | US-NT-03 | 204. Another user's (or an unknown) ID is a 404 with the same body, for admins too |
+| `POST /notifications/read-all`         | US-NT-05 | `{ updated }`, the number of notifications changed                                 |
+| `GET /notifications/preferences`       | US-NT-07 | `{ preferences: [{ type, email }] }`, every type, email off until the user opts in |
+| `PUT /notifications/preferences/:type` | US-NT-07 | 204. Body `{ "email": true \| false }`. An unknown type is a 404                   |
+
+### Integration points (what other modules still need to provide)
+
+Notifications imports nothing from other domain modules. Where it needs something back, it defines a **port** (an interface plus an injection token, exported from `index.ts`) with a do-nothing default, so the feature stays quiet until the owning module wires a real one. Each is a one-line change in `notifications.module.ts`: replace the default `useClass` with an adapter over the other module's API.
+
+| Port               | Provided by                        | Used for                                                 | Until it exists       |
+| ------------------ | ---------------------------------- | -------------------------------------------------------- | --------------------- |
+| domain events      | Booking, Ticketing, Administration | every notification above                                 | inboxes stay empty    |
+| `DEPARTURE_SOURCE` | Booking                            | the reminder job: bookings with their flight's departure | no reminders are sent |
+| `EMAIL_DIRECTORY`  | Users and Access                   | email: the address for a user ID                         | no email is sent      |
+
+- `DepartureSource.ticketedDeparturesBetween(from, to)` returns bookings (any status) whose flight departs in that range, as `UpcomingDeparture` objects carrying the booking and flight status. Notifications decides whom to remind.
+- `EmailDirectory.emailOf(userId)` returns the user's address, or `null`.
 
 ## Design
 
 - **Observer** (`notification-event.handler.ts`): subscribes to every event type that has a template, when the module starts.
 - **Declarative** (`notification-templates.ts`): a table from event type to message. Adding a row observes a new event.
 - **Imperative** (`notification-event.handler.ts`): map, fan out per recipient, store, push outward.
-- **Adapter** (`notification-channel.ts`): the interface the email/SMS gateway sits behind. `SimulatedGatewayChannel` is the simulated gateway; a real one is another `NotificationChannel`. Delivery is started without waiting and its failures are logged and dropped, so a broken or slow gateway never delays or undoes a booking or status change.
-- **Repository** (`notifications.repository.ts`): `PgNotificationsRepository` is the only file with SQL. The unique `(eventId, userId)` key makes a repeated event a no-op.
+- **Adapter** (`notification-channel.ts`): the interface every way out of the app sits behind. `EmailChannel` is the only channel today; another is one more `NotificationChannel`. Delivery is started without waiting and its failures are logged and dropped, so a broken or slow channel never delays or undoes a booking or status change.
+- **Adapter for mail** (`mail.ts`): how an email leaves. `LocalMailCatcher` keeps the latest 100 messages in memory and sends nothing; a real SMTP transport would be another `MailTransport`.
+- **Ports** (`departure-source.ts`, `email-directory.ts`): dependency inversion. Notifications owns the interface and other modules implement it, so Notifications never imports them.
+- **Scheduled job** (`departure-reminder.job.ts`): runs every 10 minutes through `@nestjs/schedule`. The reminder rule lives in `departure-reminder.service.ts`.
+- **Repository** (`notifications.repository.ts`, `preferences.repository.ts`): the `Pg...` classes are the only files with SQL. The unique `(eventId, userId)` key makes a repeated event, or a repeated reminder, a no-op.
 - **Guards** (`notifications.controller.ts`): routes use `secure()` from Users and Access, so ownership is enforced on the server.
+
+## Reminders and email
+
+- **Reminder** (US-NT-06): a booking whose status is `TICKETED` and whose flight is not `CANCELLED` is reminded when the flight is 23 to 24 hours away (both ends inclusive). Its reminder ID is `reminder:<bookingId>`, so each booking is reminded once however often, or however many times at once, the job runs (NFR-REL-02).
+- **Email** (US-NT-07): off by default. A traveler opts in per notification type. The email carries exactly the in-app title and text. If the address is unknown or the transport fails, the in-app notification is unaffected.
 
 ## Scope
 
-Beta: US-NT-01, US-NT-04 (this module's beta stories), plus US-NT-02 (flight status, the core of milestone 1 FR 5), US-NT-03, US-NT-05 and the gateway Adapter (milestone 1 NFR 5).
+All seven stories are built: US-NT-01 to US-NT-07, with the gateway Adapter (milestone 1 NFR 5).
 
-Not yet built: US-NT-06 (departure reminder job) and US-NT-07 (email opt-in per type). Both need data from other modules and are planned for the final version.
+What works end to end today is everything that only needs this module and the database. Reminders and email stay quiet in a running app until Booking provides `DEPARTURE_SOURCE` and Users and Access provides `EMAIL_DIRECTORY`; both are covered by tests that supply stand-ins for them. NFR-USAB-01 (a keyboard-accessible inbox, checked with axe) needs the web inbox, which is not built yet.
 
 ## Module rules
 
