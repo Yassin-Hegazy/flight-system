@@ -149,6 +149,10 @@ export class UsersAccessService implements UsersApi {
     return this.repository.listSavedTravelers(ownerId);
   }
 
+  savedTravelerOwner(id: string): Promise<string | null> {
+    return this.repository.findSavedTravelerOwner(id);
+  }
+
   async addSavedTraveler(
     ownerId: string,
     input: SavedTravelerInput,

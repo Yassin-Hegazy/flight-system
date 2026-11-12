@@ -53,6 +53,8 @@ export interface UsersRepository {
 
   listSavedTravelers(ownerId: string): Promise<SavedTravelerRecord[]>;
   countSavedTravelers(ownerId: string): Promise<number>;
+  /** The user a saved traveler belongs to, or null when there is no such traveler. */
+  findSavedTravelerOwner(id: string): Promise<string | null>;
   insertSavedTraveler(traveler: Omit<SavedTravelerRecord, 'id'>): Promise<SavedTravelerRecord>;
   /** Updates the traveler only if it belongs to ownerId; returns null when it does not. */
   updateSavedTraveler(traveler: SavedTravelerRecord): Promise<SavedTravelerRecord | null>;

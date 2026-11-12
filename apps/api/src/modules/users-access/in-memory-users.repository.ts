@@ -102,6 +102,10 @@ export class InMemoryUsersRepository implements UsersRepository {
     );
   }
 
+  findSavedTravelerOwner(id: string): Promise<string | null> {
+    return Promise.resolve(this.travelers.get(id)?.ownerId ?? null);
+  }
+
   insertSavedTraveler(traveler: Omit<SavedTravelerRecord, 'id'>): Promise<SavedTravelerRecord> {
     const saved = { ...traveler, id: randomUUID() };
     this.travelers.set(saved.id, saved);

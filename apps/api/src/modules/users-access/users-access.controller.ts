@@ -22,6 +22,7 @@ import {
   type RequestContext,
   signedIn,
   WithAuth,
+  WithOwnership,
   WithRole,
 } from './access';
 import {
@@ -40,8 +41,10 @@ import {
 import { UserRole } from './users-access.domain';
 import { type SavedTraveler, USERS_API, type UsersApi } from './users-api';
 
+// The same body WithOwnership answers with, so a malformed ID, a missing traveler and someone
+// else's traveler are indistinguishable.
 function travelerNotFound(): AppError {
-  return AppError.notFound('SAVED_TRAVELER_NOT_FOUND', 'Saved traveler not found.');
+  return AppError.notFound('NOT_FOUND', 'Not found.');
 }
 
 function created(result: Result<string, 'EMAIL_TAKEN' | 'WEAK_PASSWORD'>): { id: string } {
@@ -169,8 +172,9 @@ export class UsersAccessController {
     ).execute(ctx, undefined);
   }
 
-  // Saved travelers are always read and written through the signed-in owner's ID, so another
-  // user's traveler is simply not found (US-USR-06 AC-3).
+  // A saved traveler is changed or deleted only through WithOwnership, so another user's traveler
+  // answers exactly like one that does not exist (US-USR-01 AC-1, US-USR-06 AC-3).
+  private readonly travelerOwner = (ref: string) => this.users.savedTravelerOwner(ref);
 
   @Get('me/saved-travelers')
   listSavedTravelers(@Ctx() ctx: RequestContext): Promise<SavedTraveler[]> {
@@ -203,13 +207,15 @@ export class UsersAccessController {
     @Body() input: SavedTravelerInput,
   ): Promise<SavedTraveler> {
     return new WithAuth(
-      new Action(async (caller: RequestContext) => {
-        const principal = signedIn(caller);
-        const result = await this.users.updateSavedTraveler(principal.id, id, input);
-        if (!result.ok) throw travelerNotFound();
-        return result.value;
-      }),
-    ).execute(ctx, undefined);
+      new WithOwnership(
+        new Action(async (caller: RequestContext, { ref }: { ref: string }) => {
+          const result = await this.users.updateSavedTraveler(signedIn(caller).id, ref, input);
+          if (!result.ok) throw travelerNotFound();
+          return result.value;
+        }),
+        this.travelerOwner,
+      ),
+    ).execute(ctx, { ref: id });
   }
 
   @Delete('me/saved-travelers/:id')
@@ -219,11 +225,13 @@ export class UsersAccessController {
     @Param('id', TRAVELER_ID) id: string,
   ): Promise<void> {
     return new WithAuth(
-      new Action(async (caller: RequestContext) => {
-        const principal = signedIn(caller);
-        const result = await this.users.deleteSavedTraveler(principal.id, id);
-        if (!result.ok) throw travelerNotFound();
-      }),
-    ).execute(ctx, undefined);
+      new WithOwnership(
+        new Action(async (caller: RequestContext, { ref }: { ref: string }) => {
+          const result = await this.users.deleteSavedTraveler(signedIn(caller).id, ref);
+          if (!result.ok) throw travelerNotFound();
+        }),
+        this.travelerOwner,
+      ),
+    ).execute(ctx, { ref: id });
   }
 }

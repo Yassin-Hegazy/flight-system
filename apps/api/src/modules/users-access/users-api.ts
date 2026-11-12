@@ -49,6 +49,8 @@ export interface UsersApi {
     keepSession?: string,
   ): Promise<Result<void, 'INVALID_CURRENT' | 'WEAK_PASSWORD'>>;
   listSavedTravelers(ownerId: string): Promise<SavedTraveler[]>;
+  /** Who owns a saved traveler, or null when it does not exist: the lookup WithOwnership needs. */
+  savedTravelerOwner(id: string): Promise<string | null>;
   addSavedTraveler(
     ownerId: string,
     input: SavedTravelerInput,
