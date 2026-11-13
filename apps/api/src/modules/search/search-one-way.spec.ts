@@ -1,55 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { money } from '../../shared/money';
-import { AirportCode, type FlightInfo, FlightStatus } from '../flight-catalog/index';
-import { SearchOneWay } from './search-one-way';
-import { ArrivalTimeSortStrategy } from './sorting/arrival-time-sort.strategy';
-import { DepartureTimeSortStrategy } from './sorting/departure-time-sort.strategy';
-import { DurationSortStrategy } from './sorting/duration-sort.strategy';
-import { PriceSortStrategy } from './sorting/price-sort.strategy';
-import { SortRegistry } from './sorting/sort-registry';
-import {
-  CAIRO,
-  CatalogStub,
-  criteria,
-  fixedClock,
-  flight,
-  HEATHROW,
-  InventoryStub,
-  NOW,
-} from './test-support';
-
-const registry = () =>
-  new SortRegistry([
-    new PriceSortStrategy(),
-    new DurationSortStrategy(),
-    new DepartureTimeSortStrategy(),
-    new ArrivalTimeSortStrategy(),
-  ]);
-
-interface Setup {
-  flights?: FlightInfo[];
-  seats?: Record<string, number>;
-  /** Seats for a flight missing from `seats`; null means it has no inventory. */
-  defaultSeats?: number | null;
-  now?: Date;
-}
-
-function searchWith({ flights = [], seats = {}, defaultSeats = 50, now = NOW }: Setup = {}) {
-  const catalog = new CatalogStub(flights);
-  const inventory = new InventoryStub(seats, defaultSeats ?? undefined);
-  const search = new SearchOneWay(catalog, inventory, registry(), fixedClock(now));
-  return { search, catalog, inventory };
-}
-
-const ids = (page: { items: { flightId: string }[] }) => page.items.map((item) => item.flightId);
-
-async function expectOk<T>(
-  promise: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,
-) {
-  const outcome = await promise;
-  if (!outcome.ok) throw new Error(`Expected ok, got ${String(outcome.error)}`);
-  return outcome.value;
-}
+import { AirportCode, FlightStatus } from '../flight-catalog/index';
+import { CAIRO, criteria, expectOk, flight, HEATHROW, ids, NOW, searchWith } from './test-support';
 
 describe('US-FS-01 search one-way flights', () => {
   it('US-FS-01-T01 returns the bookable flights on the route that day, priced for the party', async () => {

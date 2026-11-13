@@ -19,6 +19,12 @@ import {
 import type { Availability, AvailabilityError, AvailabilityRequest } from '../inventory/index';
 import type { InventoryApi } from '../inventory/index';
 import type { OneWayCriteria, SearchResult } from './search-api';
+import { SearchOneWay } from './search-one-way';
+import { ArrivalTimeSortStrategy } from './sorting/arrival-time-sort.strategy';
+import { DepartureTimeSortStrategy } from './sorting/departure-time-sort.strategy';
+import { DurationSortStrategy } from './sorting/duration-sort.strategy';
+import { PriceSortStrategy } from './sorting/price-sort.strategy';
+import { SortRegistry } from './sorting/sort-registry';
 
 export const CAIRO: AirportInfo = {
   code: 'CAI',
@@ -281,4 +287,41 @@ export function criteria(overrides: Partial<OneWayCriteria> = {}): OneWayCriteri
     cabin: 'ECONOMY',
     ...overrides,
   };
+}
+
+/** The four sort orders the module registers, in the same order. */
+export const registry = () =>
+  new SortRegistry([
+    new PriceSortStrategy(),
+    new DurationSortStrategy(),
+    new DepartureTimeSortStrategy(),
+    new ArrivalTimeSortStrategy(),
+  ]);
+
+export interface Setup {
+  flights?: FlightInfo[];
+  seats?: Record<string, number>;
+  /** Seats for a flight missing from `seats`; null means it has no inventory. */
+  defaultSeats?: number | null;
+  now?: Date;
+}
+
+/** A SearchOneWay over stubs, with the stubs returned so a test can spy on them. */
+export function searchWith({ flights = [], seats = {}, defaultSeats = 50, now = NOW }: Setup = {}) {
+  const catalog = new CatalogStub(flights);
+  const inventory = new InventoryStub(seats, defaultSeats ?? undefined);
+  const search = new SearchOneWay(catalog, inventory, registry(), fixedClock(now));
+  return { search, catalog, inventory };
+}
+
+export const ids = (page: { items: { flightId: string }[] }) =>
+  page.items.map((item) => item.flightId);
+
+/** Unwraps an ok Result, failing the test with the error code otherwise. */
+export async function expectOk<T>(
+  promise: Promise<{ ok: true; value: T } | { ok: false; error: unknown }>,
+): Promise<T> {
+  const outcome = await promise;
+  if (!outcome.ok) throw new Error(`Expected ok, got ${String(outcome.error)}`);
+  return outcome.value;
 }
