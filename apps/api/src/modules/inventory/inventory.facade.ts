@@ -28,8 +28,8 @@ export class InventoryFacade implements InventoryApi {
   release(tx: Tx, holdId: string, options?: ReleaseOptions) {
     return this.inventory.release(tx, holdId, options);
   }
-  validateForPayment(holdId: string, bookingId: string) {
-    return this.inventory.validateForPayment(holdId, bookingId);
+  validateForPayment(holdId: string, bookingId: string, tx?: Tx) {
+    return this.inventory.validateForPayment(holdId, bookingId, tx);
   }
   setCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number) {
     return this.inventory.setCapacity(tx, flightId, cabin, capacity);

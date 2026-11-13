@@ -19,13 +19,13 @@ export interface TestDatabase {
  * Starts a throwaway PostgreSQL container and applies all migrations to it.
  * Call in beforeAll() and call stop() in afterAll().
  */
-export async function startTestDatabase(): Promise<TestDatabase> {
+export async function startTestDatabase(through = Number.POSITIVE_INFINITY): Promise<TestDatabase> {
   const container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
   const url = container.getConnectionUri();
 
   const dataSource = new DataSource({
     ...baseDatabaseOptions(url),
-    migrations: await loadMigrationClasses(),
+    migrations: await loadMigrationClasses(through),
   });
   await dataSource.initialize();
   try {
@@ -47,9 +47,9 @@ export async function startTestDatabase(): Promise<TestDatabase> {
  * Loads the migration source files through Vitest, which compiles TypeScript.
  * TypeORM's own glob loading would hand the .ts files to Node directly, which cannot run them.
  */
-async function loadMigrationClasses(): Promise<MigrationClass[]> {
+async function loadMigrationClasses(through: number): Promise<MigrationClass[]> {
   const files = readdirSync(MIGRATIONS_DIR)
-    .filter((file) => file.endsWith('.ts'))
+    .filter((file) => file.endsWith('.ts') && Number(file.split('-')[0]) <= through)
     .sort();
 
   const classes: MigrationClass[] = [];

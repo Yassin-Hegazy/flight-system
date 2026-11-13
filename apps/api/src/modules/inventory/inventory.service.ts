@@ -71,13 +71,14 @@ export class InventoryService {
   async validateForPayment(
     holdId: string,
     bookingId: string,
+    tx?: Tx,
   ): Promise<Result<HoldPaymentEligibility, HoldValidationError>> {
     if (!isUuid(holdId)) return err('INVALID_HOLD_ID');
     if (!isUuid(bookingId)) return err('INVALID_BOOKING_ID');
-    const hold = await this.repository.findPaymentHold(
-      holdId.toLowerCase(),
-      bookingId.toLowerCase(),
-    );
+    const ids = [holdId.toLowerCase(), bookingId.toLowerCase()] as const;
+    const hold = tx
+      ? await this.repository.findPaymentHold(...ids, tx)
+      : await this.repository.findPaymentHold(...ids);
     if (!hold) return err('NOT_HELD');
     const eligibilityError = this.holdEligibilityError(hold);
     if (eligibilityError) return err(eligibilityError);

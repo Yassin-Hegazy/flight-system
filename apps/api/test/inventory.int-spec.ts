@@ -54,7 +54,8 @@ describe('US-INV-01 Inventory against PostgreSQL', () => {
   let now: Date;
 
   beforeAll(async () => {
-    database = await startTestDatabase();
+    // Exercise the Inventory migration boundary, including rolling it back before dependents exist.
+    database = await startTestDatabase(1794441600000);
     moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
