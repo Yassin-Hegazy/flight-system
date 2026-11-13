@@ -25,6 +25,9 @@
     "db:migrate": "pnpm --filter api run db:migrate",
     "db:migrate:revert": "pnpm --filter api run db:migrate:revert",
     "db:seed:admin": "pnpm --filter api run db:seed:admin",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "traceability": "node scripts/check-traceability.mjs",
+    "test:scripts": "node --test scripts/check-traceability.test.mjs scripts/bootstrap.test.mjs",
     "prepare": "husky"
   },
   "lint-staged": {

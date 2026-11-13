@@ -66,6 +66,22 @@ export default defineConfig([
     },
   },
 
+  // Complexity (NFR-MAINT-03): no function may exceed 10 branches. New code stays at or below 10.
+  {
+    files: ['apps/**/*.{ts,tsx,mts}', 'scripts/**/*.mjs'],
+    rules: { complexity: ['error', 10] },
+  },
+  // Functions that already exceeded 10 before the limit was added. Their module owners should
+  // refactor them and then delete these entries. Do not add to this list.
+  {
+    files: ['apps/api/src/modules/flight-catalog/flight.ts'], // Flight.schedule: 15
+    rules: { complexity: ['error', 15] },
+  },
+  {
+    files: ['apps/api/src/modules/flight-catalog/flight-info.mapper.ts'], // toFlightInfo: 11
+    rules: { complexity: ['error', 11] },
+  },
+
   // Formatting is Prettier's job; turn off rules that would conflict with it. Must be last.
   prettier,
 ]);

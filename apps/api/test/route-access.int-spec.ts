@@ -19,7 +19,7 @@ import { startTestDatabase, type TestDatabase } from './support/postgres';
 type Access = 'public' | 'signedIn' | 'owner' | 'admin';
 
 interface RouteSpec {
-  method: 'get' | 'post' | 'patch' | 'delete';
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete';
   path: string;
   access: Access;
   /** A valid body, so validation never answers before the access check is reached. */
@@ -70,6 +70,16 @@ const ROUTES: RouteSpec[] = [
     body: () => ({ name: 'Renamed Person', dateOfBirth: '1990-05-01' }),
   },
   { method: 'delete', path: '/users/me/saved-travelers/:id', access: 'owner' },
+  { method: 'get', path: '/notifications', access: 'signedIn' },
+  { method: 'get', path: '/notifications/preferences', access: 'signedIn' },
+  {
+    method: 'put',
+    path: '/notifications/preferences/:type',
+    access: 'signedIn',
+    body: () => ({ email: true }),
+  },
+  { method: 'post', path: '/notifications/read-all', access: 'signedIn' },
+  { method: 'patch', path: '/notifications/:id/read', access: 'owner' },
   {
     method: 'post',
     path: '/users/admins',

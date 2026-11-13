@@ -1,0 +1,309 @@
+{
+  "note": "Required stories and NFRs, checked by scripts/check-traceability.mjs. A test covers an ID by starting its title with the ID and a test number, e.g. US-NT-01-T01. Each module owner adds their own IDs here. Entries for modules other than Notifications list only the IDs their tests already name, so owners should add the rest. milestone is beta, final or stretch. verifiedBy is 'test' or 'tool' (then 'check' says which tool).",
+  "items": [
+    {
+      "id": "US-NT-01",
+      "module": "notifications",
+      "title": "Get booking notifications",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-04",
+      "module": "notifications",
+      "title": "See my notification inbox",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-02",
+      "module": "notifications",
+      "title": "Get flight status notifications",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-03",
+      "module": "notifications",
+      "title": "Mark a notification as read",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-05",
+      "module": "notifications",
+      "title": "Mark all as read",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-06",
+      "module": "notifications",
+      "title": "Get a departure reminder",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-NT-07",
+      "module": "notifications",
+      "title": "Receive notifications by email",
+      "milestone": "stretch",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-INTEROP-01",
+      "module": "notifications",
+      "title": "Gateway failures never break the main flow (milestone 1 NFR 5)",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-OBS-01",
+      "module": "notifications",
+      "title": "Handler failures are logged with the event and request ID",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-REL-02",
+      "module": "notifications",
+      "title": "The reminder job is safe to re-run",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-USAB-01",
+      "module": "notifications",
+      "title": "Inbox is keyboard-accessible; unread is not shown by colour alone",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-MAINT-01",
+      "module": "platform",
+      "title": "Modules use each other only through public boundaries",
+      "milestone": "beta",
+      "verifiedBy": "tool",
+      "check": "pnpm depcruise (runs in CI)"
+    },
+    {
+      "id": "NFR-MAINT-03",
+      "module": "platform",
+      "title": "Strict TypeScript and ESLint complexity limit",
+      "milestone": "beta",
+      "verifiedBy": "tool",
+      "check": "pnpm typecheck and pnpm lint (run in CI)"
+    },
+    {
+      "id": "NFR-TEST-01",
+      "module": "platform",
+      "title": "Story and NFR to test traceability",
+      "milestone": "beta",
+      "verifiedBy": "tool",
+      "check": "node --test scripts/check-traceability.test.mjs"
+    },
+    {
+      "id": "NFR-PORT-01",
+      "module": "platform",
+      "title": "One-command setup with migrations and seed data",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-DATA-01",
+      "module": "platform",
+      "title": "Money in integer minor units",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-DATA-02",
+      "module": "platform",
+      "title": "UTC storage, airport-local behaviour",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-ERR-01",
+      "module": "platform",
+      "title": "One error shape for every API error",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-PRIV-01",
+      "module": "platform",
+      "title": "Sensitive data stays out of logs, responses and messages",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-01",
+      "module": "users-access",
+      "title": "Access only my own bookings and tickets",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-02",
+      "module": "users-access",
+      "title": "Edit my profile",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-03",
+      "module": "users-access",
+      "title": "Restrict administrative actions",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-04",
+      "module": "users-access",
+      "title": "Register an account",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-05",
+      "module": "users-access",
+      "title": "Sign in and sign out",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-06",
+      "module": "users-access",
+      "title": "Manage saved travelers",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-USR-07",
+      "module": "users-access",
+      "title": "Change my password",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-SEC-01",
+      "module": "users-access",
+      "title": "Passwords are stored only as slow, salted hashes",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-SEC-02",
+      "module": "users-access",
+      "title": "Every route is authorised",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-SEC-03",
+      "module": "users-access",
+      "title": "Malformed input is a 400, never a 500",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-SEC-04",
+      "module": "users-access",
+      "title": "Sessions and cross-site requests",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-01",
+      "module": "flight-catalog",
+      "title": "Schedule a flight with its airline and cabin fares",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-02",
+      "module": "flight-catalog",
+      "title": "Change a flight status",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-03",
+      "module": "flight-catalog",
+      "title": "Set a cabin fare",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-04",
+      "module": "flight-catalog",
+      "title": "Validate and manage airports",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-01",
+      "module": "inventory",
+      "title": "Show genuine availability",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-02",
+      "module": "inventory",
+      "title": "Prevent overselling",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-03",
+      "module": "inventory",
+      "title": "Hold seats while I pay",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-04",
+      "module": "inventory",
+      "title": "Release seats exactly once",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FL-01",
+      "module": "flight-catalog",
+      "title": "View flight details",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FL-02",
+      "module": "flight-catalog",
+      "title": "See current flight status",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FL-03",
+      "module": "flight-catalog",
+      "title": "Look up airports",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FS-04",
+      "module": "flight-catalog",
+      "title": "Party pricing for adults, children and infants",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-PERF-01",
+      "module": "flight-catalog",
+      "title": "Route search uses the composite index",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    }
+  ]
+}
