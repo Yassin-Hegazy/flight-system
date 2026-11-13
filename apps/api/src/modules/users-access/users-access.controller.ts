@@ -12,6 +12,14 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ApiErrors, ApiSession } from '../../shared/api-docs';
 import type { Request, Response } from 'express';
 import { AppError, validationError } from '../../shared/errors';
 import type { Result } from '../../shared/result';
@@ -65,17 +73,24 @@ const TRAVELER_ID = new ParseUUIDPipe({ exceptionFactory: travelerNotFound });
  * needs and executes the result; a public route calls its use case directly. The controller only
  * maps results to HTTP.
  */
+@ApiTags('Users and Access')
 @Controller('users')
 export class UsersAccessController {
   constructor(@Inject(USERS_API) private readonly users: UsersApi) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Register a traveler account' })
+  @ApiCreatedResponse({ description: "The new account's ID." })
+  @ApiErrors(400, 409)
   async register(@Body() input: RegisterInput): Promise<{ id: string }> {
     return created(await this.users.register(input));
   }
 
   /** Only an administrator creates another administrator (US-USR-04 AC-3). */
   @Post('admins')
+  @ApiOperation({ summary: 'Create another administrator (administrators only)' })
+  @ApiCreatedResponse({ description: "The new administrator's ID." })
+  @ApiSession(400, 403, 409)
   createAdmin(@Ctx() ctx: RequestContext, @Body() input: RegisterInput): Promise<{ id: string }> {
     return new WithAuth(
       new WithRole(
@@ -91,6 +106,9 @@ export class UsersAccessController {
    * same response as a wrong password (US-USR-05 AC-1).
    */
   @Post('sign-in')
+  @ApiOperation({ summary: 'Sign in; sets the HttpOnly session cookie' })
+  @ApiOkResponse({ description: 'Who signed in. The session token is only in the cookie.' })
+  @ApiErrors(400, 401)
   @HttpCode(200)
   async signIn(
     @Body() input: SignInInput,
@@ -111,6 +129,8 @@ export class UsersAccessController {
 
   /** Deletes the server-side session, so a copied cookie stops working (US-USR-05 AC-2). */
   @Post('sign-out')
+  @ApiOperation({ summary: 'Sign out and end the server-side session' })
+  @ApiNoContentResponse({ description: 'Signed out; the cookie is cleared.' })
   @HttpCode(204)
   async signOut(
     @Req() request: Request,
@@ -122,6 +142,9 @@ export class UsersAccessController {
   }
 
   @Get('me')
+  @ApiOperation({ summary: 'Read who is signed in' })
+  @ApiOkResponse({ description: 'Your ID, email, name and role.' })
+  @ApiSession()
   me(@Ctx() ctx: RequestContext): Promise<Principal> {
     return new WithAuth(
       new Action((caller: RequestContext) => Promise.resolve(signedIn(caller))),
@@ -129,6 +152,9 @@ export class UsersAccessController {
   }
 
   @Patch('me')
+  @ApiOperation({ summary: 'Update your name, phone or email' })
+  @ApiNoContentResponse({ description: 'Saved.' })
+  @ApiSession(400, 409)
   @HttpCode(204)
   updateProfile(@Ctx() ctx: RequestContext, @Body() input: ProfileInput): Promise<void> {
     return new WithAuth(
@@ -149,6 +175,9 @@ export class UsersAccessController {
   }
 
   @Patch('me/password')
+  @ApiOperation({ summary: 'Change your password' })
+  @ApiNoContentResponse({ description: 'Changed.' })
+  @ApiSession(400)
   @HttpCode(204)
   changePassword(
     @Ctx() ctx: RequestContext,
@@ -177,6 +206,9 @@ export class UsersAccessController {
   private readonly travelerOwner = (ref: string) => this.users.savedTravelerOwner(ref);
 
   @Get('me/saved-travelers')
+  @ApiOperation({ summary: 'List your saved travelers' })
+  @ApiOkResponse({ description: 'Your saved travelers.' })
+  @ApiSession()
   listSavedTravelers(@Ctx() ctx: RequestContext): Promise<SavedTraveler[]> {
     return new WithAuth(
       new Action((caller: RequestContext) => this.users.listSavedTravelers(signedIn(caller).id)),
@@ -184,6 +216,9 @@ export class UsersAccessController {
   }
 
   @Post('me/saved-travelers')
+  @ApiOperation({ summary: 'Save a traveler to reuse when booking' })
+  @ApiCreatedResponse({ description: 'The saved traveler.' })
+  @ApiSession(400, 409)
   addSavedTraveler(
     @Ctx() ctx: RequestContext,
     @Body() input: SavedTravelerInput,
@@ -201,6 +236,9 @@ export class UsersAccessController {
   }
 
   @Patch('me/saved-travelers/:id')
+  @ApiOperation({ summary: 'Edit one of your saved travelers' })
+  @ApiOkResponse({ description: 'The saved traveler as edited.' })
+  @ApiSession(400, 404)
   updateSavedTraveler(
     @Ctx() ctx: RequestContext,
     @Param('id', TRAVELER_ID) id: string,
@@ -219,6 +257,9 @@ export class UsersAccessController {
   }
 
   @Delete('me/saved-travelers/:id')
+  @ApiOperation({ summary: 'Delete one of your saved travelers' })
+  @ApiNoContentResponse({ description: 'Deleted.' })
+  @ApiSession(404)
   @HttpCode(204)
   deleteSavedTraveler(
     @Ctx() ctx: RequestContext,

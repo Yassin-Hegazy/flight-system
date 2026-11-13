@@ -1,5 +1,6 @@
 import { Controller, Get, Header, Param } from '@nestjs/common';
-import { ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiSession } from '../../shared/api-docs';
 import { AppError } from '../../shared/errors';
 import {
   Action,
@@ -23,7 +24,7 @@ export class TicketingController {
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: "List your booking's tickets, one per passenger per flight" })
   @ApiOkResponse({ description: 'The tickets, VALID or VOID, with each flight as it stands now.' })
-  @ApiNotFoundResponse({ description: 'No such booking of yours.' })
+  @ApiSession(403, 404)
   forBooking(@Ctx() ctx: RequestContext, @Param('reference') reference: string) {
     return this.asOwner(ctx, async () => {
       const tickets = await this.views.forBooking(reference.toUpperCase(), signedIn(ctx).id);
@@ -36,7 +37,7 @@ export class TicketingController {
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Read one of your tickets by its 13-digit number' })
   @ApiOkResponse({ description: 'The ticket and its flight, including any delay.' })
-  @ApiNotFoundResponse({ description: 'No such ticket of yours.' })
+  @ApiSession(403, 404)
   one(@Ctx() ctx: RequestContext, @Param('number') number: string) {
     return this.asOwner(ctx, async () => {
       const ticket = await this.views.one(number, signedIn(ctx).id);
@@ -49,7 +50,7 @@ export class TicketingController {
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Read the printable e-ticket for one passenger' })
   @ApiOkResponse({ description: 'The e-ticket fields; a void ticket has voidMarking "VOID".' })
-  @ApiNotFoundResponse({ description: 'No such ticket of yours.' })
+  @ApiSession(403, 404)
   print(@Ctx() ctx: RequestContext, @Param('number') number: string) {
     return this.asOwner(ctx, async () => {
       const ticket = await this.views.one(number, signedIn(ctx).id);

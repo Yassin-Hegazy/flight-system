@@ -11,7 +11,8 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiErrors, ApiSession } from '../../shared/api-docs';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AppError } from '../../shared/errors';
@@ -67,6 +68,7 @@ function capacityError(error: CapacityError): AppError {
 
 @Controller('admin')
 @ApiTags('Administration')
+@ApiSession(403)
 export class AdministrationOperationsController {
   constructor(
     private readonly bus: CommandBus,
@@ -80,6 +82,8 @@ export class AdministrationOperationsController {
 
   @Put('flights/:id/capacity/:cabin')
   @ApiOperation({ summary: 'Set the capacity of one cabin' })
+  @ApiOkResponse({ description: 'The new capacity.' })
+  @ApiErrors(400, 404, 409)
   async capacity(
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,
@@ -96,6 +100,8 @@ export class AdministrationOperationsController {
 
   @Put('flights/:id/fares/:cabin')
   @ApiOperation({ summary: 'Set a cabin fare for future bookings' })
+  @ApiOkResponse({ description: 'The new fare; existing bookings keep theirs.' })
+  @ApiErrors(400, 404)
   async fare(
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,
@@ -117,6 +123,8 @@ export class AdministrationOperationsController {
   @Header('Cache-Control', 'no-store')
   @Get('flights/:id/load')
   @ApiOperation({ summary: 'Read capacity, sold, held and available seats for both cabins' })
+  @ApiOkResponse({ description: 'One entry per cabin; the four numbers always add up.' })
+  @ApiErrors(404)
   load(@Ctx() ctx: RequestContext, @Param('id', FLIGHT_ID) id: string) {
     return this.read(ctx, async () => {
       if (!(await this.catalog.getFlight(id))) throw flightNotFound();
@@ -139,6 +147,10 @@ export class AdministrationOperationsController {
   @Header('Cache-Control', 'no-store')
   @Get('flights/:id/manifest')
   @ApiOperation({ summary: 'Read the confirmed passenger manifest' })
+  @ApiOkResponse({
+    description: 'Paid passengers with booking reference, ticket number and status.',
+  })
+  @ApiErrors(404)
   manifest(@Ctx() ctx: RequestContext, @Param('id', FLIGHT_ID) id: string) {
     return this.read(ctx, () =>
       this.db.transaction('REPEATABLE READ', async (tx) => {
@@ -161,6 +173,8 @@ export class AdministrationOperationsController {
   @Header('Cache-Control', 'no-store')
   @Get('airports/:code')
   @ApiOperation({ summary: 'Read the airport details' })
+  @ApiOkResponse({ description: 'The airport, with its IANA time zone.' })
+  @ApiErrors(400, 404)
   airport(@Ctx() ctx: RequestContext, @Param('code') code: string) {
     return this.read(ctx, async () => {
       const airport = await this.catalog.airport(airportCode(code));
@@ -171,6 +185,8 @@ export class AdministrationOperationsController {
 
   @Put('airports/:code')
   @ApiOperation({ summary: 'Create or edit an airport by IATA code' })
+  @ApiOkResponse({ description: 'Saved.' })
+  @ApiErrors(400, 409)
   async upsertAirport(
     @Ctx() ctx: RequestContext,
     @Param('code') code: string,
@@ -191,6 +207,8 @@ export class AdministrationOperationsController {
 
   @Delete('airports/:code')
   @ApiOperation({ summary: 'Delete an airport that has no flights' })
+  @ApiOkResponse({ description: 'Deleted.' })
+  @ApiErrors(400, 404, 409)
   async deleteAirport(@Ctx() ctx: RequestContext, @Param('code') code: string) {
     const result = await this.bus.dispatch(new DeleteAirport(this.catalog, airportCode(code)), ctx);
     if (result.ok) return result.value;
@@ -202,12 +220,20 @@ export class AdministrationOperationsController {
   @Header('Cache-Control', 'no-store')
   @Get('audit')
   @ApiOperation({ summary: 'Read the append-only audit trail, optionally by flight ID' })
+  @ApiOkResponse({
+    description: 'Who changed what and when, newest first, with before and after values.',
+  })
+  @ApiErrors(400)
   auditTrail(@Ctx() ctx: RequestContext, @Query() query: AuditQuery) {
     return this.read(ctx, () => this.audit.list(query.flightId, query.page));
   }
 
   @Post('flights/recurring')
   @ApiOperation({ summary: 'Schedule a series of flights in the origin airport time zone' })
+  @ApiCreatedResponse({
+    description: 'Every flight in the series; none are created if one date fails.',
+  })
+  @ApiErrors(400)
   async recurring(@Ctx() ctx: RequestContext, @Body() body: RecurringFlightBody) {
     const result = await this.bus.dispatch(
       new ScheduleRecurring(this.catalog, this.inventory, body),

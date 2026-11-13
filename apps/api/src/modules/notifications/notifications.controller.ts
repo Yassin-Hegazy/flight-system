@@ -10,6 +10,8 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiErrors, ApiSession } from '../../shared/api-docs';
 import { AppError } from '../../shared/errors';
 import {
   Action,
@@ -35,6 +37,8 @@ import {
  * executes the result; the controller only maps results to HTTP. Every route works on the
  * signed-in user's own notifications, so there is no way to ask for someone else's list.
  */
+@ApiTags('Notifications')
+@ApiSession()
 @Controller('notifications')
 export class NotificationsController {
   constructor(
@@ -53,12 +57,17 @@ export class NotificationsController {
 
   /** The user's notifications, newest first, 20 per page, with the unread count (US-NT-04). */
   @Get()
+  @ApiOperation({ summary: 'Read your in-app inbox, newest first' })
+  @ApiOkResponse({ description: 'One page of notifications and the unread count.' })
+  @ApiErrors(400)
   inbox(@Ctx() ctx: RequestContext, @Query() query: InboxQuery): Promise<InboxPage> {
     return this.forSignedInUser(ctx, (user) => this.notifications.inbox(user.id, query.page ?? 1));
   }
 
   /** Marks every unread notification of the signed-in user as read (US-NT-05). */
   @Post('read-all')
+  @ApiOperation({ summary: 'Mark all your notifications as read' })
+  @ApiOkResponse({ description: 'How many were marked.' })
   @HttpCode(200)
   markAllRead(@Ctx() ctx: RequestContext): Promise<{ updated: number }> {
     return this.forSignedInUser(ctx, async (user) => ({
@@ -72,6 +81,9 @@ export class NotificationsController {
    * exception because the route does not opt in to adminMayRead.
    */
   @Patch(':id/read')
+  @ApiOperation({ summary: 'Mark one of your notifications as read' })
+  @ApiNoContentResponse({ description: 'Marked.' })
+  @ApiErrors(404)
   @HttpCode(204)
   markRead(@Ctx() ctx: RequestContext, @Param('id') id: string): Promise<void> {
     const markOwnRead = new Action<{ ref: string }, void>(async (context, input) => {
@@ -84,6 +96,8 @@ export class NotificationsController {
 
   /** Every notification type with the user's email choice (US-NT-07). */
   @Get('preferences')
+  @ApiOperation({ summary: 'Read your email preference for each notification type' })
+  @ApiOkResponse({ description: 'One entry per notification type.' })
   preferences(@Ctx() ctx: RequestContext): Promise<{ preferences: NotificationPreference[] }> {
     return this.forSignedInUser(ctx, async (user) => ({
       preferences: await this.preferenceSettings.preferences(user.id),
@@ -92,6 +106,9 @@ export class NotificationsController {
 
   /** Opts in to, or out of, email for one notification type (US-NT-07 AC-1). */
   @Put('preferences/:type')
+  @ApiOperation({ summary: 'Turn email on or off for one notification type' })
+  @ApiNoContentResponse({ description: 'Saved.' })
+  @ApiErrors(400, 404)
   @HttpCode(204)
   setPreference(
     @Ctx() ctx: RequestContext,

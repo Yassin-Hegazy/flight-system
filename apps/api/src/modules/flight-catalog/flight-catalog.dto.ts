@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   Length,
@@ -21,20 +22,27 @@ function IsLocalDate(options?: ValidationOptions): PropertyDecorator {
 }
 
 export class FlightRouteQuery {
+  @ApiProperty({ example: 'CAI', description: '3-letter IATA code.' })
   @IsString()
   @Matches(/^[A-Za-z]{3}$/, { message: '$property must be a 3-letter IATA airport code' })
   origin!: string;
 
+  @ApiProperty({ example: 'LHR', description: '3-letter IATA code.' })
   @IsString()
   @Matches(/^[A-Za-z]{3}$/, { message: '$property must be a 3-letter IATA airport code' })
   destination!: string;
 
   /** The departure date at the origin airport. */
+  @ApiProperty({
+    example: '2026-12-10',
+    description: 'Departure date at the origin airport, YYYY-MM-DD.',
+  })
   @IsLocalDate()
   date!: string;
 }
 
 export class AirportSearchQuery {
+  @ApiPropertyOptional({ example: 'cai', description: 'Part of a code, name or city.' })
   @IsString()
   @Length(0, 100)
   q = '';

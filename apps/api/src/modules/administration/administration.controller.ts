@@ -10,17 +10,14 @@ import {
   Post,
 } from '@nestjs/common';
 import {
-  ApiBadRequestResponse,
-  ApiConflictResponse,
   ApiCreatedResponse,
-  ApiForbiddenResponse,
-  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiProperty,
-  ApiUnauthorizedResponse,
+  ApiTags,
 } from '@nestjs/swagger';
+import { ApiErrors, ApiSession } from '../../shared/api-docs';
 import { IsString, Length } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AppError } from '../../shared/errors';
@@ -94,9 +91,9 @@ const FLIGHT_ID = new ParseUUIDPipe({
  * to the bus. Access control, the transaction and events are the bus's job, so a route cannot
  * skip them; the controller only shapes input and maps the result to HTTP.
  */
+@ApiTags('Administration')
+@ApiSession(403)
 @Controller('admin')
-@ApiUnauthorizedResponse({ description: 'Sign in with POST /users/sign-in first.' })
-@ApiForbiddenResponse({ description: 'An administrator session is required.' })
 export class AdministrationController {
   constructor(
     private readonly bus: CommandBus,
@@ -117,10 +114,7 @@ export class AdministrationController {
       properties: { id: { type: 'string', format: 'uuid' } },
     },
   })
-  @ApiBadRequestResponse({ description: 'Invalid input, schedule, fare, or capacity.' })
-  @ApiConflictResponse({
-    description: 'Flight number already exists on that local departure date.',
-  })
+  @ApiErrors(400, 409)
   async createFlight(
     @Ctx() ctx: RequestContext,
     @Body() body: CreateFlightBody,
@@ -161,9 +155,7 @@ export class AdministrationController {
       },
     },
   })
-  @ApiBadRequestResponse({ description: 'Invalid status or estimate, or cancellation requested.' })
-  @ApiNotFoundResponse({ description: 'Flight ID is invalid or unknown.' })
-  @ApiConflictResponse({ description: 'The requested status transition is not allowed.' })
+  @ApiErrors(400, 404, 409)
   async updateFlightStatus(
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,
@@ -188,6 +180,8 @@ export class AdministrationController {
   @Post('flights/:id/cancel')
   @HttpCode(200)
   @ApiOperation({ summary: 'Cancel a flight, release bookings and record refunds' })
+  @ApiOkResponse({ description: 'Cancelled; every booking on it was cancelled and refunded.' })
+  @ApiErrors(400, 404, 409)
   async cancelFlight(
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,
