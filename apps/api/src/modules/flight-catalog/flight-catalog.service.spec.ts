@@ -193,7 +193,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     expect((await repository.findFlight(id))?.status).toBe(FlightStatus.Scheduled);
   });
 
-  it('US-AD-03-T01 sets a fare, returning the fare it replaced', async () => {
+  it('US-AD-03-T12 sets a fare, returning the fare it replaced', async () => {
     const { repository, service } = catalogWithReferenceData();
     const created = await service.createFlight(TX, cairoToLondon());
     if (!created.ok) throw new Error(created.error);
@@ -207,7 +207,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     );
   });
 
-  it('US-AD-03-T02 rejects a fare for an unknown flight, or one that is not a positive whole amount', async () => {
+  it('US-AD-03-T13 rejects a fare for an unknown flight, or one that is not a positive whole amount', async () => {
     const { repository, service } = catalogWithReferenceData();
     const id = repository.addFlight(scheduled(cairoToLondon()));
 
@@ -221,7 +221,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     });
   });
 
-  it('US-AD-04-T01 an airport code that is not 3 letters is rejected', async () => {
+  it('US-AD-06-T02 an airport code that is not 3 letters is rejected', async () => {
     const { service } = catalogWithReferenceData();
     expect(
       await service.upsertAirport(TX, {
