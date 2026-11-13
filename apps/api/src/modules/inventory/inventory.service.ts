@@ -28,8 +28,11 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
+const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const isPositiveCount = (value: unknown): value is number => isCount(value) && value > 0;
+const isObject = (value: unknown): value is object => typeof value === 'object' && value !== null;
 // Keep the declared readonly element type; Array.isArray's predicate otherwise widens it to any[].
 const isRequestArray: (value: unknown) => boolean = Array.isArray;
 
@@ -45,24 +48,10 @@ export class InventoryService {
     holdId: string,
     options: ReleaseOptions = {},
   ): Promise<Result<ReleaseOutcome, ReleaseError>> {
-    if (typeof holdId !== 'string' || !UUID.test(holdId)) return err('INVALID_HOLD_ID');
-    if (
-      !options ||
-      typeof options !== 'object' ||
-      Array.isArray(options) ||
-      Reflect.ownKeys(options).some((key) => key !== 'expiredOnly') ||
-      (options.expiredOnly !== undefined && typeof options.expiredOnly !== 'boolean')
-    )
-      return err('INVALID_REQUEST');
-    const expiredOnly = options.expiredOnly === true;
-    const id = holdId.toLowerCase();
-    const hold = await this.lockExistingHold(tx, id);
-    if (!hold) return ok('ALREADY_RELEASED');
-    if (hold.status === 'RELEASED') return ok('ALREADY_RELEASED');
-    if (
-      expiredOnly &&
-      (hold.status !== 'HELD' || hold.expiresAt.getTime() > this.currentTime().getTime())
-    ) {
+    if (!isUuid(holdId)) return err('INVALID_HOLD_ID');
+    if (!isReleaseOptions(options)) return err('INVALID_REQUEST');
+    const hold = await this.lockExistingHold(tx, holdId.toLowerCase());
+    if (!hold || !this.isReleasable(hold, options.expiredOnly === true)) {
       return ok('ALREADY_RELEASED');
     }
     await this.repository.releaseLocked(tx, hold);
@@ -70,7 +59,7 @@ export class InventoryService {
   }
 
   async commit(tx: Tx, holdId: string): Promise<Result<void, CommitError>> {
-    if (typeof holdId !== 'string' || !UUID.test(holdId)) return err('INVALID_HOLD_ID');
+    if (!isUuid(holdId)) return err('INVALID_HOLD_ID');
     const id = holdId.toLowerCase();
     const hold = await this.lockExistingHold(tx, id);
     if (!hold) return err('NOT_HELD');
@@ -84,8 +73,8 @@ export class InventoryService {
     holdId: string,
     bookingId: string,
   ): Promise<Result<HoldPaymentEligibility, HoldValidationError>> {
-    if (typeof holdId !== 'string' || !UUID.test(holdId)) return err('INVALID_HOLD_ID');
-    if (typeof bookingId !== 'string' || !UUID.test(bookingId)) return err('INVALID_BOOKING_ID');
+    if (!isUuid(holdId)) return err('INVALID_HOLD_ID');
+    if (!isUuid(bookingId)) return err('INVALID_BOOKING_ID');
     const hold = await this.repository.findPaymentHold(
       holdId.toLowerCase(),
       bookingId.toLowerCase(),
@@ -102,7 +91,7 @@ export class InventoryService {
     cabin: Cabin,
     capacity: number,
   ): Promise<Result<void, CapacityError>> {
-    if (typeof flightId !== 'string' || !UUID.test(flightId)) return err('INVALID_FLIGHT_ID');
+    if (!isUuid(flightId)) return err('INVALID_FLIGHT_ID');
     if (!isCabin(cabin)) return err('INVALID_CABIN');
     if (!isCount(capacity) || capacity > POSTGRES_INTEGER_MAX) return err('INVALID_CAPACITY');
     const id = flightId.toLowerCase();
@@ -124,7 +113,7 @@ export class InventoryService {
   }
 
   async cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>> {
-    if (typeof flightId !== 'string' || !UUID.test(flightId)) return err('INVALID_FLIGHT_ID');
+    if (!isUuid(flightId)) return err('INVALID_FLIGHT_ID');
     const rows = await this.repository.findCabinLoad([flightId.toLowerCase()], this.currentTime());
     for (const row of rows) {
       if (row.capacity !== row.committedSeats + row.activeHeldSeats + row.availableSeats) {
@@ -152,6 +141,13 @@ export class InventoryService {
       throw new Error('Hold flight/cabin identity changed while acquiring Inventory locks');
     }
     return hold;
+  }
+
+  /** An expiry-only release touches nothing but a still-HELD hold at or past its expiry. */
+  private isReleasable(hold: StoredSeatHold, expiredOnly: boolean): boolean {
+    if (hold.status === 'RELEASED') return false;
+    if (!expiredOnly) return true;
+    return hold.status === 'HELD' && hold.expiresAt.getTime() <= this.currentTime().getTime();
   }
 
   /** Shared state/expiry rules; commit invokes this only after both database locks. */
@@ -193,25 +189,11 @@ export class InventoryService {
     tx?: Tx,
   ): Promise<Result<Availability[], AvailabilityError>> {
     if (!isRequestArray(requests)) return err('INVALID_REQUEST');
-    const validated: { request: AvailabilityRequest; requiredSeats: number }[] = [];
+    const validated: ValidatedAvailabilityRequest[] = [];
     for (const request of requests) {
-      if (!request || typeof request !== 'object') return err('INVALID_REQUEST');
-      if (typeof request.flightId !== 'string' || !UUID.test(request.flightId)) {
-        return err('INVALID_FLIGHT_ID');
-      }
-      if (!isCabin(request.cabin)) return err('INVALID_CABIN');
-      const party = request.passengers;
-      if (!party || typeof party !== 'object') return err('INVALID_PARTY');
-      const { adults, children = 0, infants = 0 } = party;
-      if (![adults, children, infants].every(isCount)) return err('INVALID_PARTY');
-      const requiredSeats = adults + children;
-      if (!Number.isSafeInteger(requiredSeats) || requiredSeats === 0) return err('INVALID_PARTY');
-      if (infants > adults) return err('TOO_MANY_INFANTS');
-      // Copy inputs before awaiting so a caller cannot mutate the request while the query runs.
-      validated.push({
-        request: { ...request, flightId: request.flightId.toLowerCase() },
-        requiredSeats,
-      });
+      const checked = validateAvailabilityRequest(request);
+      if (!checked.ok) return checked;
+      validated.push(checked.value);
     }
     if (validated.length === 0) return ok([]);
 
@@ -235,24 +217,61 @@ export class InventoryService {
   }
 }
 
+interface ValidatedAvailabilityRequest {
+  request: AvailabilityRequest;
+  requiredSeats: number;
+}
+
+/** Only the documented option, with a boolean value, is accepted. */
+function isReleaseOptions(options: unknown): options is ReleaseOptions {
+  if (!isObject(options) || Array.isArray(options)) return false;
+  if (Reflect.ownKeys(options).some((key) => key !== 'expiredOnly')) return false;
+  const { expiredOnly } = options as ReleaseOptions;
+  return expiredOnly === undefined || typeof expiredOnly === 'boolean';
+}
+
+/** Seats the party needs: adults and children. Infants are lap infants, at most one per adult. */
+function seatsRequired(
+  party: AvailabilityRequest['passengers'],
+): Result<number, 'INVALID_PARTY' | 'TOO_MANY_INFANTS'> {
+  if (!isObject(party)) return err('INVALID_PARTY');
+  const { adults, children = 0, infants = 0 } = party;
+  if (![adults, children, infants].every(isCount)) return err('INVALID_PARTY');
+  const requiredSeats = adults + children;
+  if (!Number.isSafeInteger(requiredSeats) || requiredSeats === 0) return err('INVALID_PARTY');
+  if (infants > adults) return err('TOO_MANY_INFANTS');
+  return ok(requiredSeats);
+}
+
+function validateAvailabilityRequest(
+  request: AvailabilityRequest,
+): Result<ValidatedAvailabilityRequest, AvailabilityError> {
+  if (!isObject(request)) return err('INVALID_REQUEST');
+  if (!isUuid(request.flightId)) return err('INVALID_FLIGHT_ID');
+  if (!isCabin(request.cabin)) return err('INVALID_CABIN');
+  const requiredSeats = seatsRequired(request.passengers);
+  if (!requiredSeats.ok) return requiredSeats;
+  // Copy inputs before awaiting so a caller cannot mutate the request while the query runs.
+  return ok({
+    request: { ...request, flightId: request.flightId.toLowerCase() },
+    requiredSeats: requiredSeats.value,
+  });
+}
+
+const isSeatCount = (value: unknown): value is number =>
+  isPositiveCount(value) && value <= POSTGRES_INTEGER_MAX;
+const isHoldDuration = (value: unknown): value is number =>
+  isPositiveCount(value) && Number.isSafeInteger(value * 1000);
+
 /** Pure validation and normalization, before any lock or asynchronous work. */
 function validateHoldRequest(request: HoldRequest): Result<Required<HoldRequest>, HoldError> {
-  if (!request || typeof request !== 'object') return err('INVALID_REQUEST');
-  if (typeof request.bookingId !== 'string' || !UUID.test(request.bookingId))
-    return err('INVALID_BOOKING_ID');
-  if (typeof request.flightId !== 'string' || !UUID.test(request.flightId))
-    return err('INVALID_FLIGHT_ID');
+  if (!isObject(request)) return err('INVALID_REQUEST');
+  if (!isUuid(request.bookingId)) return err('INVALID_BOOKING_ID');
+  if (!isUuid(request.flightId)) return err('INVALID_FLIGHT_ID');
   if (!isCabin(request.cabin)) return err('INVALID_CABIN');
-  if (!isCount(request.seats) || request.seats === 0 || request.seats > POSTGRES_INTEGER_MAX)
-    return err('INVALID_SEAT_COUNT');
+  if (!isSeatCount(request.seats)) return err('INVALID_SEAT_COUNT');
   const { durationSeconds = DEFAULT_HOLD_DURATION_SECONDS } = request;
-  if (
-    !isCount(durationSeconds) ||
-    durationSeconds === 0 ||
-    !Number.isSafeInteger(durationSeconds * 1000)
-  ) {
-    return err('INVALID_HOLD_DURATION');
-  }
+  if (!isHoldDuration(durationSeconds)) return err('INVALID_HOLD_DURATION');
   // Snapshot before waiting for another transaction; never read a mutable caller object later.
   return ok({
     bookingId: request.bookingId.toLowerCase(),
