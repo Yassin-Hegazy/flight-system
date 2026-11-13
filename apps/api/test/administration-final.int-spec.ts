@@ -224,6 +224,21 @@ describe('Administration final stories', () => {
     await get(path).expect(404);
   });
 
+  it('US-AD-06-T05 a timezone change on an airport with departures is a 409 and changes nothing', async () => {
+    const cairo = (await get('/admin/airports/CAI').expect(200)).body as Record<string, string>;
+    const before = (await get(`/flights/${flightId}`).expect(200)).body as unknown;
+
+    const response = await write('put', '/admin/airports/CAI')
+      .send({ name: cairo.name, city: cairo.city, country: cairo.country, timezone: 'Asia/Tokyo' })
+      .expect(409);
+
+    expect(response.body).toMatchObject({ code: 'TIMEZONE_IN_USE' });
+    expect((await get('/admin/airports/CAI').expect(200)).body).toMatchObject({
+      timezone: 'Africa/Cairo',
+    });
+    expect((await get(`/flights/${flightId}`).expect(200)).body).toEqual(before);
+  });
+
   it('US-AD-07-T01 records actor, target and values, rolls back writes when audit fails, and filters by flight', async () => {
     const response = await get(`/admin/audit?flightId=${flightId}`).expect(200);
     const entries = response.body as { actorId: string; action: string; flightId: string }[];
