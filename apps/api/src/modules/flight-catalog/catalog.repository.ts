@@ -44,6 +44,7 @@ export interface CatalogRepository {
     code: string,
   ): Promise<Result<void, 'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'>>;
   saveAirport(tx: Tx, airport: AirportRecord): Promise<void>;
+  hasDeparturesFrom(tx: Tx, code: string): Promise<boolean>;
 
   findAirlines(codes: readonly string[], tx?: Tx): Promise<AirlineRecord[]>;
 

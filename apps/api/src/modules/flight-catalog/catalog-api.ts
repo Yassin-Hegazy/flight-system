@@ -52,7 +52,12 @@ export interface AirportInput {
 export type CreateFlightError = FlightRuleError | 'DUPLICATE_FLIGHT';
 export type ChangeStatusError = StatusRuleError | 'FLIGHT_NOT_FOUND';
 export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_CABIN' | 'INVALID_FARE' | 'CURRENCY_MISMATCH';
-export type AirportError = 'INVALID_AIRPORT_CODE' | 'INVALID_TIMEZONE' | 'INVALID_AIRPORT_DETAILS';
+export type AirportError =
+  | 'INVALID_AIRPORT_CODE'
+  | 'INVALID_TIMEZONE'
+  | 'INVALID_AIRPORT_DETAILS'
+  /** Flights store their departure date in the origin's zone, so it cannot move under them. */
+  | 'TIMEZONE_IN_USE';
 
 /**
  * The Catalog's public boundary (Catalog pack, section 2). Reads are for any module; the write
