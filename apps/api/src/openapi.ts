@@ -39,11 +39,12 @@ export function openApiDocument(app: INestApplication): OpenAPIObject {
     .setTitle('Flight Booking API')
     .setDescription(DESCRIPTION)
     .setVersion('0.1.0')
-    .addCookieAuth(SESSION_COOKIE_SCHEME, {
-      type: 'apiKey',
-      in: 'cookie',
-      name: SESSION_COOKIE_SCHEME,
-    });
+    // Cookie name, then the scheme's options, then the scheme's own name, which routes reference.
+    .addCookieAuth(
+      SESSION_COOKIE_SCHEME,
+      { type: 'apiKey', in: 'cookie', name: SESSION_COOKIE_SCHEME },
+      SESSION_COOKIE_SCHEME,
+    );
   for (const [name, description] of TAGS) builder.addTag(name, description);
   return withExamples(SwaggerModule.createDocument(app, builder.build()));
 }

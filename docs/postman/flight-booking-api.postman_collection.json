@@ -1,0 +1,1929 @@
+{
+  "info": {
+    "name": "Flight Booking API",
+    "description": "Every endpoint of the Flight Search, Booking and Ticketing API, in the order of a demo.\n\n1. Start the stack and seed demo data: `pnpm bootstrap`, then `pnpm dev` (API on :3001).\n2. Import this collection and `local.postman_environment.json`, select the environment.\n3. Run the whole collection, or send requests one by one from the top.\n\nSessions are cookies: each folder signs in first, and Postman keeps the cookie. State-changing requests carry `X-Requested-With` (CSRF), added by the collection's script.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// The API refuses state-changing requests without this header (CSRF protection).",
+          "if (pm.request.method !== 'GET') {",
+          "  pm.request.headers.upsert({ key: 'X-Requested-With', value: 'postman' });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "travelerEmail",
+      "value": "traveler@example.com"
+    },
+    {
+      "key": "travelerPassword",
+      "value": "Traveler-Local-2026!"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin-Local-2026!"
+    },
+    {
+      "key": "newPassword",
+      "value": "Correct-Horse-2026"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health and reference data",
+      "description": "Public reads: no sign-in needed.",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);",
+                  "const iso = (offset, hourUtc) => { const d = new Date(Date.now() + offset * 86400000); d.setUTCHours(hourUtc, 0, 0, 0); return d.toISOString(); };",
+                  "const flightNumber = () => 'MS' + (1000 + Math.floor(Math.random() * 9000));",
+                  "pm.collectionVariables.set('outboundDate', day(3));",
+                  "pm.collectionVariables.set('returnDate', day(6));",
+                  "pm.collectionVariables.set('demoFlightNumber', flightNumber());",
+                  "pm.collectionVariables.set('demoDeparture', iso(3, 10));",
+                  "pm.collectionVariables.set('demoArrival', iso(3, 15));",
+                  "pm.collectionVariables.set('adminFlightNumber', flightNumber());",
+                  "pm.collectionVariables.set('adminDeparture', iso(10, 8));",
+                  "pm.collectionVariables.set('adminArrival', iso(10, 13));",
+                  "pm.collectionVariables.set('adminDelayed', iso(10, 10));",
+                  "pm.collectionVariables.set('recurringFlightNumber', flightNumber());",
+                  "pm.collectionVariables.set('recurringFrom', day(40));",
+                  "pm.collectionVariables.set('recurringTo', day(46));",
+                  "pm.collectionVariables.set('newAdminEmail', `admin.${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /health answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('database connected', () => pm.expect(pm.response.json().database).to.eql('connected'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Suggest airports",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /flights/airports/suggestions answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/flights/airports/suggestions?q=cai",
+              "host": ["{{baseUrl}}"],
+              "path": ["flights", "airports", "suggestions"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "cai"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "List flights on a route and day",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /flights answers 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('catalogFlightId', json[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/flights?origin=CAI&destination=LHR&date={{outboundDate}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["flights"],
+              "query": [
+                {
+                  "key": "origin",
+                  "value": "CAI"
+                },
+                {
+                  "key": "destination",
+                  "value": "LHR"
+                },
+                {
+                  "key": "date",
+                  "value": "{{outboundDate}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Read one flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /flights/{{catalogFlightId}} answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/flights/{{catalogFlightId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["flights", "{{catalogFlightId}}"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Administration: schedule a flight",
+      "description": "As the administrator. Every write is a Command run by the CommandBus and audited.",
+      "item": [
+        {
+          "name": "Sign in as the administrator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-in answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-in"]
+            },
+            "description": "Sets the session cookie that every later request in this folder uses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create the demo flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /admin/flights answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('flightId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights"]
+            },
+            "description": "The Catalog applies its schedule rules; Inventory gets both cabins in the same transaction.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightNumber\": \"{{demoFlightNumber}}\",\n  \"airlineCode\": \"MS\",\n  \"originCode\": \"CAI\",\n  \"destinationCode\": \"LHR\",\n  \"scheduledDepartureUtc\": \"{{demoDeparture}}\",\n  \"scheduledArrivalUtc\": \"{{demoArrival}}\",\n  \"currency\": \"EGP\",\n  \"fares\": {\n    \"ECONOMY\": 1500000,\n    \"BUSINESS\": 4500000\n  },\n  \"capacity\": {\n    \"ECONOMY\": 150,\n    \"BUSINESS\": 20\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set Economy capacity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PUT /admin/flights/{{flightId}}/capacity/ECONOMY answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{flightId}}/capacity/ECONOMY",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{flightId}}", "capacity", "ECONOMY"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"capacity\": 160\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change the Economy fare",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PUT /admin/flights/{{flightId}}/fares/ECONOMY answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{flightId}}/fares/ECONOMY",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{flightId}}", "fares", "ECONOMY"]
+            },
+            "description": "Applies to new searches and bookings; existing bookings keep their fare snapshot.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amountMinor\": 1450000,\n  \"currency\": \"EGP\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the flight's load",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /admin/flights/{{flightId}}/load answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{flightId}}/load",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{flightId}}", "load"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Create another administrator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/admins answers 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/admins",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "admins"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newAdminEmail}}\",\n  \"password\": \"{{newPassword}}\",\n  \"name\": \"Second Admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Schedule a recurring flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /admin/flights/recurring answers 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/recurring",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "recurring"]
+            },
+            "description": "One flight per chosen weekday (1 = Monday); local time stays fixed across DST.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"template\": {\n    \"flightNumber\": \"{{recurringFlightNumber}}\",\n    \"airlineCode\": \"MS\",\n    \"originCode\": \"CAI\",\n    \"destinationCode\": \"LHR\",\n    \"currency\": \"EGP\",\n    \"fares\": {\n      \"ECONOMY\": 1500000,\n      \"BUSINESS\": 4500000\n    },\n    \"capacity\": {\n      \"ECONOMY\": 150,\n      \"BUSINESS\": 20\n    }\n  },\n  \"from\": \"{{recurringFrom}}\",\n  \"to\": \"{{recurringTo}}\",\n  \"weekdays\": [\n    1,\n    3,\n    5\n  ],\n  \"localDeparture\": \"09:00\",\n  \"durationMinutes\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add or edit an airport",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PUT /admin/airports/QQQ answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/airports/QQQ",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "airports", "QQQ"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Airport\",\n  \"city\": \"Cairo\",\n  \"country\": \"Egypt\",\n  \"timezone\": \"Africa/Cairo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the airport",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /admin/airports/QQQ answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/airports/QQQ",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "airports", "QQQ"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Delete the airport",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DELETE /admin/airports/QQQ answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/airports/QQQ",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "airports", "QQQ"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Sign out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-out answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-out"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Search and comparison",
+      "description": "Public. One-way, round trip, sorting, filters and paging.",
+      "item": [
+        {
+          "name": "Search one way, cheapest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /search/flights answers 200', () => pm.response.to.have.status(200));",
+                  "const found = pm.response.json().items.find((item) => item.flightId === pm.collectionVariables.get('flightId'));",
+                  "pm.test('the new flight is found and priced for the party', () => pm.expect(found).to.have.property('total'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/flights?origin=CAI&destination=LHR&date={{outboundDate}}&adults=2&children=1&cabin=ECONOMY&sort=PRICE",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "flights"],
+              "query": [
+                {
+                  "key": "origin",
+                  "value": "CAI"
+                },
+                {
+                  "key": "destination",
+                  "value": "LHR"
+                },
+                {
+                  "key": "date",
+                  "value": "{{outboundDate}}"
+                },
+                {
+                  "key": "adults",
+                  "value": "2"
+                },
+                {
+                  "key": "children",
+                  "value": "1"
+                },
+                {
+                  "key": "cabin",
+                  "value": "ECONOMY"
+                },
+                {
+                  "key": "sort",
+                  "value": "PRICE"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Search one way with filters and paging",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /search/flights answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/flights?origin=CAI&destination=LHR&date={{outboundDate}}&adults=1&cabin=ECONOMY&sort=DURATION&departFrom=06:00&departTo=23:00&airlines=MS&pageSize=5&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "flights"],
+              "query": [
+                {
+                  "key": "origin",
+                  "value": "CAI"
+                },
+                {
+                  "key": "destination",
+                  "value": "LHR"
+                },
+                {
+                  "key": "date",
+                  "value": "{{outboundDate}}"
+                },
+                {
+                  "key": "adults",
+                  "value": "1"
+                },
+                {
+                  "key": "cabin",
+                  "value": "ECONOMY"
+                },
+                {
+                  "key": "sort",
+                  "value": "DURATION"
+                },
+                {
+                  "key": "departFrom",
+                  "value": "06:00"
+                },
+                {
+                  "key": "departTo",
+                  "value": "23:00"
+                },
+                {
+                  "key": "airlines",
+                  "value": "MS"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Search a round trip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /search/round-trip answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/round-trip?origin=CAI&destination=LHR&date={{outboundDate}}&returnDate={{returnDate}}&adults=1&cabin=ECONOMY",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "round-trip"],
+              "query": [
+                {
+                  "key": "origin",
+                  "value": "CAI"
+                },
+                {
+                  "key": "destination",
+                  "value": "LHR"
+                },
+                {
+                  "key": "date",
+                  "value": "{{outboundDate}}"
+                },
+                {
+                  "key": "returnDate",
+                  "value": "{{returnDate}}"
+                },
+                {
+                  "key": "adults",
+                  "value": "1"
+                },
+                {
+                  "key": "cabin",
+                  "value": "ECONOMY"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Rejected: same origin and destination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /search/flights answers 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/flights?origin=CAI&destination=CAI&date={{outboundDate}}&adults=1&cabin=ECONOMY",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "flights"],
+              "query": [
+                {
+                  "key": "origin",
+                  "value": "CAI"
+                },
+                {
+                  "key": "destination",
+                  "value": "CAI"
+                },
+                {
+                  "key": "date",
+                  "value": "{{outboundDate}}"
+                },
+                {
+                  "key": "adults",
+                  "value": "1"
+                },
+                {
+                  "key": "cabin",
+                  "value": "ECONOMY"
+                }
+              ]
+            },
+            "description": "Validation errors use the shared error shape: code, message, fieldErrors, requestId."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Account (Users and Access)",
+      "description": "Registers a fresh traveler each run, then manages that account.",
+      "item": [
+        {
+          "name": "Register a traveler",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('newEmail', `traveler.${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/register answers 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "register"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\",\n  \"name\": \"Nour Hassan\",\n  \"phone\": \"+20 100 000 0000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Sign in as the new traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-in answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-in"]
+            },
+            "description": "Sets the session cookie that every later request in this folder uses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /users/me answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Update my profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PATCH /users/me answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nour M. Hassan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change my password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PATCH /users/me/password answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "password"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current\": \"{{newPassword}}\",\n  \"next\": \"{{newPassword}}-2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add a saved traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/me/saved-travelers answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('savedTravelerId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/saved-travelers",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "saved-travelers"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Omar Hassan\",\n  \"dateOfBirth\": \"2015-06-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List saved travelers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /users/me/saved-travelers answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/saved-travelers",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "saved-travelers"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Edit a saved traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PATCH /users/me/saved-travelers/{{savedTravelerId}} answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/saved-travelers/{{savedTravelerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "saved-travelers", "{{savedTravelerId}}"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Omar M. Hassan\",\n  \"dateOfBirth\": \"2015-06-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a saved traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DELETE /users/me/saved-travelers/{{savedTravelerId}} answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me/saved-travelers/{{savedTravelerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "saved-travelers", "{{savedTravelerId}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Sign out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-out answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-out"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Booking and payment",
+      "description": "As the demo traveler: reserve a seat, pay with a mock token, read the receipt.",
+      "item": [
+        {
+          "name": "Sign in as the demo traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-in answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-in"]
+            },
+            "description": "Sets the session cookie that every later request in this folder uses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{travelerEmail}}\",\n  \"password\": \"{{travelerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reserve a seat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reference', json.reference);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Holds one seat for 15 minutes and snapshots the fare.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{reference}} answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Pay with tok_success",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings/{{reference}}/payments answers 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}", "payments"]
+            },
+            "description": "Mock tokens: tok_success, tok_declined, tok_timeout (stays pending; the recovery job resolves it).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"tok_success\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Booking is now TICKETED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{reference}} answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('tickets were issued', () => pm.expect(pm.response.json().status).to.eql('TICKETED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Read the receipt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{reference}}/receipt answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}/receipt",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}", "receipt"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Reserve a second seat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('declinedReference', json.reference);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rejected: card declined",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings/{{declinedReference}}/payments answers 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{declinedReference}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{declinedReference}}", "payments"]
+            },
+            "description": "The booking keeps its hold, so the traveler can retry with another card.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"tok_declined\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Tickets",
+      "description": "As the demo traveler: one ticket per passenger per flight.",
+      "item": [
+        {
+          "name": "List the booking's tickets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{reference}}/tickets answers 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('ticketNumber', json[0].ticketNumber);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}", "tickets"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Read one ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /tickets/{{ticketNumber}} answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticketNumber}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Printable e-ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /tickets/{{ticketNumber}}/print answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketNumber}}/print",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticketNumber}}", "print"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Administration: operate",
+      "description": "As the administrator: manifest, delay, cancellation and the audit trail.",
+      "item": [
+        {
+          "name": "Sign in as the administrator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-in answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-in"]
+            },
+            "description": "Sets the session cookie that every later request in this folder uses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the passenger manifest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /admin/flights/{{flightId}}/manifest answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the paid booking is on it with its ticket', () => pm.expect(pm.response.json().map((p) => p.bookingReference)).to.include(pm.collectionVariables.get('reference')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{flightId}}/manifest",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{flightId}}", "manifest"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Create a flight to delay and cancel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /admin/flights answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('adminFlightId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightNumber\": \"{{adminFlightNumber}}\",\n  \"airlineCode\": \"MS\",\n  \"originCode\": \"CAI\",\n  \"destinationCode\": \"LHR\",\n  \"scheduledDepartureUtc\": \"{{adminDeparture}}\",\n  \"scheduledArrivalUtc\": \"{{adminArrival}}\",\n  \"currency\": \"EGP\",\n  \"fares\": {\n    \"ECONOMY\": 1500000,\n    \"BUSINESS\": 4500000\n  },\n  \"capacity\": {\n    \"ECONOMY\": 150,\n    \"BUSINESS\": 20\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delay the flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PATCH /admin/flights/{{adminFlightId}}/status answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{adminFlightId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{adminFlightId}}", "status"]
+            },
+            "description": "Publishes FlightDelayed after the commit; Notifications tells affected travelers.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELAYED\",\n  \"estimatedDepartureUtc\": \"{{adminDelayed}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel the flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /admin/flights/{{adminFlightId}}/cancel answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights/{{adminFlightId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights", "{{adminFlightId}}", "cancel"]
+            },
+            "description": "Cancels every booking on it, voids tickets and records refunds, in one transaction.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Aircraft change\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read the audit trail for the flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /admin/audit answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('each change was audited', () => pm.expect(pm.response.json().length).to.be.at.least(3));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/audit?flightId={{adminFlightId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "audit"],
+              "query": [
+                {
+                  "key": "flightId",
+                  "value": "{{adminFlightId}}"
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Sign out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-out answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-out"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Cancellation",
+      "description": "As the demo traveler: cancel, then see the void ticket and the refund.",
+      "item": [
+        {
+          "name": "Sign in as the demo traveler",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-in answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-in"]
+            },
+            "description": "Sets the session cookie that every later request in this folder uses.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{travelerEmail}}\",\n  \"password\": \"{{travelerPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancel the booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings/{{reference}}/cancel answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}", "cancel"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "The ticket is now VOID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /tickets/{{ticketNumber}} answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('voided with the booking', () => pm.expect(pm.response.json().status).to.eql('VOID'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticketNumber}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Printable ticket shows VOID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /tickets/{{ticketNumber}}/print answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('marked VOID', () => pm.expect(pm.response.json().voidMarking).to.eql('VOID'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketNumber}}/print",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticketNumber}}", "print"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Receipt shows the refund",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{reference}}/receipt answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('refund recorded', () => pm.expect(pm.response.json().refund).to.not.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{reference}}/receipt",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{reference}}", "receipt"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Notifications",
+      "description": "As the demo traveler: the in-app inbox and email preferences.",
+      "item": [
+        {
+          "name": "Read my inbox",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /notifications answers 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('notificationId', json.items[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mark one as read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PATCH /notifications/{{notificationId}}/read answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Mark all as read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /notifications/read-all answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Read my email preferences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /notifications/preferences answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "preferences"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Email me about delays",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('PUT /notifications/preferences/FlightDelayed answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/preferences/FlightDelayed",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "preferences", "FlightDelayed"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Sign out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /users/sign-out answers 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/sign-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "sign-out"]
+            },
+            "description": ""
+          }
+        }
+      ]
+    }
+  ]
+}
