@@ -1,24 +1,73 @@
 import { Injectable } from '@nestjs/common';
-import type { ChargeRequest, ChargeResult, PaymentGateway, RefundRequest } from './payment-gateway';
-import { MockProvider } from './mock-provider';
+import type {
+  ChargeRequest,
+  ChargeResult,
+  DeclineReason,
+  PaymentGateway,
+  RefundRequest,
+} from './payment-gateway';
+import { MockProvider, ProviderTimeout, type ProviderPayment } from './mock-provider';
 
-/** Adapter pattern, Adapter: makes MockProvider (the Adaptee) usable as a PaymentGateway (the Target). */
+const DECLINES: Record<'insufficient_funds' | 'invalid_source', DeclineReason> = {
+  insufficient_funds: 'insufficient_funds',
+  invalid_source: 'unknown_token',
+};
+
+/**
+ * Adapter pattern, Adapter: makes MockProvider (the Adaptee) usable as a PaymentGateway (the
+ * Target). It only translates names, shapes and states; it decides nothing about bookings.
+ */
 @Injectable()
 export class MockGatewayAdapter implements PaymentGateway {
   constructor(private readonly provider: MockProvider) {}
 
-  charge(request: ChargeRequest): Promise<ChargeResult> {
-    void request;
-    return Promise.reject(new Error('Not implemented'));
+  async charge({ token, amount, idempotencyKey }: ChargeRequest): Promise<ChargeResult> {
+    try {
+      const payment = await this.provider.createPayment({
+        source: token,
+        amount_cents: amount.amountMinor,
+        currency: amount.currency,
+        merchant_reference: idempotencyKey,
+      });
+      return toChargeResult(payment);
+    } catch (error) {
+      // A timeout is not a decline: the provider may have captured the money.
+      if (error instanceof ProviderTimeout) return { status: 'UNAVAILABLE' };
+      throw error;
+    }
   }
 
-  lookup(idempotencyKey: string): Promise<ChargeResult> {
-    void idempotencyKey;
-    return Promise.reject(new Error('Not implemented'));
+  async lookup(idempotencyKey: string): Promise<ChargeResult> {
+    return toChargeResult(await this.provider.retrievePayment(idempotencyKey));
   }
 
-  refund(request: RefundRequest): Promise<{ gatewayRef: string } | false> {
-    void request;
-    return Promise.reject(new Error('Not implemented'));
+  async refund({
+    gatewayRef,
+    amount,
+    idempotencyKey,
+  }: RefundRequest): Promise<{ gatewayRef: string } | false> {
+    const refund = await this.provider.createRefund({
+      payment_id: gatewayRef,
+      amount_cents: amount.amountMinor,
+      currency: amount.currency,
+      merchant_reference: idempotencyKey,
+    });
+    return refund.state === 'refunded' ? { gatewayRef: refund.id } : false;
+  }
+}
+
+function toChargeResult(payment: ProviderPayment): ChargeResult {
+  switch (payment.state) {
+    case 'captured':
+      return {
+        status: 'SUCCEEDED',
+        gatewayRef: payment.id,
+        brand: payment.card.network.toUpperCase(),
+        last4: payment.card.last_four,
+      };
+    case 'declined':
+      return { status: 'DECLINED', reason: DECLINES[payment.decline_code] };
+    case 'voided':
+      return { status: 'DECLINED', reason: 'no_charge' };
   }
 }
