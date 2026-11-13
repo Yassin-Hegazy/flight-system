@@ -304,6 +304,20 @@
       "title": "Route search uses the composite index",
       "milestone": "beta",
       "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-01",
+      "module": "payments",
+      "title": "Pay for a pending booking",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-03",
+      "module": "payments",
+      "title": "Never be charged twice",
+      "milestone": "beta",
+      "verifiedBy": "test"
     }
   ]
 }

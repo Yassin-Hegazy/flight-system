@@ -55,8 +55,12 @@ export class PgInventoryRepository implements InventoryRepository {
     return hold ?? null;
   }
 
-  async findPaymentHold(id: string, bookingId: string): Promise<StoredSeatHold | null> {
-    const [hold] = await this.dataSource.manager.query<StoredSeatHold[]>(
+  async findPaymentHold(
+    id: string,
+    bookingId: string,
+    tx = this.dataSource.manager,
+  ): Promise<StoredSeatHold | null> {
+    const [hold] = await tx.query<StoredSeatHold[]>(
       'SELECT * FROM "seat_holds" WHERE "id" = $1 AND "bookingId" = $2',
       [id, bookingId],
     );
