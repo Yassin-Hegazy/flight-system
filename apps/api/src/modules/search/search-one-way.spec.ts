@@ -29,13 +29,14 @@ const registry = () =>
 interface Setup {
   flights?: FlightInfo[];
   seats?: Record<string, number>;
-  defaultSeats?: number;
+  /** Seats for a flight missing from `seats`; null means it has no inventory. */
+  defaultSeats?: number | null;
   now?: Date;
 }
 
 function searchWith({ flights = [], seats = {}, defaultSeats = 50, now = NOW }: Setup = {}) {
   const catalog = new CatalogStub(flights);
-  const inventory = new InventoryStub(seats, defaultSeats);
+  const inventory = new InventoryStub(seats, defaultSeats ?? undefined);
   const search = new SearchOneWay(catalog, inventory, registry(), fixedClock(now));
   return { search, catalog, inventory };
 }
@@ -94,7 +95,7 @@ describe('US-FS-01 search one-way flights', () => {
     const { search } = searchWith({
       flights: [exact, short, unprovisioned],
       seats: { exact: 3, short: 2 },
-      defaultSeats: undefined,
+      defaultSeats: null,
     });
 
     const page = await expectOk(
