@@ -7,6 +7,7 @@ import type { Tx } from '../../shared/db';
 import { AppError } from '../../shared/errors';
 import {
   BOOKING_CANCELLATION_IN_TX,
+  BOOKING_TICKET_VOID_IN_TX,
   type BookingCancellationInTx,
   type BookingCancelled,
   publishDomainEvent,
@@ -95,7 +96,13 @@ export class CancelBookings implements FlightBookingCancellation {
       ref: booking.reference,
       reason,
     };
-    const recording: BookingCancellationInTx = { tx, paymentId: booking.paymentId };
+    const recording: BookingCancellationInTx = {
+      tx,
+      paymentId: booking.paymentId,
+      bookingId: booking.id,
+    };
+    // One transaction owns a single PostgreSQL connection, so the two writers run in order.
+    await this.events.emitAsync(BOOKING_TICKET_VOID_IN_TX, recording);
     await this.events.emitAsync(BOOKING_CANCELLATION_IN_TX, recording);
     return event;
   }

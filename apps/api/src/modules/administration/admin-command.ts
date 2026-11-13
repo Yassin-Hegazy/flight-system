@@ -1,10 +1,17 @@
 import type { Tx } from '../../shared/db';
 import type { DomainEvent } from '../../shared/events';
 import type { Result } from '../../shared/result';
+export interface AuditChange {
+  target: string;
+  flightId?: string;
+  before: unknown;
+  after: unknown;
+}
 
 /** What a command that succeeded hands back to the bus. */
 export interface CommandOutcome<O> {
   value: O;
+  audit: AuditChange[];
   /** Facts to announce. The bus publishes them only after the transaction has committed. */
   events?: DomainEvent[];
 }

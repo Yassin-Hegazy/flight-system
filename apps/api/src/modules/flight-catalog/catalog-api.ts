@@ -51,7 +51,7 @@ export interface AirportInput {
 
 export type CreateFlightError = FlightRuleError | 'DUPLICATE_FLIGHT';
 export type ChangeStatusError = StatusRuleError | 'FLIGHT_NOT_FOUND';
-export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_CABIN' | 'INVALID_FARE';
+export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_CABIN' | 'INVALID_FARE' | 'CURRENCY_MISMATCH';
 export type AirportError = 'INVALID_AIRPORT_CODE' | 'INVALID_TIMEZONE' | 'INVALID_AIRPORT_DETAILS';
 
 /**
@@ -79,6 +79,12 @@ export interface CatalogApi {
     cancelReason?: string,
   ): Promise<Result<FlightStatus, ChangeStatusError>>;
   setFare(tx: Tx, id: string, cabin: Cabin, fare: Money): Promise<Result<Money | null, FareError>>;
+  airport(code: string, tx?: Tx): Promise<AirportInput | null>;
+  lockAirport(tx: Tx, code: string): Promise<AirportInput | null>;
+  deleteAirport(
+    tx: Tx,
+    code: string,
+  ): Promise<Result<void, 'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'>>;
   upsertAirport(tx: Tx, input: AirportInput): Promise<Result<string, AirportError>>;
 }
 

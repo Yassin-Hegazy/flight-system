@@ -136,7 +136,13 @@ describe('Payments over HTTP', () => {
         .set('cookie', owner)
         .expect(200);
       expect(inbox.body).toMatchObject({
-        items: [{ type: 'BookingConfirmed', title: `Booking ${reference} confirmed` }],
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'BookingConfirmed',
+            title: `Booking ${reference} confirmed`,
+          }),
+          expect.objectContaining({ type: 'TicketsIssued' }),
+        ]),
       });
     } finally {
       charge.mockRestore();

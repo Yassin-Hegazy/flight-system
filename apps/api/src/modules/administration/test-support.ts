@@ -65,6 +65,10 @@ export class FakeCatalog {
     return this as unknown as CatalogApi;
   }
 
+  getFlightForUpdate() {
+    return this.getFlight();
+  }
+
   getFlight(): Promise<FlightInfo | null> {
     return Promise.resolve(this.flight);
   }

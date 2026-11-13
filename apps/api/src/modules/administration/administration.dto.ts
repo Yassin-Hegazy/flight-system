@@ -59,7 +59,7 @@ export class CabinFaresBody {
   BUSINESS!: number;
 }
 
-export class CreateFlightBody {
+export class FlightTemplateBody {
   @ApiProperty({ example: 'MS901' })
   @IsString()
   flightNumber!: string;
@@ -76,16 +76,6 @@ export class CreateFlightBody {
   @IsString()
   destinationCode!: string;
 
-  @ApiProperty({ format: 'date-time', example: '2027-06-01T06:00:00Z' })
-  @IsISO8601({ strict: true })
-  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
-  scheduledDepartureUtc!: string;
-
-  @ApiProperty({ format: 'date-time', example: '2027-06-01T11:00:00Z' })
-  @IsISO8601({ strict: true })
-  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
-  scheduledArrivalUtc!: string;
-
   @ApiProperty({ example: 'EGP' })
   @Matches(/^[A-Z]{3}$/, { message: '$property must be an ISO 4217 code such as EGP' })
   currency!: string;
@@ -101,6 +91,18 @@ export class CreateFlightBody {
   @ValidateNested()
   @Type(() => CabinCapacityBody)
   capacity!: CabinCapacityBody;
+}
+
+export class CreateFlightBody extends FlightTemplateBody {
+  @ApiProperty({ format: 'date-time', example: '2027-06-01T06:00:00Z' })
+  @IsISO8601({ strict: true })
+  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
+  scheduledDepartureUtc!: string;
+
+  @ApiProperty({ format: 'date-time', example: '2027-06-01T11:00:00Z' })
+  @IsISO8601({ strict: true })
+  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
+  scheduledArrivalUtc!: string;
 }
 
 export class UpdateFlightStatusBody {

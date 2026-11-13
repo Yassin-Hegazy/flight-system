@@ -125,6 +125,13 @@ export interface InventoryApi {
     cabin: Cabin,
     capacity: number,
   ): Promise<Result<void, CapacityError>>;
+  /** Updates capacity and returns the previous value captured under the cabin lock. */
+  changeCapacity(
+    tx: Tx,
+    flightId: string,
+    cabin: Cabin,
+    capacity: number,
+  ): Promise<Result<number, CapacityError>>;
   /** One snapshot for all provisioned cabins; missing/unprovisioned flights return ok([]). */
   cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>>;
 }

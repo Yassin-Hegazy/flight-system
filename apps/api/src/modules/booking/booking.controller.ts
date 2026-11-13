@@ -35,9 +35,10 @@ export class BookingController {
   @Post()
   @ApiOperation({ summary: 'Reserve one adult seat for checkout' })
   reserve(@Ctx() ctx: RequestContext, @Body() body: ReserveSeatBody) {
-    const action = new Action(() =>
-      this.bookings.reserve(signedIn(ctx).id, body.flightId, body.cabin),
-    );
+    const action = new Action(() => {
+      const { id, name } = signedIn(ctx);
+      return this.bookings.reserve(id, name, body.flightId, body.cabin);
+    });
     return new WithRole(action, UserRole.Traveler).execute(ctx, undefined);
   }
 

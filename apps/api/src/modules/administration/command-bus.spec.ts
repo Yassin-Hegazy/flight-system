@@ -60,7 +60,7 @@ function fixture(failFirstObserver = false) {
       return Promise.resolve([]);
     },
   } as unknown as EventEmitter2;
-  const bus = new CommandBus(dataSource as never, events);
+  const bus = new CommandBus(dataSource as never, events, { append: async () => {} } as never);
   return { bus, log };
 }
 
@@ -77,7 +77,7 @@ async function failure(promise: Promise<unknown>): Promise<AppError> {
 describe('US-AD-01 Create a scheduled flight (command bus)', () => {
   it('US-AD-01-T01 a traveler is forbidden and the command never runs', async () => {
     const { bus, log } = fixture();
-    const command = new Recorded(log, ok({ value: 'done' }));
+    const command = new Recorded(log, ok({ value: 'done', audit: [] }));
 
     expect((await failure(bus.dispatch(command, asTraveler()))).status).toBe(403);
     expect((await failure(bus.dispatch(command, asAnonymous()))).status).toBe(401);
@@ -87,9 +87,12 @@ describe('US-AD-01 Create a scheduled flight (command bus)', () => {
   it('US-AD-01-T17 an administrator runs the command inside one transaction', async () => {
     const { bus, log } = fixture();
 
-    const result = await bus.dispatch(new Recorded(log, ok({ value: 'done' })), asAdmin());
+    const result = await bus.dispatch(
+      new Recorded(log, ok({ value: 'done', audit: [] })),
+      asAdmin(),
+    );
 
-    expect(result).toEqual({ ok: true, value: 'done' });
+    expect(result).toEqual(ok('done'));
     expect(log).toEqual(['begin', 'execute in transaction', 'commit']);
   });
 
@@ -116,7 +119,10 @@ describe('US-AD-02 Update a flight status (command bus)', () => {
   it('US-AD-02-T04 events are published only after the transaction has committed', async () => {
     const { bus, log } = fixture();
 
-    await bus.dispatch(new Recorded(log, ok({ value: 'done', events: [DELAYED] })), asAdmin());
+    await bus.dispatch(
+      new Recorded(log, ok({ value: 'done', audit: [], events: [DELAYED] })),
+      asAdmin(),
+    );
 
     expect(log).toEqual(['begin', 'execute in transaction', 'commit', 'publish FlightDelayed']);
   });
@@ -134,7 +140,7 @@ describe('US-AD-02 Update a flight status (command bus)', () => {
     const events = [DELAYED, { ...DELAYED, eventId: 'e-2' }];
 
     await expect(
-      bus.dispatch(new Recorded(log, ok({ value: 'done', events })), asAdmin()),
+      bus.dispatch(new Recorded(log, ok({ value: 'done', audit: [], events })), asAdmin()),
     ).resolves.toEqual(ok('done'));
     expect(log).toEqual([
       'begin',

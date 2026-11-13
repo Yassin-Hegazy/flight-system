@@ -141,9 +141,25 @@ export class FlightCatalogService implements CatalogApi {
     if (!isCabin(cabin)) return err('INVALID_CABIN');
     if (!isPositiveFare(fare)) return err('INVALID_FARE');
     if (!(await this.repository.findFlightForUpdate(tx, flightId))) return err('FLIGHT_NOT_FOUND');
-    const previous = await this.repository.findFare(tx, flightId, cabin);
+    const fares = await this.repository.findFares([flightId], tx);
+    if (fares.some((record) => record.fare.currency !== fare.currency))
+      return err('CURRENCY_MISMATCH');
+    const previous = fares.find((record) => record.cabin === cabin);
     await this.repository.saveFare(tx, { flightId, cabin, fare });
     return ok(previous?.fare ?? null);
+  }
+
+  async airport(code: string, tx?: Tx): Promise<AirportInput | null> {
+    const [airport] = await this.repository.findAirports([code.trim().toUpperCase()], tx);
+    return airport ?? null;
+  }
+
+  lockAirport(tx: Tx, code: string): Promise<AirportInput | null> {
+    return this.repository.lockAirport(tx, code);
+  }
+
+  deleteAirport(tx: Tx, code: string) {
+    return this.repository.deleteAirport(tx, code);
   }
 
   async upsertAirport(tx: Tx, input: AirportInput): Promise<Result<string, AirportError>> {

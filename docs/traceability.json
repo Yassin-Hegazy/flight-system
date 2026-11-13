@@ -230,16 +230,16 @@
     },
     {
       "id": "US-AD-03",
-      "module": "flight-catalog",
-      "title": "Set a cabin fare",
-      "milestone": "beta",
+      "module": "administration",
+      "title": "Set cabin capacity and fares",
+      "milestone": "final",
       "verifiedBy": "test"
     },
     {
       "id": "US-AD-04",
-      "module": "flight-catalog",
-      "title": "Validate and manage airports",
-      "milestone": "beta",
+      "module": "administration",
+      "title": "Cancel a flight",
+      "milestone": "final",
       "verifiedBy": "test"
     },
     {
@@ -344,6 +344,41 @@
       "id": "US-PAY-06",
       "module": "payments",
       "title": "Recover interrupted payments",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-05",
+      "module": "administration",
+      "title": "Read flight load and passenger manifest",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-06",
+      "module": "administration",
+      "title": "Manage airports",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-07",
+      "module": "administration",
+      "title": "Keep an append-only audit trail",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-AD-08",
+      "module": "administration",
+      "title": "Schedule recurring flights",
+      "milestone": "stretch",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-AUD-01",
+      "module": "administration",
+      "title": "Audit records cannot be changed",
       "milestone": "final",
       "verifiedBy": "test"
     }

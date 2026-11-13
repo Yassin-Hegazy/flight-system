@@ -1,8 +1,10 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
+import { BOOKING_TICKET_ISSUE_IN_TX, type BookingTicketIssueInTx } from '../../shared/events';
 import { AppError } from '../../shared/errors';
 import { money } from '../../shared/money';
 import { err, ok } from '../../shared/result';
@@ -34,10 +36,11 @@ export class BookingService implements BookingPayments, BookingOwners {
     @InjectDataSource() private readonly db: DataSource,
     @Inject(CATALOG_API) private readonly catalog: CatalogApi,
     @Inject(INVENTORY_API) private readonly inventory: InventoryApi,
+    private readonly events: EventEmitter2,
   ) {}
 
   /** The M2 path reserves one adult seat and snapshots its fare. */
-  async reserve(ownerId: string, flightId: string, cabin: Cabin) {
+  async reserve(ownerId: string, passengerName: string, flightId: string, cabin: Cabin) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         return await this.db.transaction('READ COMMITTED', async (tx) => {
@@ -56,6 +59,7 @@ export class BookingService implements BookingPayments, BookingOwners {
             id,
             reference: reference(),
             ownerId,
+            passengerName,
             flightId,
             cabin,
             holdId: hold.value,
@@ -122,6 +126,8 @@ export class BookingService implements BookingPayments, BookingOwners {
     const seats = await this.inventory.commit(tx, booking.holdId);
     if (!seats.ok) return err('HOLD_EXPIRED' as const);
     await tx.update(BookingEntity, booking.id, { status: 'CONFIRMED', paymentId });
+    const issue: BookingTicketIssueInTx = { tx, bookingId: booking.id, flightId: booking.flightId };
+    await this.events.emitAsync(BOOKING_TICKET_ISSUE_IN_TX, issue);
     return ok({
       type: 'BookingConfirmed' as const,
       eventId: paymentId,

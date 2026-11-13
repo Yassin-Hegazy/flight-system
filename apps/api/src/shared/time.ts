@@ -123,3 +123,16 @@ export function localDateOf(instant: Date, timeZone: string): string {
   const local = localParts(instant, timeZone);
   return `${local.year}-${pad(local.month)}-${pad(local.day)}`;
 }
+
+/** Resolve a wall-clock time in an IANA zone. Repeated times use the first occurrence. */
+export function localDepartureInstant(date: string, time: string, timeZone: string): Date | null {
+  const wallTime = new Date(`${date}T${time}:00Z`).getTime();
+  const offsets = new Set(
+    [-24, 0, 24].map((hour) => offsetMinutes(new Date(wallTime + hour * 60 * MINUTE_MS), timeZone)),
+  );
+  const candidates = [...offsets]
+    .map((offset) => new Date(wallTime - offset * MINUTE_MS))
+    .filter((instant) => formatLocal(instant, timeZone).slice(0, 16) === `${date}T${time}`)
+    .sort((a, b) => a.getTime() - b.getTime());
+  return candidates[0] ?? null;
+}

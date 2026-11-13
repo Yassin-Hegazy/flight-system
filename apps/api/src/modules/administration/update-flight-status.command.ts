@@ -39,12 +39,28 @@ export class UpdateFlightStatus implements AdminCommand<StatusChanged, UpdateFli
   async execute(tx: Tx): Promise<Result<CommandOutcome<StatusChanged>, UpdateFlightStatusFailure>> {
     const { flightId, status, estimatedDepartureUtc } = this.input;
     if (status === FlightStatus.Cancelled) return err('USE_CANCEL_FLIGHT');
+    const previous = await this.catalog.getFlightForUpdate(tx, flightId);
+    if (!previous) return err('FLIGHT_NOT_FOUND');
     const changed = await this.catalog.changeStatus(tx, flightId, status, estimatedDepartureUtc);
     if (!changed.ok) return changed;
 
     const delayed = status === FlightStatus.Delayed && estimatedDepartureUtc !== undefined;
     return ok({
       value: { status, previousStatus: changed.value },
+      audit: [
+        {
+          target: flightId,
+          flightId,
+          before: {
+            status: previous.status,
+            estimatedDepartureUtc: previous.estimatedDepartureUtc ?? null,
+          },
+          after: {
+            status,
+            estimatedDepartureUtc: estimatedDepartureUtc ?? previous.estimatedDepartureUtc ?? null,
+          },
+        },
+      ],
       events: delayed ? [await this.flightDelayed(tx, flightId, estimatedDepartureUtc)] : [],
     });
   }
