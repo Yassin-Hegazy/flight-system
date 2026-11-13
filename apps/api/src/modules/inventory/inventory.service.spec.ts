@@ -13,6 +13,8 @@ const request: AvailabilityRequest = {
 
 function fixture() {
   const repository = {
+    lockCabin: vi.fn(),
+    insertHold: vi.fn(),
     findAvailability: vi
       .fn()
       .mockResolvedValue([{ flightId: FLIGHT, cabin: 'ECONOMY', availableSeats: 5 }]),

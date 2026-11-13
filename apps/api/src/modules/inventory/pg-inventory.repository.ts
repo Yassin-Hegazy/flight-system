@@ -2,11 +2,42 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { Tx } from '../../shared/db';
-import type { InventoryRepository, InventorySnapshot } from './inventory.repository';
+import type { Cabin } from '../flight-catalog/index';
+import type { InventoryRepository, InventorySnapshot, NewSeatHold } from './inventory.repository';
 
 @Injectable()
 export class PgInventoryRepository implements InventoryRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+
+  async lockCabin(tx: Tx, flightId: string, cabin: Cabin): Promise<boolean> {
+    const runner = tx?.queryRunner;
+    if (!runner || runner.isReleased || !runner.isTransactionActive) {
+      throw new Error('Inventory.hold requires an active caller transaction');
+    }
+    // At REPEATABLE READ a waiter could still see an old holds snapshot after obtaining the
+    // lock, because inserting a hold does not update the inventory row. Enforce the contract.
+    const [settings] = await tx.query<{ transaction_isolation: string }[]>(
+      'SHOW transaction_isolation',
+    );
+    if (settings.transaction_isolation !== 'read committed') {
+      throw new Error('Inventory.hold requires READ COMMITTED isolation');
+    }
+    const rows = await tx.query<{ flightId: string }[]>(
+      `SELECT "flightId" FROM "cabin_inventory"
+       WHERE "flightId" = $1 AND "cabin" = $2 FOR UPDATE`,
+      [flightId, cabin],
+    );
+    return rows.length !== 0;
+  }
+
+  async insertHold(tx: Tx, hold: NewSeatHold): Promise<string> {
+    const [created] = await tx.query<{ id: string }[]>(
+      `INSERT INTO "seat_holds" ("bookingId", "flightId", "cabin", "seats", "status", "expiresAt")
+       VALUES ($1, $2, $3, $4, 'HELD', $5) RETURNING "id"`,
+      [hold.bookingId, hold.flightId, hold.cabin, hold.seats, hold.expiresAt],
+    );
+    return created.id;
+  }
 
   async findAvailability(
     flightIds: readonly string[],

@@ -6,10 +6,12 @@
 
 ## Public API
 
-FBS-21 / US-INV-01 provides read-only, genuine availability. Import `InventoryModule` in the
+FBS-21 / US-INV-01 provides read-only, genuine availability. FBS-22 / US-INV-02 adds transactional
+seat holds that prevent overselling. Import `InventoryModule` in the
 consuming Nest module and inject `INVENTORY_API` with the `InventoryApi` interface. Both are
 exported from `index.ts`, alongside `InventoryFacade`, `AvailabilityRequest`, `Availability`,
-and `AvailabilityError`. The token resolves to the same singleton as `InventoryFacade`.
+`AvailabilityError`, `HoldRequest`, `HoldError`, and `DEFAULT_HOLD_DURATION_SECONDS`.
+The token resolves to the same singleton as `InventoryFacade`.
 Services, repositories and entities stay private.
 
 ```ts
@@ -52,8 +54,88 @@ lowercase. Duplicate requests are independent checks, not a combined seat alloca
   injectable `CLOCK`. There is no per-flight query loop or availability cache.
 - Passing a shared `Tx` uses that transaction's manager, including its uncommitted changes.
   Without it, the default manager is used. This is a snapshot read, not a lock or reservation;
-  future booking writes must enforce concurrency in their own transactional hold operation.
+  use `hold(tx, request)` for the decisive reservation check inside the booking transaction.
   Catalog remains responsible for flight existence and operational bookability.
+
+## Transactional seat holds (FBS-22)
+
+The public operation is `hold(tx: Tx, request: HoldRequest): Promise<Result<string, HoldError>>`.
+Success returns the new hold UUID. Example with a transaction already owned by the caller:
+
+```ts
+const result = await inventory.hold(tx, {
+  bookingId,
+  flightId,
+  cabin: 'ECONOMY',
+  seats: 3,
+  durationSeconds: 900, // Optional; defaults to DEFAULT_HOLD_DURATION_SECONDS (15 minutes).
+});
+```
+
+- IDs must be UUID strings and are normalized to lowercase. Cabins reuse Catalog's `Cabin`.
+  `seats` must be a positive integer no greater than PostgreSQL's `integer` maximum (2,147,483,647).
+  Booking computes seats from the passengers requiring seats; lap infants are excluded.
+- Duration is a positive whole number of seconds. Conversion to milliseconds must be a safe
+  integer, and adding it to the post-lock clock must produce a valid JavaScript `Date`.
+- Typed failures are `INVALID_REQUEST`, `INVALID_BOOKING_ID`, `INVALID_FLIGHT_ID`, `INVALID_CABIN`,
+  `INVALID_SEAT_COUNT`, `INVALID_HOLD_DURATION`, `INVENTORY_NOT_FOUND`, and `SEATS_UNAVAILABLE`.
+  An unavailable or missing cabin creates no hold. Database/programming failures propagate.
+- The caller must supply an **active READ COMMITTED transaction**. Autocommit, completed/released
+  transactions, and unsupported isolation levels throw usage errors before locking/writing.
+  `Tx` is the existing TypeORM `EntityManager`, so the repository verifies its QueryRunner and
+  PostgreSQL's actual `transaction_isolation` setting instead of assuming the caller used BEGIN.
+
+The service follows this sequence: validate and copy input; acquire `SELECT ... FOR UPDATE` on
+exactly `(flightId, cabin)`; sample the shared `CLOCK`; read availability in a separate statement;
+reject insufficient seats; insert a `HELD` row with expiration derived from that same timestamp.
+It reuses the original FBS-21 availability query and its strict `expiresAt > now` predicate.
+Committed-seat counts are not incremented and no available-seat counter is maintained.
+
+The row lock remains held until the caller commits or rolls back. Competing reservations for that
+cabin wait, then read the latest committed holds using a fresh READ COMMITTED statement snapshot.
+Sampling time after the lock also prevents an expired hold from being counted using a pre-wait
+timestamp. Different cabins/flights can proceed independently. REPEATABLE READ is rejected because
+its old snapshot could miss a competing hold even after the inventory row lock is obtained.
+
+### Caller and future integration responsibilities
+
+Inventory neither opens nor completes a transaction. The future Booking operation must create its
+booking record and call `hold` through the same `Tx`, then commit only when all required work
+succeeds. A returned business error **does not automatically abort the transaction**. With
+`DataSource.transaction('READ COMMITTED', ...)`, the callback must throw to roll back earlier
+booking writes/holds. A caller can carry the typed result in a local rollback signal and handle
+that signal outside the callback; it must not swallow unexpected errors. Its eventual HTTP adapter
+should map `SEATS_UNAVAILABLE` to a business conflict, not an unhandled 500. No HTTP adapter exists
+for this operation yet.
+
+For multi-flight bookings, normalize UUIDs, sort ascending by flight ID and then lexicographically
+by cabin (`BUSINESS` before `ECONOMY` for the same flight), and await each `hold` sequentially using
+one transaction. Every caller must follow the same ordering to avoid opposing lock acquisition.
+Do not run parallel queries on one transaction manager. T13 verifies rollback after a later
+reservation fails; T15 tests two consumers with opposite input orders applying this ordering.
+This is caller orchestration at the Facade boundary, not a Booking lifecycle implementation.
+
+All future writes that consume capacity or reduce it must honor the same cabin-lock/check protocol.
+The committed-seat CHECK constraint alone cannot enforce aggregate active holds across rows.
+Direct SQL fixtures are for isolated tests; production modules must use the Facade. Retrying a
+successful request is not idempotent: callers must not blindly retry an uncertain commit without
+their future booking/idempotency policy. No payment-time hold extension, confirmation, cleanup,
+release, cancellation, or HTTP endpoint is implemented here.
+
+### Construction and test evidence
+
+The Facade keeps persistence private; the service owns validation and the imperative hold workflow;
+the repository owns PostgreSQL locking and insertion. The service depends on the repository
+interface rather than its PostgreSQL implementation. Declarative SQL and existing CHECK/FK
+constraints enforce database rules. This extends the existing architecture without a new pattern,
+dependency, entity, or migration.
+
+See [FBS-22 test cases and executed TDD evidence](FBS-22-tests.md) for Lab 7 test records, AC
+traceability, the 20 repetitions of 50 concurrent reservations for 10 seats, and remaining M2 and
+performance integration requirements. Tests exercise the public `INVENTORY_API` from a separate
+Nest consumer module. The stress test opens 50 distinct PostgreSQL connections, starts their
+READ COMMITTED transactions, verifies their backend PIDs, and opens a shared start barrier.
+Its pool size of 55 is test-only, not a production configuration change.
 
 ## Schema and implementation
 
@@ -123,9 +205,9 @@ changing its definition, or introducing other schema drift fails this check. Ins
 delete tests also enforce the relationship. The existing CI runs these tests after applying all
 migrations, so an accidental generated removal cannot pass the integration suite silently.
 
-FBS-22, FBS-23 and FBS-24 are not implemented: there are no hold creation/commit/release commands,
-expiration jobs, capacity administration endpoints, or Search/Booking changes. Status fields and
-indexes prepare for that work without claiming to enforce future allocation/idempotency rules.
+FBS-22 reuses this schema, including the existing committed-seat CHECK and flight foreign key.
+No migration is needed. FBS-23 and FBS-24 remain unimplemented: there are no payment confirmation,
+release or expiration jobs, capacity administration endpoints, or Search/Booking changes.
 
 ## Verification and acceptance criteria
 
@@ -154,11 +236,14 @@ availability assertions, now using real flights and the seeded MS/CAI/LHR refere
   `GET /flights/airports/suggestions`, and Users/Access routes. They can be exercised with Postman;
   the normal application bootstrap publishes Swagger at `/docs`. T20 specifically checks a
   provisioned Catalog flight still appears in the flight list and detail endpoint.
-- Inventory availability is currently an internal Nest Facade. The PostgreSQL integration suite
-  demonstrates its real calculations, DI boundary and database constraints, but there is no
+- Inventory availability and concurrency-safe hold creation are internal Nest Facade operations.
+  The PostgreSQL integration suite demonstrates their calculations, contention outcomes, rollback,
+  DI boundary and database constraints, but there is no
   Inventory HTTP controller or Search/Booking route exposing availability to Swagger/Postman.
   That HTTP integration remains a **separate team requirement** for a live availability API demo;
-  it is not added by this correction. Confirm the intended demo format with the TA.
+  it is not added by FBS-22. Search must use the availability Facade; Booking must use `hold` in
+  its shared transaction and map typed business conflicts. No end-to-end booking demo has been
+  verified. Confirm the intended demo format with the TA.
 - Apply migrations first. Reference-data migrations seed airlines and airports, **not flights or
   inventory**. Demo setup must create valid flights (including their route, schedule and any fares
   required for the scenario), then populate cabin inventory using those actual UUIDs, then any
@@ -171,7 +256,10 @@ availability assertions, now using real flights and the seeded MS/CAI/LHR refere
   demo database has been seeded by these tests, which use disposable Testcontainers databases.
 - For individual questions, be ready to explain the availability formula and strict expiry check,
   lap-infant handling, batch query, Facade/DI boundary, database-only FK, migration preflight and
-  rollback, schema-diff limitation, and the PostgreSQL regression tests. No frontend is required.
+  rollback, schema-diff limitation, the row-lock/READ COMMITTED hold sequence, declarative constraints
+  versus imperative orchestration, and the actual RED/GREEN and concurrency tests. No frontend is
+  required. NFR-PERF-02 (create-booking p95 <= 1 second at 20 concurrent users) is pending the Booking
+  endpoint; Inventory test timings do not establish that end-to-end performance requirement.
 
 Run from the repository root: `pnpm typecheck`, `pnpm lint`, `pnpm depcruise`, `pnpm test`,
 `pnpm test:integration` (Docker required), `pnpm build`, and `git diff --check`.
