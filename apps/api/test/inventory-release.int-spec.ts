@@ -48,7 +48,7 @@ describe('US-INV-04 release against PostgreSQL', () => {
   beforeEach(async () => {
     now = new Date(NOW);
     // This URL belongs exclusively to the new disposable Testcontainer, never .env/local data.
-    await db.query('TRUNCATE seat_holds, cabin_inventory');
+    await db.query('TRUNCATE payments, bookings, seat_holds, cabin_inventory');
     await db.query('DELETE FROM flights');
     await db.query(
       `INSERT INTO flights (id, "flightNumber", "airlineCode", "originCode", "destinationCode",

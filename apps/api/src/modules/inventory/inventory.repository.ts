@@ -29,8 +29,8 @@ export interface InventoryRepository {
   insertHold(tx: Tx, hold: NewSeatHold): Promise<string>;
   assertTransaction(tx: Tx): Promise<void>;
   findHold(tx: Tx, id: string): Promise<StoredSeatHold | null>;
-  /** Default committed-data read, restricted to the expected booking. No write locks. */
-  findPaymentHold(id: string, bookingId: string): Promise<StoredSeatHold | null>;
+  /** Read restricted to the expected booking. No write locks. */
+  findPaymentHold(id: string, bookingId: string, tx?: Tx): Promise<StoredSeatHold | null>;
   lockHold(tx: Tx, id: string): Promise<StoredSeatHold | null>;
   commitHeld(tx: Tx, hold: StoredSeatHold): Promise<void>;
   /** Only called with both cabin and hold locked and a non-RELEASED current state. */

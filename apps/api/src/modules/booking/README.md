@@ -7,8 +7,11 @@
 ## Public API
 
 `BOOKING_OWNERS` exposes `activeOwnersOf(tx, flightId)` for Administration's flight events.
-The scaffold returns an empty list. Once Booking persists bookings, use the caller's transaction
-to return the owners of active bookings for the flight.
+It uses the caller's transaction to return owners with confirmed bookings or unexpired holds.
+
+`BOOKING_PAYMENTS` provides `getPayable` and `confirmPaid`. Booking owns the fare snapshot and
+uses Inventory to validate and commit the hold. The M2 HTTP path reserves one adult seat on one
+flight and lets its owner read the booking status.
 
 ## Module rules
 

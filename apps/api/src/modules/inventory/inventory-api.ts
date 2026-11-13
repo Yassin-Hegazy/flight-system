@@ -116,6 +116,7 @@ export interface InventoryApi {
   validateForPayment(
     holdId: string,
     bookingId: string,
+    tx?: Tx,
   ): Promise<Result<HoldPaymentEligibility, HoldValidationError>>;
   /** Provision/update without displacing committed seats or active holds. */
   setCapacity(

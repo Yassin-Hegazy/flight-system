@@ -7,10 +7,3 @@ export interface BookingOwners {
 }
 
 export const BOOKING_OWNERS = Symbol('BOOKING_OWNERS');
-
-/** The Booking scaffold creates no bookings. Replace this provider when Booking stores them. */
-export class NoBookingsYet implements BookingOwners {
-  activeOwnersOf(): Promise<string[]> {
-    return Promise.resolve([]);
-  }
-}
