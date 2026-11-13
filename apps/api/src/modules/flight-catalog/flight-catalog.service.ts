@@ -79,8 +79,12 @@ export class FlightCatalogService implements CatalogApi {
     return airports.map(({ code, name, city, country }) => ({ code, name, city, country }));
   }
 
-  getAirports(codes: readonly string[]): Promise<AirportInfo[]> {
-    return Promise.reject(new Error(`Not implemented: getAirports(${codes.join(',')})`));
+  /** Read-only, one query whatever the number of codes. Search uses it to validate criteria. */
+  async getAirports(codes: readonly string[]): Promise<AirportInfo[]> {
+    const unique = [...new Set(codes.map((code) => code.trim().toUpperCase()))];
+    if (unique.length === 0) return [];
+    const airports = await this.repository.findAirports(unique);
+    return airports.map(({ code, name, city, timezone }) => ({ code, name, city, timezone }));
   }
 
   isBookable(flight: FlightInfo, now: Date): boolean {

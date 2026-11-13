@@ -14,6 +14,7 @@ on the service class.
 | `getFlight(id)`                                  | any module      | `null` when the flight does not exist                     |
 | `findFlights(route, localDate)`                  | Search          | one calendar day at the origin airport                    |
 | `searchAirports(query)`                          | Search, web     | 2+ characters, at most 10, exact code first               |
+| `getAirports(codes)`                             | Search          | one read by code; unknown codes are left out              |
 | `isBookable(flight, now)`                        | Search, Booking | pure: SCHEDULED or DELAYED, more than 2 h out             |
 | `priceParty(flight, cabin, party)`               | Search, Booking | pure: adults 100%, children 75%, infants 10%              |
 | `createFlight(tx, input)`                        | Administration  | flight plus both cabin fares, in the caller's transaction |
