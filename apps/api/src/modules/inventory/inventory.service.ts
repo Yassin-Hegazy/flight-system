@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
-import { isCabin } from '../flight-catalog/index';
+import { isCabin, type Cabin } from '../flight-catalog/index';
 import {
   DEFAULT_HOLD_DURATION_SECONDS,
   type Availability,
@@ -10,8 +10,18 @@ import {
   type AvailabilityRequest,
   type HoldError,
   type HoldRequest,
+  type CommitError,
+  type CapacityError,
+  type CabinLoad,
+  type CabinLoadError,
+  type HoldPaymentEligibility,
+  type HoldValidationError,
 } from './inventory-api';
-import { INVENTORY_REPOSITORY, type InventoryRepository } from './inventory.repository';
+import {
+  INVENTORY_REPOSITORY,
+  type InventoryRepository,
+  type StoredSeatHold,
+} from './inventory.repository';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
@@ -26,6 +36,95 @@ export class InventoryService {
     @Inject(INVENTORY_REPOSITORY) private readonly repository: InventoryRepository,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
+
+  async commit(tx: Tx, holdId: string): Promise<Result<void, CommitError>> {
+    if (typeof holdId !== 'string' || !UUID.test(holdId)) return err('INVALID_HOLD_ID');
+    const id = holdId.toLowerCase();
+    await this.repository.assertTransaction(tx);
+    // Identity lookup is intentionally unlocked. Every writer locks the cabin BEFORE the hold.
+    const identity = await this.repository.findHold(tx, id);
+    if (!identity) return err('NOT_HELD');
+    if (!(await this.repository.lockCabin(tx, identity.flightId, identity.cabin)))
+      return err('NOT_HELD');
+    const hold = await this.repository.lockHold(tx, id);
+    if (!hold) return err('NOT_HELD');
+    if (hold.flightId !== identity.flightId || hold.cabin !== identity.cabin) {
+      throw new Error('Hold flight/cabin identity changed while acquiring Inventory locks');
+    }
+    const eligibilityError = this.holdEligibilityError(hold);
+    if (eligibilityError) return err(eligibilityError);
+    await this.repository.commitHeld(tx, hold);
+    return ok(undefined);
+  }
+
+  async validateForPayment(
+    holdId: string,
+    bookingId: string,
+  ): Promise<Result<HoldPaymentEligibility, HoldValidationError>> {
+    if (typeof holdId !== 'string' || !UUID.test(holdId)) return err('INVALID_HOLD_ID');
+    if (typeof bookingId !== 'string' || !UUID.test(bookingId)) return err('INVALID_BOOKING_ID');
+    const hold = await this.repository.findPaymentHold(
+      holdId.toLowerCase(),
+      bookingId.toLowerCase(),
+    );
+    if (!hold) return err('NOT_HELD');
+    const eligibilityError = this.holdEligibilityError(hold);
+    if (eligibilityError) return err(eligibilityError);
+    return ok({ holdId: hold.id, bookingId: hold.bookingId, expiresAt: new Date(hold.expiresAt) });
+  }
+
+  async setCapacity(
+    tx: Tx,
+    flightId: string,
+    cabin: Cabin,
+    capacity: number,
+  ): Promise<Result<void, CapacityError>> {
+    if (typeof flightId !== 'string' || !UUID.test(flightId)) return err('INVALID_FLIGHT_ID');
+    if (!isCabin(cabin)) return err('INVALID_CABIN');
+    if (!isCount(capacity) || capacity > POSTGRES_INTEGER_MAX) return err('INVALID_CAPACITY');
+    const id = flightId.toLowerCase();
+    if (!(await this.repository.ensureCabin(tx, id, cabin))) return err('FLIGHT_NOT_FOUND');
+    if (!(await this.repository.lockCabin(tx, id, cabin)))
+      throw new Error('Provisioned cabin disappeared');
+    const rows = await this.repository.findCabinLoad([id], this.currentTime(), tx);
+    const load = rows.find((row) => row.cabin === cabin);
+    if (!load) throw new Error('Locked Inventory row was not returned by load query');
+    if (capacity < load.committedSeats + load.activeHeldSeats) {
+      return err({
+        code: 'BELOW_SOLD',
+        committedSeats: load.committedSeats,
+        activeHeldSeats: load.activeHeldSeats,
+      });
+    }
+    await this.repository.updateCapacity(tx, id, cabin, capacity);
+    return ok(undefined);
+  }
+
+  async cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>> {
+    if (typeof flightId !== 'string' || !UUID.test(flightId)) return err('INVALID_FLIGHT_ID');
+    const rows = await this.repository.findCabinLoad([flightId.toLowerCase()], this.currentTime());
+    for (const row of rows) {
+      if (row.capacity !== row.committedSeats + row.activeHeldSeats + row.availableSeats) {
+        throw new Error('Stored Inventory exceeds capacity');
+      }
+    }
+    return ok(rows);
+  }
+
+  private currentTime(): Date {
+    const now = this.clock.now();
+    if (!Number.isFinite(now.getTime()))
+      throw new Error('Inventory clock returned an invalid timestamp');
+    return now;
+  }
+
+  /** Shared state/expiry rules; commit invokes this only after both database locks. */
+  private holdEligibilityError(hold: StoredSeatHold): CommitError | undefined {
+    if (hold.status === 'EXPIRED') return 'HOLD_EXPIRED';
+    if (hold.status !== 'HELD') return 'NOT_HELD';
+    if (hold.expiresAt.getTime() <= this.currentTime().getTime()) return 'HOLD_EXPIRED';
+    return undefined;
+  }
 
   async hold(tx: Tx, request: HoldRequest): Promise<Result<string, HoldError>> {
     const validated = validateHoldRequest(request);

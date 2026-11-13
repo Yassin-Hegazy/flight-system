@@ -44,6 +44,34 @@ export type HoldError =
   | 'INVENTORY_NOT_FOUND'
   | 'SEATS_UNAVAILABLE';
 
+export type CommitError = 'INVALID_HOLD_ID' | 'HOLD_EXPIRED' | 'NOT_HELD';
+export type HoldValidationError = CommitError | 'INVALID_BOOKING_ID';
+export interface HoldPaymentEligibility {
+  readonly holdId: string;
+  readonly bookingId: string;
+  /** Original expiration: eligibility checks never renew or extend it. */
+  readonly expiresAt: Date;
+}
+export interface CabinLoad {
+  readonly flightId: string;
+  readonly cabin: Cabin;
+  readonly capacity: number;
+  readonly committedSeats: number;
+  readonly activeHeldSeats: number;
+  readonly availableSeats: number;
+}
+export type CapacityError =
+  | 'INVALID_FLIGHT_ID'
+  | 'INVALID_CABIN'
+  | 'INVALID_CAPACITY'
+  | 'FLIGHT_NOT_FOUND'
+  | {
+      readonly code: 'BELOW_SOLD';
+      readonly committedSeats: number;
+      readonly activeHeldSeats: number;
+    };
+export type CabinLoadError = 'INVALID_FLIGHT_ID';
+
 /** Availability snapshots and transactional seat reservations; no persistence types escape. */
 export interface InventoryApi {
   /**
@@ -64,6 +92,26 @@ export interface InventoryApi {
    * writes/holds on failure. Transaction misuse and unexpected database errors are thrown.
    */
   hold(tx: Tx, request: HoldRequest): Promise<Result<string, HoldError>>;
+
+  /** Cabin first, then hold lock; validates expiry after both. Duplicate commits return NOT_HELD.
+   * Requires an active caller-owned READ COMMITTED transaction, as does setCapacity. */
+  commit(tx: Tx, holdId: string): Promise<Result<void, CommitError>>;
+  /** Read-only eligibility snapshot for the expected booking; not customer authorization.
+   * Call after booking/hold creation commits. No locks or transaction span an external payment.
+   * Booking must authorize the customer and still call commit after payment, which revalidates. */
+  validateForPayment(
+    holdId: string,
+    bookingId: string,
+  ): Promise<Result<HoldPaymentEligibility, HoldValidationError>>;
+  /** Provision/update without displacing committed seats or active holds. */
+  setCapacity(
+    tx: Tx,
+    flightId: string,
+    cabin: Cabin,
+    capacity: number,
+  ): Promise<Result<void, CapacityError>>;
+  /** One snapshot for all provisioned cabins; missing/unprovisioned flights return ok([]). */
+  cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>>;
 }
 
 export const INVENTORY_API = Symbol('INVENTORY_API');

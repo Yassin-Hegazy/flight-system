@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
+import type { Cabin } from '../flight-catalog/index';
 import type { AvailabilityRequest, HoldRequest, InventoryApi } from './inventory-api';
 import { InventoryService } from './inventory.service';
 
@@ -14,5 +15,18 @@ export class InventoryFacade implements InventoryApi {
 
   hold(tx: Tx, request: HoldRequest) {
     return this.inventory.hold(tx, request);
+  }
+
+  commit(tx: Tx, holdId: string) {
+    return this.inventory.commit(tx, holdId);
+  }
+  validateForPayment(holdId: string, bookingId: string) {
+    return this.inventory.validateForPayment(holdId, bookingId);
+  }
+  setCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number) {
+    return this.inventory.setCapacity(tx, flightId, cabin, capacity);
+  }
+  cabinLoad(flightId: string) {
+    return this.inventory.cabinLoad(flightId);
   }
 }
