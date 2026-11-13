@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Module } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DataSource, type QueryRunner } from 'typeorm';
+import { DataSource, type EntityManager, type QueryRunner } from 'typeorm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { baseDatabaseOptions } from '../src/database/database.options';
 import {
@@ -357,81 +357,123 @@ describe('US-INV-04 release against PostgreSQL', () => {
     );
   });
 
-  it.each([
-    'commit wins',
-    'release wins',
-    'release rolls back',
-    'expiry versus cancellation',
-    'hold after release',
-    'capacity after release',
-    'release after capacity',
-    'expiry candidate after commit',
-  ])('US-INV-04-T13 real lock contention: %s', async (scenario) => {
-    const id = await hold(
-      ['release rolls back', 'capacity after release', 'release after capacity'].includes(scenario),
-    );
+  /**
+   * Two transactions contend for the same cabin lock. The first acts and keeps its transaction
+   * open; the second must wait for it, and its result depends on how the first one ends.
+   */
+  type Step = (tx: EntityManager, id: string) => Promise<unknown>;
+  interface Contention {
+    name: string;
+    /** The hold is already paid (COMMITTED) before the two transactions start. */
+    paid?: boolean;
+    /** The clock when the first transaction acts; the hold itself is always created at NOW. */
+    startAt?: Date;
+    first: Step;
+    second: Step;
+    /** The clock once the second transaction is waiting on the first one's lock. */
+    whileBlockedAt?: Date;
+    firstRollsBack?: boolean;
+    check: (result: unknown) => void;
+    finalHold: { status: string; committedSeats?: number };
+  }
+  const RELEASED = { ok: true, value: 'RELEASED' };
+  const ALREADY_RELEASED = { ok: true, value: 'ALREADY_RELEASED' };
+  const equals = (expected: unknown) => (result: unknown) => expect(result).toEqual(expected);
+  const succeeds = (result: unknown) => expect(result).toMatchObject({ ok: true });
+  const commitFirst: Step = async (tx, id) => expect((await api.commit(tx, id)).ok).toBe(true);
+  const releaseFirst =
+    (options?: ReleaseOptions): Step =>
+    async (tx, id) =>
+      expect(await api.release(tx, id, options)).toEqual(RELEASED);
+  const releaseSecond =
+    (options?: ReleaseOptions): Step =>
+    (tx, id) =>
+      api.release(tx, id, options);
+
+  const CONTENTION: Contention[] = [
+    {
+      name: 'commit wins',
+      first: commitFirst,
+      second: releaseSecond(),
+      check: equals(RELEASED),
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'release wins',
+      first: releaseFirst(),
+      second: (tx, id) => api.commit(tx, id),
+      check: equals({ ok: false, error: 'NOT_HELD' }),
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'release rolls back',
+      paid: true,
+      first: releaseFirst(),
+      second: releaseSecond(),
+      firstRollsBack: true,
+      check: equals(RELEASED),
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'expiry versus cancellation',
+      startAt: new Date(NOW.getTime() + 900_000),
+      first: releaseFirst({ expiredOnly: true }),
+      second: releaseSecond(),
+      check: equals(ALREADY_RELEASED),
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'hold after release',
+      first: releaseFirst(),
+      second: (tx) =>
+        api.hold(tx, { bookingId: randomUUID(), flightId: FLIGHT, cabin: 'ECONOMY', seats: 10 }),
+      check: succeeds,
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'capacity after release',
+      paid: true,
+      first: releaseFirst(),
+      second: (tx) => api.setCapacity(tx, FLIGHT, 'ECONOMY', 0),
+      check: succeeds,
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'release after capacity',
+      paid: true,
+      first: async (tx) => expect((await api.setCapacity(tx, FLIGHT, 'ECONOMY', 2)).ok).toBe(true),
+      second: releaseSecond(),
+      check: equals(RELEASED),
+      finalHold: { status: 'RELEASED' },
+    },
+    {
+      name: 'expiry candidate after commit',
+      first: commitFirst,
+      second: releaseSecond({ expiredOnly: true }),
+      whileBlockedAt: new Date(NOW.getTime() + 901_000),
+      check: equals(ALREADY_RELEASED),
+      finalHold: { status: 'COMMITTED', committedSeats: 2 },
+    },
+  ];
+
+  it.each(CONTENTION)('US-INV-04-T13 real lock contention: $name', async (scenario) => {
+    const id = await hold(scenario.paid);
+    now = scenario.startAt ?? now;
     const { first, second, pids } = await runners();
     let pending: Promise<unknown> | undefined;
     try {
-      if (scenario === 'commit wins' || scenario === 'expiry candidate after commit') {
-        expect((await api.commit(first.manager, id)).ok).toBe(true);
-        pending = api.release(
-          second.manager,
-          id,
-          scenario === 'expiry candidate after commit' ? { expiredOnly: true } : undefined,
-        );
-        await blocked(pids);
-        if (scenario === 'expiry candidate after commit') now = new Date(NOW.getTime() + 901_000);
-        await first.commitTransaction();
-        expect(await pending).toEqual({
-          ok: true,
-          value: scenario === 'commit wins' ? 'RELEASED' : 'ALREADY_RELEASED',
-        });
-      } else if (scenario === 'release after capacity') {
-        expect((await api.setCapacity(first.manager, FLIGHT, 'ECONOMY', 2)).ok).toBe(true);
-        pending = api.release(second.manager, id);
-        await blocked(pids);
-        await first.commitTransaction();
-        expect(await pending).toEqual({ ok: true, value: 'RELEASED' });
-      } else {
-        if (scenario === 'expiry versus cancellation') now = new Date(NOW.getTime() + 900_000);
-        expect(
-          await api.release(
-            first.manager,
-            id,
-            scenario === 'expiry versus cancellation' ? { expiredOnly: true } : undefined,
-          ),
-        ).toEqual({ ok: true, value: 'RELEASED' });
-        if (scenario === 'release wins') pending = api.commit(second.manager, id);
-        else if (scenario === 'hold after release')
-          pending = api.hold(second.manager, {
-            bookingId: randomUUID(),
-            flightId: FLIGHT,
-            cabin: 'ECONOMY',
-            seats: 10,
-          });
-        else if (scenario === 'capacity after release')
-          pending = api.setCapacity(second.manager, FLIGHT, 'ECONOMY', 0);
-        else pending = api.release(second.manager, id);
-        await blocked(pids);
-        if (scenario === 'release rolls back') await first.rollbackTransaction();
-        else await first.commitTransaction();
-        const result = await pending;
-        if (scenario === 'release wins') expect(result).toEqual({ ok: false, error: 'NOT_HELD' });
-        else if (scenario === 'expiry versus cancellation')
-          expect(result).toEqual({ ok: true, value: 'ALREADY_RELEASED' });
-        else if (scenario === 'release rolls back')
-          expect(result).toEqual({ ok: true, value: 'RELEASED' });
-        else expect(result).toMatchObject({ ok: true });
-      }
+      await scenario.first(first.manager, id);
+      pending = scenario.second(second.manager, id);
+      await blocked(pids);
+      now = scenario.whileBlockedAt ?? now;
+      await (scenario.firstRollsBack ? first.rollbackTransaction() : first.commitTransaction());
+      scenario.check(await pending);
       await second.commitTransaction();
       const rows = await api.cabinLoad(FLIGHT);
       if (!rows.ok) throw new Error(rows.error);
       for (const row of rows.value)
         expect(row.capacity).toBe(row.committedSeats + row.activeHeldSeats + row.availableSeats);
-      if (scenario === 'expiry candidate after commit')
-        expect(await state(id)).toEqual({ status: 'COMMITTED', committedSeats: 2 });
-      else expect((await state(id)).status).toBe('RELEASED');
+      expect(await state(id)).toMatchObject(scenario.finalHold);
       expect(rows.value[1]).toMatchObject({
         capacity: 4,
         committedSeats: 0,
