@@ -1,15 +1,19 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
 import { HealthResponseDto } from './health-response.dto';
 
-@ApiTags('health')
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(private readonly dataSource: DataSource) {}
 
   @Get()
-  @ApiOkResponse({ type: HealthResponseDto })
+  @ApiOperation({ summary: 'Check that the API is up and can reach its database' })
+  @ApiOkResponse({
+    type: HealthResponseDto,
+    description: 'Always 200; database says whether it answered.',
+  })
   async check(): Promise<HealthResponseDto> {
     const connected = await this.isDatabaseConnected();
     return { status: 'ok', database: connected ? 'connected' : 'disconnected' };
