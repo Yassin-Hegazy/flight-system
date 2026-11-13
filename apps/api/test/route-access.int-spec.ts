@@ -66,6 +66,8 @@ const ROUTES: RouteSpec[] = [
   { method: 'get', path: '/bookings/:reference/receipt', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/flights/airports/suggestions', access: 'public' },
   { method: 'get', path: '/flights/:id', access: 'public' },
+  { method: 'get', path: '/search/flights', access: 'public' },
+  { method: 'get', path: '/search/round-trip', access: 'public' },
   {
     method: 'post',
     path: '/bookings',

@@ -5,6 +5,7 @@ import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock, isValidTimeZone, localDayToUtcRange } from '../../shared/time';
 import type {
   AirportError,
+  AirportInfo,
   AirportInput,
   AirportSuggestion,
   CatalogApi,
@@ -76,6 +77,14 @@ export class FlightCatalogService implements CatalogApi {
     if (normalized.length < MIN_AIRPORT_QUERY) return [];
     const airports = await this.repository.searchAirports(normalized, MAX_AIRPORT_SUGGESTIONS);
     return airports.map(({ code, name, city, country }) => ({ code, name, city, country }));
+  }
+
+  /** Read-only, one query whatever the number of codes. Search uses it to validate criteria. */
+  async getAirports(codes: readonly string[]): Promise<AirportInfo[]> {
+    const unique = [...new Set(codes.map((code) => code.trim().toUpperCase()))];
+    if (unique.length === 0) return [];
+    const airports = await this.repository.findAirports(unique);
+    return airports.map(({ code, name, city, timezone }) => ({ code, name, city, timezone }));
   }
 
   isBookable(flight: FlightInfo, now: Date): boolean {
