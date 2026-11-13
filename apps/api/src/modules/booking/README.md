@@ -13,6 +13,13 @@ It uses the caller's transaction to return owners with confirmed bookings or une
 uses Inventory to validate and commit the hold. The M2 HTTP path reserves one adult seat on one
 flight and lets its owner read the booking status.
 
+`BOOKING_TICKETING` provides `getForTicketing`, `markTicketed`, `ownedId` and `awaitingTickets`
+for Ticketing. Ticketing issues tickets after `BookingConfirmed` commits and moves the booking
+from CONFIRMED to TICKETED; Booking never calls Ticketing. TICKETED counts as paid everywhere
+CONFIRMED does: travelers may cancel it, airline cancellation cascades over it, and it appears on
+the manifest. Until a booking holds several passengers and flights, `getForTicketing` reports the
+booking itself as its one passenger and its flight as its one segment.
+
 ## Module rules
 
 1. `index.ts` is this module's public API. It is the only file that code outside this folder may import.

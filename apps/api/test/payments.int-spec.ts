@@ -123,9 +123,10 @@ describe('Payments over HTTP', () => {
         amount: { amountMinor: 1500000, currency: 'EGP' },
         idempotencyKey: (response.body as { id: string }).id,
       });
+      // Confirmed by the payment, then TICKETED once Ticketing issues after the commit.
       expect(await stored(reference)).toEqual([
         {
-          status: 'CONFIRMED',
+          status: 'TICKETED',
           seatStatus: 'COMMITTED',
           paymentStatus: 'SUCCEEDED',
           cardLast4: '4242',
@@ -378,7 +379,7 @@ describe('Payments over HTTP', () => {
     try {
       await cancel(reference).expect(500);
       expect(await stored(reference)).toMatchObject([
-        { status: 'CONFIRMED', seatStatus: 'COMMITTED' },
+        { status: 'TICKETED', seatStatus: 'COMMITTED' },
       ]);
       expect((await receipt(reference).expect(200)).body).toMatchObject({ refund: null });
     } finally {
@@ -425,7 +426,7 @@ describe('Payments over HTTP', () => {
       await restarted.close();
     }
     expect(await stored(reference)).toMatchObject([
-      { status: 'CONFIRMED', seatStatus: 'COMMITTED', paymentStatus: 'SUCCEEDED' },
+      { status: 'TICKETED', seatStatus: 'COMMITTED', paymentStatus: 'SUCCEEDED' },
     ]);
     await pay(reference, key).send({ token: 'tok_timeout' }).expect(201);
     const inbox = await request(app.getHttpServer())

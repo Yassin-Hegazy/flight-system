@@ -6,6 +6,7 @@ import type { BookingTicketing, TicketingBooking } from '../booking/index';
 import { IssueTickets } from './issue-tickets';
 import type { Ticket } from './ticket';
 import { ETicketCreator, type TicketNumberGenerator } from './ticket-creator';
+import type { TicketsRepository } from './tickets.repository';
 
 export const TX = { fake: 'transaction' } as unknown as Tx;
 export const ISSUED_AT = new Date('2027-03-01T10:00:00Z');
@@ -136,6 +137,12 @@ export function issueFixture(current: TicketingBooking | null = booking()) {
   } as unknown as EventEmitter2;
   const tickets = new InMemoryTickets();
   const bookings = new FakeBooking(current);
-  const issue = new IssueTickets(db as never, bookings, tickets, creator(), events);
+  const issue = new IssueTickets(
+    db as never,
+    bookings,
+    tickets as unknown as TicketsRepository,
+    creator(),
+    events,
+  );
   return { issue, tickets, bookings, log };
 }
