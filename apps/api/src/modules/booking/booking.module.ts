@@ -4,6 +4,7 @@ import { FlightCatalogModule } from '../flight-catalog/index';
 import { InventoryModule } from '../inventory/index';
 import { BOOKING_OWNERS } from './booking-owners';
 import { BOOKING_PAYMENTS } from './booking-payments';
+import { BOOKING_TICKETING } from './booking-ticketing';
 import { BookingController } from './booking.controller';
 import { BookingEntity } from './booking.entity';
 import { CancelBookings, FLIGHT_BOOKING_CANCELLATION } from './cancel-bookings';
@@ -20,7 +21,14 @@ import { BookingPassengers } from './booking-passengers';
     { provide: FLIGHT_BOOKING_CANCELLATION, useExisting: CancelBookings },
     { provide: BOOKING_PAYMENTS, useExisting: BookingService },
     { provide: BOOKING_OWNERS, useExisting: BookingService },
+    { provide: BOOKING_TICKETING, useExisting: BookingService },
   ],
-  exports: [BookingPassengers, BOOKING_OWNERS, BOOKING_PAYMENTS, FLIGHT_BOOKING_CANCELLATION],
+  exports: [
+    BookingPassengers,
+    BOOKING_OWNERS,
+    BOOKING_PAYMENTS,
+    BOOKING_TICKETING,
+    FLIGHT_BOOKING_CANCELLATION,
+  ],
 })
 export class BookingModule {}

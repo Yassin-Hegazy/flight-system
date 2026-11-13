@@ -130,7 +130,7 @@ describe('Administration final stories', () => {
         passengerName: 'Passenger One',
         bookingReference: paidReference,
         ticketNumber: expect.any(String),
-        status: 'ISSUED',
+        status: 'VALID',
       },
     ]);
     ticketNumber = (manifest.body as { ticketNumber: string }[])[0].ticketNumber;
@@ -210,7 +210,7 @@ describe('Administration final stories', () => {
       await write('post', path).send({ reason: 'Maintenance' }).expect(500);
       expect(
         await db.query('SELECT status FROM tickets WHERE number = $1', [ticketNumber]),
-      ).toEqual([{ status: 'ISSUED' }]);
+      ).toEqual([{ status: 'VALID' }]);
       expect((await get(`/flights/${flightId}`).expect(200)).body).toMatchObject({
         status: 'SCHEDULED',
       });

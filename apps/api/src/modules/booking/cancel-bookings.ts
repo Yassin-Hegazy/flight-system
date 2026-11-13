@@ -61,7 +61,7 @@ export class CancelBookings implements FlightBookingCancellation {
   }
 
   private async ensureEligible(tx: Tx, booking: BookingEntity): Promise<void> {
-    if (booking.status !== 'CONFIRMED') {
+    if (booking.status !== 'CONFIRMED' && booking.status !== 'TICKETED') {
       throw AppError.conflict('BOOKING_NOT_CONFIRMED', 'Only confirmed bookings can be cancelled.');
     }
     const flight = await this.catalog.getFlight(booking.flightId, tx);

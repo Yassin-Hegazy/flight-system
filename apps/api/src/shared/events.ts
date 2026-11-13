@@ -36,13 +36,6 @@ interface FlightEventFields {
   affectedUserIds: string[];
 }
 
-export const BOOKING_TICKET_ISSUE_IN_TX = 'BookingTicketIssueInTx';
-export interface BookingTicketIssueInTx {
-  tx: Tx;
-  bookingId: string;
-  flightId: string;
-}
-
 export const BOOKING_TICKET_VOID_IN_TX = 'BookingTicketVoidInTx';
 export const BOOKING_CANCELLATION_IN_TX = 'BookingCancellationInTx';
 export interface BookingCancellationInTx {
