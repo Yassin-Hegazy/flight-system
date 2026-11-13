@@ -59,6 +59,7 @@ export type AirportError = 'INVALID_AIRPORT_CODE' | 'INVALID_TIMEZONE' | 'INVALI
  * methods are for Administration commands and run inside the command's transaction.
  */
 export interface CatalogApi {
+  getFlightForUpdate(tx: Tx, id: string): Promise<FlightInfo | null>;
   getFlight(id: string, tx?: Tx): Promise<FlightInfo | null>;
   findFlights(route: Route, localDate: string): Promise<FlightInfo[]>;
   searchAirports(query: string): Promise<AirportSuggestion[]>;

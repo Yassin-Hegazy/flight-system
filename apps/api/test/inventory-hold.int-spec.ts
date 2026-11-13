@@ -66,7 +66,9 @@ describe('US-INV-02 prevent overselling against PostgreSQL', () => {
 
   beforeEach(async () => {
     now = new Date(NOW);
-    await dataSource.query('TRUNCATE "seat_holds", "cabin_inventory"');
+    await dataSource.query(
+      'TRUNCATE "refunds", "payments", "bookings", "seat_holds", "cabin_inventory"',
+    );
     await dataSource.query('DELETE FROM "flights"');
     await dataSource.query(
       `INSERT INTO "flights" ("id", "flightNumber", "airlineCode", "originCode", "destinationCode",

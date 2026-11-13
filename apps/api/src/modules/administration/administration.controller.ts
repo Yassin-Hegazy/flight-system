@@ -18,15 +18,24 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProperty,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { IsString, Length } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { AppError } from '../../shared/errors';
 import { money } from '../../shared/money';
-import { BOOKING_OWNERS, type BookingOwners } from '../booking/index';
+import {
+  BOOKING_OWNERS,
+  type BookingOwners,
+  FLIGHT_BOOKING_CANCELLATION,
+  type FlightBookingCancellation,
+} from '../booking/index';
 import { CATALOG_API, type CatalogApi, FlightStatus } from '../flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { Ctx, type RequestContext } from '../users-access/index';
 import { CreateFlightBody, UpdateFlightStatusBody } from './administration.dto';
+import { CancelFlight } from './cancel-flight.command';
 import { CommandBus } from './command-bus';
 import { CreateFlight, type CreateFlightFailure } from './create-flight.command';
 import {
@@ -34,6 +43,14 @@ import {
   UpdateFlightStatus,
   type UpdateFlightStatusFailure,
 } from './update-flight-status.command';
+
+class CancelFlightBody {
+  @ApiProperty({ example: 'Aircraft maintenance' })
+  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @Length(1, 255)
+  reason!: string;
+}
 
 type Failure = CreateFlightFailure | UpdateFlightStatusFailure;
 
@@ -86,6 +103,7 @@ export class AdministrationController {
     @Inject(CATALOG_API) private readonly catalog: CatalogApi,
     @Inject(INVENTORY_API) private readonly inventory: InventoryApi,
     @Inject(BOOKING_OWNERS) private readonly owners: BookingOwners,
+    @Inject(FLIGHT_BOOKING_CANCELLATION) private readonly cancellations: FlightBookingCancellation,
   ) {}
 
   /** US-AD-01: a SCHEDULED flight with its fares and both cabins' capacity. */
@@ -164,6 +182,21 @@ export class AdministrationController {
       randomUUID,
     );
     const result = await this.bus.dispatch(command, ctx);
+    if (!result.ok) throw failed(result.error);
+    return result.value;
+  }
+  @Post('flights/:id/cancel')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Cancel a flight, release bookings and record refunds' })
+  async cancelFlight(
+    @Ctx() ctx: RequestContext,
+    @Param('id', FLIGHT_ID) id: string,
+    @Body() body: CancelFlightBody,
+  ) {
+    const result = await this.bus.dispatch(
+      new CancelFlight(this.catalog, this.cancellations, this.owners, id, body.reason),
+      ctx,
+    );
     if (!result.ok) throw failed(result.error);
     return result.value;
   }

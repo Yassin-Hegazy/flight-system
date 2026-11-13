@@ -45,7 +45,7 @@ describe('Extended Inventory against PostgreSQL', () => {
   beforeEach(async () => {
     now = new Date(NOW);
     // Only this suite's disposable Testcontainers database is modified.
-    await db.query('TRUNCATE "seat_holds", "cabin_inventory"');
+    await db.query('TRUNCATE "refunds", "payments", "bookings", "seat_holds", "cabin_inventory"');
     await db.query('DELETE FROM "flights"');
     await db.query(
       `INSERT INTO "flights" ("id", "flightNumber", "airlineCode", "originCode", "destinationCode",

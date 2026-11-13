@@ -1,3 +1,4 @@
+import type { Tx } from './db';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
@@ -33,6 +34,12 @@ interface FlightEventFields {
   departureTimeZone: string;
   /** Owners of the bookings on this flight that are still active (not expired or cancelled). */
   affectedUserIds: string[];
+}
+
+export const BOOKING_CANCELLATION_IN_TX = 'BookingCancellationInTx';
+export interface BookingCancellationInTx {
+  tx: Tx;
+  paymentId: string | null;
 }
 
 export type CancellationReason = 'TRAVELER' | 'AIRLINE';

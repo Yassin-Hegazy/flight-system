@@ -46,6 +46,11 @@ export class FlightCatalogService implements CatalogApi {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
+  async getFlightForUpdate(tx: Tx, id: string): Promise<FlightInfo | null> {
+    const flight = await this.repository.findFlightForUpdate(tx, id);
+    return flight ? (await this.describe([flight], [], tx))[0] : null;
+  }
+
   async getFlight(id: string, tx?: Tx): Promise<FlightInfo | null> {
     const flight = await this.repository.findFlight(id, tx);
     if (!flight) return null;

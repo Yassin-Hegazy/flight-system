@@ -24,6 +24,7 @@ interface RouteSpec {
   access: Access;
   /** A valid body, so validation never answers before the access check is reached. */
   body?: () => object;
+  travelerOnly?: boolean;
 }
 
 const PASSWORD = 'correct horse battery';
@@ -54,9 +55,32 @@ const ROUTES: RouteSpec[] = [
     access: 'admin',
     body: () => ({ status: 'BOARDING' }),
   },
+  {
+    method: 'post',
+    path: '/admin/flights/:id/cancel',
+    access: 'admin',
+    body: () => ({ reason: 'Maintenance' }),
+  },
   { method: 'get', path: '/flights', access: 'public' },
+  { method: 'post', path: '/bookings/:reference/cancel', access: 'owner', travelerOnly: true },
+  { method: 'get', path: '/bookings/:reference/receipt', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/flights/airports/suggestions', access: 'public' },
   { method: 'get', path: '/flights/:id', access: 'public' },
+  {
+    method: 'post',
+    path: '/bookings',
+    access: 'signedIn',
+    travelerOnly: true,
+    body: () => ({ flightId: '00000000-0000-4000-8000-000000000000', cabin: 'ECONOMY' }),
+  },
+  { method: 'get', path: '/bookings/:reference', access: 'owner', travelerOnly: true },
+  {
+    method: 'post',
+    path: '/bookings/:reference/payments',
+    access: 'owner',
+    travelerOnly: true,
+    body: () => ({ token: 'tok_success' }),
+  },
   {
     method: 'post',
     path: '/users/register',
@@ -170,10 +194,13 @@ describe('NFR-SEC-02 every route is authorised', () => {
   }
 
   function call(route: RouteSpec, cookie: string | null, id?: string): Test {
-    const path = route.path.replace(':id', id ?? '00000000-0000-4000-8000-000000000000');
+    const path = route.path
+      .replace(':id', id ?? '00000000-0000-4000-8000-000000000000')
+      .replace(':reference', id ?? 'AAAAAA');
     let pending = request(app.getHttpServer())[route.method](path);
     if (route.method !== 'get') pending = pending.set('x-requested-with', 'fetch');
     if (cookie) pending = pending.set('cookie', cookie);
+    if (route.path.endsWith('/payments')) pending = pending.set('idempotency-key', 'matrix-key');
     return route.body ? pending.send(route.body()) : pending;
   }
 
@@ -225,6 +252,13 @@ describe('NFR-SEC-02 every route is authorised', () => {
         route: label(route),
         denied: false,
       });
+    }
+  });
+
+  it('US-USR-01-T10 administrators cannot use traveler-only routes', async () => {
+    const cookie = await adminCookie();
+    for (const route of ROUTES.filter((candidate) => candidate.travelerOnly)) {
+      await call(route, cookie).expect(403);
     }
   });
 
