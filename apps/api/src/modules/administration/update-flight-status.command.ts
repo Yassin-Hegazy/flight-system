@@ -1,14 +1,9 @@
 import type { Tx } from '../../shared/db';
 import type { FlightDelayed } from '../../shared/events';
 import { err, ok, type Result } from '../../shared/result';
-import {
-  type CatalogApi,
-  type ChangeStatusError,
-  type FlightInfo,
-  FlightStatus,
-} from '../flight-catalog/index';
+import { type CatalogApi, type ChangeStatusError, FlightStatus } from '../flight-catalog/index';
+import type { BookingOwners } from '../booking/index';
 import type { AdminCommand, CommandOutcome } from './admin-command';
-import type { BookingOwners } from './booking-owners';
 
 export interface UpdateFlightStatusInput {
   flightId: string;
@@ -44,27 +39,31 @@ export class UpdateFlightStatus implements AdminCommand<StatusChanged, UpdateFli
   async execute(tx: Tx): Promise<Result<CommandOutcome<StatusChanged>, UpdateFlightStatusFailure>> {
     const { flightId, status, estimatedDepartureUtc } = this.input;
     if (status === FlightStatus.Cancelled) return err('USE_CANCEL_FLIGHT');
-    const flight = await this.catalog.getFlight(flightId);
-    if (!flight) return err('FLIGHT_NOT_FOUND');
-
     const changed = await this.catalog.changeStatus(tx, flightId, status, estimatedDepartureUtc);
     if (!changed.ok) return changed;
 
     const delayed = status === FlightStatus.Delayed && estimatedDepartureUtc !== undefined;
     return ok({
       value: { status, previousStatus: changed.value },
-      events: delayed ? [await this.flightDelayed(flight, estimatedDepartureUtc)] : [],
+      events: delayed ? [await this.flightDelayed(tx, flightId, estimatedDepartureUtc)] : [],
     });
   }
 
-  private async flightDelayed(flight: FlightInfo, newDeparture: Date): Promise<FlightDelayed> {
+  private async flightDelayed(
+    tx: Tx,
+    flightId: string,
+    newDeparture: Date,
+  ): Promise<FlightDelayed> {
+    const flight = await this.catalog.getFlight(flightId, tx);
+    if (!flight) throw new Error('The flight disappeared after its status was updated');
+
     return {
       type: 'FlightDelayed',
       eventId: this.newEventId(),
       flightId: flight.id,
       flightNumber: flight.flightNumber,
       departureTimeZone: flight.origin.timezone,
-      affectedUserIds: await this.owners.activeOwnersOf(flight.id),
+      affectedUserIds: await this.owners.activeOwnersOf(tx, flight.id),
       oldDepartureUtc: flight.scheduledDepartureUtc.toISOString(),
       newDepartureUtc: newDeparture.toISOString(),
     };

@@ -9,13 +9,24 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { AppError } from '../../shared/errors';
 import { money } from '../../shared/money';
-import { CATALOG_API, type CatalogApi } from '../flight-catalog/index';
+import { BOOKING_OWNERS, type BookingOwners } from '../booking/index';
+import { CATALOG_API, type CatalogApi, FlightStatus } from '../flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { Ctx, type RequestContext } from '../users-access/index';
 import { CreateFlightBody, UpdateFlightStatusBody } from './administration.dto';
-import { BOOKING_OWNERS, type BookingOwners } from './booking-owners';
 import { CommandBus } from './command-bus';
 import { CreateFlight, type CreateFlightFailure } from './create-flight.command';
 import {
@@ -67,6 +78,8 @@ const FLIGHT_ID = new ParseUUIDPipe({
  * skip them; the controller only shapes input and maps the result to HTTP.
  */
 @Controller('admin')
+@ApiUnauthorizedResponse({ description: 'Sign in with POST /users/sign-in first.' })
+@ApiForbiddenResponse({ description: 'An administrator session is required.' })
 export class AdministrationController {
   constructor(
     private readonly bus: CommandBus,
@@ -77,6 +90,19 @@ export class AdministrationController {
 
   /** US-AD-01: a SCHEDULED flight with its fares and both cabins' capacity. */
   @Post('flights')
+  @ApiOperation({ summary: 'Create a scheduled flight with fares and seats' })
+  @ApiCreatedResponse({
+    description: 'Flight and both cabins were saved.',
+    schema: {
+      type: 'object',
+      required: ['id'],
+      properties: { id: { type: 'string', format: 'uuid' } },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input, schedule, fare, or capacity.' })
+  @ApiConflictResponse({
+    description: 'Flight number already exists on that local departure date.',
+  })
   async createFlight(
     @Ctx() ctx: RequestContext,
     @Body() body: CreateFlightBody,
@@ -104,6 +130,22 @@ export class AdministrationController {
   /** US-AD-02: moves a flight along the Catalog's status table; a delay notifies travelers. */
   @Patch('flights/:id/status')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Update a flight’s operational status' })
+  @ApiParam({ name: 'id', description: 'Flight ID returned on creation', format: 'uuid' })
+  @ApiOkResponse({
+    description: 'The status was updated.',
+    schema: {
+      type: 'object',
+      required: ['status', 'previousStatus'],
+      properties: {
+        status: { type: 'string', enum: Object.values(FlightStatus), example: 'DELAYED' },
+        previousStatus: { type: 'string', enum: Object.values(FlightStatus), example: 'SCHEDULED' },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid status or estimate, or cancellation requested.' })
+  @ApiNotFoundResponse({ description: 'Flight ID is invalid or unknown.' })
+  @ApiConflictResponse({ description: 'The requested status transition is not allowed.' })
   async updateFlightStatus(
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,

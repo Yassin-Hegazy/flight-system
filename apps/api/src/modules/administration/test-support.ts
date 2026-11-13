@@ -80,11 +80,10 @@ export class FakeCatalog {
     next: FlightStatus,
     estimate?: Date,
   ): Promise<Result<FlightStatus, ChangeStatusError>> {
+    if (!this.flight) return Promise.resolve(err('FLIGHT_NOT_FOUND'));
     this.statusChanges.push({ tx, id, next, estimate });
     // Like the real Catalog, a successful change answers with the status the flight had before.
-    return Promise.resolve(
-      this.statusError ? err(this.statusError) : ok(this.flight?.status ?? FlightStatus.Scheduled),
-    );
+    return Promise.resolve(this.statusError ? err(this.statusError) : ok(this.flight.status));
   }
 }
 

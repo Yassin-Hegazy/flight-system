@@ -6,7 +6,9 @@ A university team project, built as a modular monolith:
 - `apps/web`: one Next.js frontend.
 - One PostgreSQL database.
 
-This repository is currently a scaffold. It contains no business logic and no database schema yet.
+The backend includes Users and Access, Flight Catalog, Inventory, Notifications, and the two
+Administration Beta operations. For the milestone demo, see the
+[Administration Swagger walkthrough](apps/api/src/modules/administration/README.md#m2-demo-in-swagger).
 
 ## Prerequisites
 

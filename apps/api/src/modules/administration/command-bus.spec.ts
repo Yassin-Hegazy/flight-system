@@ -34,8 +34,9 @@ class Recorded implements AdminCommand<string, 'REFUSED'> {
   }
 }
 
-function fixture() {
+function fixture(failFirstObserver = false) {
   const log: string[] = [];
+  let observerFailed = false;
   const dataSource = {
     transaction: async (_isolation: string, work: (tx: Tx) => Promise<unknown>) => {
       log.push('begin');
@@ -52,6 +53,10 @@ function fixture() {
   const events = {
     emitAsync: (type: string) => {
       log.push(`publish ${type}`);
+      if (failFirstObserver && !observerFailed) {
+        observerFailed = true;
+        return Promise.reject(new Error('observer down'));
+      }
       return Promise.resolve([]);
     },
   } as unknown as EventEmitter2;
@@ -122,5 +127,21 @@ describe('US-AD-02 Update a flight status (command bus)', () => {
     await bus.dispatch(new Recorded(log, err('REFUSED')), asAdmin());
 
     expect(log).not.toContain('publish FlightDelayed');
+  });
+
+  it('US-AD-02-T12 a failed observer leaves the committed result intact and later events are published', async () => {
+    const { bus, log } = fixture(true);
+    const events = [DELAYED, { ...DELAYED, eventId: 'e-2' }];
+
+    await expect(
+      bus.dispatch(new Recorded(log, ok({ value: 'done', events })), asAdmin()),
+    ).resolves.toEqual(ok('done'));
+    expect(log).toEqual([
+      'begin',
+      'execute in transaction',
+      'commit',
+      'publish FlightDelayed',
+      'publish FlightDelayed',
+    ]);
   });
 });

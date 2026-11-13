@@ -6,7 +6,9 @@
 
 ## Public API
 
-<!-- List everything index.ts exports and how other modules should use it. -->
+`BOOKING_OWNERS` exposes `activeOwnersOf(tx, flightId)` for Administration's flight events.
+The scaffold returns an empty list. Once Booking persists bookings, use the caller's transaction
+to return the owners of active bookings for the flight.
 
 ## Module rules
 

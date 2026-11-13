@@ -4,6 +4,7 @@ import request, { type Response } from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { seedAdmin } from '../src/database/seed-admin';
+import { BOOKING_OWNERS, type BookingOwners } from '../src/modules/booking/index';
 import { INVENTORY_API, type InventoryApi } from '../src/modules/inventory/index';
 import type { FlightDelayed } from '../src/shared/events';
 import { createTestApp } from './support/app';
@@ -21,6 +22,7 @@ describe('Administration over HTTP', () => {
   beforeAll(async () => {
     database = await startTestDatabase();
     app = await createTestApp(database.url);
+    await app.listen(0, '127.0.0.1');
     inventory = app.get<InventoryApi>(INVENTORY_API);
     await seedAdmin(app, { email: 'ops@example.com', password: PASSWORD, name: 'Operations' });
     admin = await signIn('ops@example.com');
@@ -114,6 +116,12 @@ describe('Administration over HTTP', () => {
       { field: 'fares', value: { ECONOMY: 0, BUSINESS: 4_500_000 }, status: 400 },
       { field: 'fares', value: { ECONOMY: 1, BUSINESS: 1 }, status: 201 },
       { field: 'fares', value: { ECONOMY: 1500.5, BUSINESS: 4_500_000 }, status: 400 },
+      { field: 'fares', value: { ECONOMY: 2_147_483_647, BUSINESS: 1 }, status: 201 },
+      { field: 'fares', value: { ECONOMY: 2_147_483_648, BUSINESS: 1 }, status: 400 },
+      { field: 'fares', value: undefined, status: 400 },
+      { field: 'capacity', value: undefined, status: 400 },
+      { field: 'fares', value: [{ ECONOMY: 1, BUSINESS: 1 }], status: 400 },
+      { field: 'capacity', value: [{ ECONOMY: 1, BUSINESS: 1 }], status: 400 },
     ])(
       'US-AD-01-T03 boundary: $field $value answers $status',
       async ({ field, value, status, code }) => {
@@ -143,19 +151,34 @@ describe('Administration over HTTP', () => {
       const body = flightBody();
       const setCapacity = vi
         .spyOn(inventory, 'setCapacity')
+        .mockImplementationOnce(inventory.setCapacity.bind(inventory))
         .mockRejectedValueOnce(new Error('injected fault'));
 
-      await createFlight(body).expect(500);
-      setCapacity.mockRestore();
+      try {
+        await createFlight(body).expect(500);
+      } finally {
+        setCapacity.mockRestore();
+      }
 
       expect(await search(body)).toEqual([]);
     });
 
-    it('US-AD-01-T23 an instant without a zone is rejected, never read as server time', async () => {
-      const response = await createFlight(
-        flightBody({ scheduledDepartureUtc: '2027-09-01T06:00:00' }),
-      ).expect(400);
+    it.each([
+      '2027-09-01T06:00:00',
+      '2027-02-30T06:00:00Z',
+      '2027-13-01T06:00:00Z',
+      '2027-09-01T24:00:01Z',
+      '2027-09-01T06:00:00+24:00',
+    ])('US-AD-01-T23 rejects invalid departure instant %s', async (scheduledDepartureUtc) => {
+      const response = await createFlight(flightBody({ scheduledDepartureUtc })).expect(400);
       expect(response.body.fieldErrors).toHaveProperty('scheduledDepartureUtc');
+    });
+
+    it('US-AD-01-T24 creates flights concurrently without exhausting the connection pool', async () => {
+      const bodies = Array.from({ length: 12 }, () => flightBody());
+      const responses = await Promise.all(bodies.map((body) => createFlight(body).expect(201)));
+
+      expect(new Set(responses.map(idOf)).size).toBe(bodies.length);
     });
   });
 
@@ -203,6 +226,17 @@ describe('Administration over HTTP', () => {
       });
     });
 
+    it('US-AD-02-T11 a malformed estimate is rejected without changing the flight', async () => {
+      const { id } = await scheduled();
+      const response = await setStatus(id, {
+        status: 'DELAYED',
+        estimatedDepartureUtc: '2027-06-01T27:00:00Z',
+      }).expect(400);
+
+      expect(response.body.fieldErrors).toHaveProperty('estimatedDepartureUtc');
+      expect((await statusOf(id)).status).toBe('SCHEDULED');
+    });
+
     it('US-AD-02-T03 a delay publishes FlightDelayed after the change is committed', async () => {
       const { id, body } = await scheduled();
       const newDeparture = body.scheduledDepartureUtc.replace('06:00:00Z', '08:30:00Z');
@@ -215,9 +249,12 @@ describe('Administration over HTTP', () => {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       events.on('FlightDelayed', listener);
 
-      await setStatus(id, { status: 'DELAYED', estimatedDepartureUtc: newDeparture }).expect(200);
-      // eslint-disable-next-line @typescript-eslint/no-misused-promises
-      events.off('FlightDelayed', listener);
+      try {
+        await setStatus(id, { status: 'DELAYED', estimatedDepartureUtc: newDeparture }).expect(200);
+      } finally {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        events.off('FlightDelayed', listener);
+      }
 
       expect(seen).toHaveLength(1);
       // Another connection already sees DELAYED, so the event came after COMMIT.
@@ -231,6 +268,33 @@ describe('Administration over HTTP', () => {
         oldDepartureUtc: new Date(body.scheduledDepartureUtc).toISOString(),
         newDepartureUtc: new Date(newDeparture).toISOString(),
       });
+    });
+
+    it('US-AD-02-T13 Notifications delivers a delay to the owners supplied by Booking', async () => {
+      const { id, body } = await scheduled();
+      const me = await get('/users/me').set('cookie', traveler).expect(200);
+      const travelerId = (me.body as { id: string }).id;
+      const booking = app.get<BookingOwners>(BOOKING_OWNERS);
+      const owners = vi
+        .spyOn(booking, 'activeOwnersOf')
+        .mockResolvedValue([travelerId, travelerId]);
+      try {
+        await setStatus(id, {
+          status: 'DELAYED',
+          estimatedDepartureUtc: body.scheduledDepartureUtc.replace('06:00:00Z', '07:00:00Z'),
+        }).expect(200);
+        expect(owners).toHaveBeenCalledExactlyOnceWith(expect.anything(), id);
+      } finally {
+        owners.mockRestore();
+      }
+
+      const inbox = await get('/notifications').set('cookie', traveler).expect(200);
+      expect(inbox.body).toMatchObject({
+        items: [{ type: 'FlightDelayed', title: 'Flight MS777 delayed' }],
+        total: 1,
+      });
+      const adminInbox = await get('/notifications').set('cookie', admin).expect(200);
+      expect(adminInbox.body).toMatchObject({ items: [], total: 0 });
     });
 
     it('US-AD-02-T09 a traveler cannot change a status', async () => {

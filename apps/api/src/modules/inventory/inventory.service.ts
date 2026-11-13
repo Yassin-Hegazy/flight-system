@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Tx } from '../../shared/db';
+import { POSTGRES_INTEGER_MAX, type Tx } from '../../shared/db';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
 import { isCabin, type Cabin } from '../flight-catalog/index';
@@ -27,7 +27,6 @@ import {
 } from './inventory.repository';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const POSTGRES_INTEGER_MAX = 2_147_483_647;
 const isUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;

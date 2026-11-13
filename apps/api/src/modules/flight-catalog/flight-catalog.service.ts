@@ -46,10 +46,10 @@ export class FlightCatalogService implements CatalogApi {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  async getFlight(id: string): Promise<FlightInfo | null> {
-    const flight = await this.repository.findFlight(id);
+  async getFlight(id: string, tx?: Tx): Promise<FlightInfo | null> {
+    const flight = await this.repository.findFlight(id, tx);
     if (!flight) return null;
-    const [info] = await this.describe([flight]);
+    const [info] = await this.describe([flight], [], tx);
     return info;
   }
 
@@ -87,10 +87,11 @@ export class FlightCatalogService implements CatalogApi {
 
   async createFlight(tx: Tx, input: NewFlight): Promise<Result<string, CreateFlightError>> {
     const normalize = (code: string) => code.trim().toUpperCase();
-    const [airports, airlines] = await Promise.all([
-      this.repository.findAirports([input.originCode, input.destinationCode].map(normalize)),
-      this.repository.findAirlines([normalize(input.airlineCode)]),
-    ]);
+    const airports = await this.repository.findAirports(
+      [input.originCode, input.destinationCode].map(normalize),
+      tx,
+    );
+    const airlines = await this.repository.findAirlines([normalize(input.airlineCode)], tx);
     const timeZones = new Map(airports.map((airport) => [airport.code, airport.timezone]));
     const scheduled = Flight.schedule(input, {
       now: this.clock.now(),
@@ -165,6 +166,7 @@ export class FlightCatalogService implements CatalogApi {
   private async describe(
     flights: Flight[],
     knownAirports: AirportRecord[] = [],
+    tx?: Tx,
   ): Promise<FlightInfo[]> {
     if (flights.length === 0) return [];
     const known = new Set(knownAirports.map((airport) => airport.code));
@@ -174,11 +176,14 @@ export class FlightCatalogService implements CatalogApi {
     const airlineCodes = unique(flights.map((flight) => flight.airlineCode));
     const flightIds = flights.map((flight) => flight.id).filter((id): id is string => !!id);
 
-    const [fetchedAirports, airlines, fares] = await Promise.all([
-      airportCodes.length ? this.repository.findAirports(airportCodes) : Promise.resolve([]),
-      this.repository.findAirlines(airlineCodes),
-      this.repository.findFares(flightIds),
-    ]);
+    const findAirports = () =>
+      airportCodes.length ? this.repository.findAirports(airportCodes, tx) : Promise.resolve([]);
+    const findAirlines = () => this.repository.findAirlines(airlineCodes, tx);
+    const findFares = () => this.repository.findFares(flightIds, tx);
+    // A transaction has one connection. Outside a transaction, public searches can read in parallel.
+    const [fetchedAirports, airlines, fares] = tx
+      ? [await findAirports(), await findAirlines(), await findFares()]
+      : await Promise.all([findAirports(), findAirlines(), findFares()]);
 
     const reference = {
       airports: new Map(

@@ -29,20 +29,20 @@ export interface FareRecord {
  * this module's tables; InMemoryCatalogRepository stands in for it in unit tests.
  */
 export interface CatalogRepository {
-  findFlight(id: string): Promise<Flight | null>;
+  findFlight(id: string, tx?: Tx): Promise<Flight | null>;
   /** Loads a flight and locks its row until the transaction ends. */
   findFlightForUpdate(tx: Tx, id: string): Promise<Flight | null>;
   findFlightsDeparting(route: Route, range: { start: Date; end: Date }): Promise<Flight[]>;
   insertFlight(tx: Tx, flight: Flight): Promise<Result<string, 'DUPLICATE_FLIGHT'>>;
   updateFlight(tx: Tx, flight: Flight): Promise<void>;
 
-  findAirports(codes: readonly string[]): Promise<AirportRecord[]>;
+  findAirports(codes: readonly string[], tx?: Tx): Promise<AirportRecord[]>;
   searchAirports(query: string, limit: number): Promise<AirportRecord[]>;
   saveAirport(tx: Tx, airport: AirportRecord): Promise<void>;
 
-  findAirlines(codes: readonly string[]): Promise<AirlineRecord[]>;
+  findAirlines(codes: readonly string[], tx?: Tx): Promise<AirlineRecord[]>;
 
-  findFares(flightIds: readonly string[]): Promise<FareRecord[]>;
+  findFares(flightIds: readonly string[], tx?: Tx): Promise<FareRecord[]>;
   findFare(tx: Tx, flightId: string, cabin: Cabin): Promise<FareRecord | null>;
   saveFare(tx: Tx, fare: FareRecord): Promise<void>;
 }

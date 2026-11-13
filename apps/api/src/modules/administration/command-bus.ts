@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -21,6 +21,8 @@ class RolledBack<E> extends Error {
  */
 @Injectable()
 export class CommandBus {
+  private readonly logger = new Logger(CommandBus.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: Pick<DataSource, 'transaction'>,
     private readonly events: EventEmitter2,
@@ -48,7 +50,16 @@ export class CommandBus {
       if (error instanceof RolledBack) return err(error.error as E);
       throw error;
     }
-    for (const event of outcome.events ?? []) await publishDomainEvent(this.events, event);
+    for (const event of outcome.events ?? []) {
+      try {
+        await publishDomainEvent(this.events, event);
+      } catch (error) {
+        this.logger.error(
+          { command: command.name, eventId: event.eventId, eventType: event.type, err: error },
+          'Failed to publish a committed administration event',
+        );
+      }
+    }
     return ok(outcome.value);
   }
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Tx } from '../../shared/db';
 import { FlightStatus } from '../flight-catalog/index';
 import { UpdateFlightStatus, type UpdateFlightStatusInput } from './update-flight-status.command';
 import { FakeCatalog, FLIGHT_ID, TX } from './test-support';
@@ -7,10 +8,10 @@ const NEW_DEPARTURE = new Date('2027-03-01T07:30:00Z');
 
 function fixture(input: Partial<UpdateFlightStatusInput>, owners: string[] = []) {
   const catalog = new FakeCatalog();
-  const asked: string[] = [];
+  const asked: { tx: Tx; flightId: string }[] = [];
   const bookingOwners = {
-    activeOwnersOf: (flightId: string) => {
-      asked.push(flightId);
+    activeOwnersOf: (tx: Tx, flightId: string) => {
+      asked.push({ tx, flightId });
       return Promise.resolve(owners);
     },
   };
@@ -52,7 +53,7 @@ describe('US-AD-02 Update a flight status (command)', () => {
     expect(catalog.statusChanges).toEqual([
       { tx: TX, id: FLIGHT_ID, next: FlightStatus.Delayed, estimate: NEW_DEPARTURE },
     ]);
-    expect(asked).toEqual([FLIGHT_ID]);
+    expect(asked).toEqual([{ tx: TX, flightId: FLIGHT_ID }]);
     expect(result).toEqual({
       ok: true,
       value: {
