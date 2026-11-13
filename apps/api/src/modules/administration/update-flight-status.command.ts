@@ -17,6 +17,12 @@ export interface UpdateFlightStatusInput {
   estimatedDepartureUtc?: Date;
 }
 
+export interface StatusChanged {
+  status: FlightStatus;
+  /** What the Catalog says the flight was before this change. */
+  previousStatus: FlightStatus;
+}
+
 /** CANCELLED is refused here: cancelling needs the booking cascade of US-AD-04. */
 export type UpdateFlightStatusFailure = ChangeStatusError | 'USE_CANCEL_FLIGHT';
 
@@ -25,10 +31,7 @@ export type UpdateFlightStatusFailure = ChangeStatusError | 'USE_CANCEL_FLIGHT';
  * whether the transition is allowed. A delay is announced with FlightDelayed, carrying the owners
  * of the active bookings so observers need not ask anyone.
  */
-export class UpdateFlightStatus implements AdminCommand<
-  { status: FlightStatus },
-  UpdateFlightStatusFailure
-> {
+export class UpdateFlightStatus implements AdminCommand<StatusChanged, UpdateFlightStatusFailure> {
   readonly name = 'UpdateFlightStatus';
 
   constructor(
@@ -38,9 +41,7 @@ export class UpdateFlightStatus implements AdminCommand<
     private readonly newEventId: () => string,
   ) {}
 
-  async execute(
-    tx: Tx,
-  ): Promise<Result<CommandOutcome<{ status: FlightStatus }>, UpdateFlightStatusFailure>> {
+  async execute(tx: Tx): Promise<Result<CommandOutcome<StatusChanged>, UpdateFlightStatusFailure>> {
     const { flightId, status, estimatedDepartureUtc } = this.input;
     if (status === FlightStatus.Cancelled) return err('USE_CANCEL_FLIGHT');
     const flight = await this.catalog.getFlight(flightId);
@@ -51,7 +52,7 @@ export class UpdateFlightStatus implements AdminCommand<
 
     const delayed = status === FlightStatus.Delayed && estimatedDepartureUtc !== undefined;
     return ok({
-      value: { status: changed.value },
+      value: { status, previousStatus: changed.value },
       events: delayed ? [await this.flightDelayed(flight, estimatedDepartureUtc)] : [],
     });
   }

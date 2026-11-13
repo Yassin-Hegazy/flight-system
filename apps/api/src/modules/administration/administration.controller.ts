@@ -11,14 +11,18 @@ import {
 } from '@nestjs/common';
 import { AppError } from '../../shared/errors';
 import { money } from '../../shared/money';
-import { CATALOG_API, type CatalogApi, type FlightStatus } from '../flight-catalog/index';
+import { CATALOG_API, type CatalogApi } from '../flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { Ctx, type RequestContext } from '../users-access/index';
 import { CreateFlightBody, UpdateFlightStatusBody } from './administration.dto';
 import { BOOKING_OWNERS, type BookingOwners } from './booking-owners';
 import { CommandBus } from './command-bus';
 import { CreateFlight, type CreateFlightFailure } from './create-flight.command';
-import { UpdateFlightStatus, type UpdateFlightStatusFailure } from './update-flight-status.command';
+import {
+  type StatusChanged,
+  UpdateFlightStatus,
+  type UpdateFlightStatusFailure,
+} from './update-flight-status.command';
 
 type Failure = CreateFlightFailure | UpdateFlightStatusFailure;
 
@@ -104,7 +108,7 @@ export class AdministrationController {
     @Ctx() ctx: RequestContext,
     @Param('id', FLIGHT_ID) id: string,
     @Body() body: UpdateFlightStatusBody,
-  ): Promise<{ status: FlightStatus }> {
+  ): Promise<StatusChanged> {
     const command = new UpdateFlightStatus(
       this.catalog,
       this.owners,
