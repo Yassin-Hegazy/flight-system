@@ -1,4 +1,15 @@
-import { Body, Controller, Headers, Param, Post, Res, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Header,
+  Inject,
+  Param,
+  Post,
+  Res,
+  ValidationPipe,
+} from '@nestjs/common';
 import {
   ApiAcceptedResponse,
   ApiBody,
@@ -20,6 +31,9 @@ import {
   UserRole,
   WithRole,
 } from '../users-access/index';
+import { BOOKING_PAYMENTS, type BookingPayments } from '../booking/index';
+import { PaymentsRepository } from './payments.repository';
+import { receipt } from './payment-receipt';
 import { PayForBooking } from './pay-for-booking';
 
 class PayBody {
@@ -40,7 +54,6 @@ const PAYMENT_ERRORS = {
   NOT_FOUND: () => AppError.notFound('NOT_FOUND', 'Not found.'),
   ALREADY_PAID: () => AppError.conflict('ALREADY_PAID', 'This booking is already paid.'),
   HOLD_EXPIRED: () => AppError.conflict('HOLD_EXPIRED', 'The seat hold expired.'),
-  DECLINED: () => AppError.badRequest('DECLINED', 'The gateway declined this payment.'),
   KEY_REUSED: () =>
     AppError.conflict('KEY_REUSED', 'Use a new key for a different payment request.'),
   IN_PROGRESS: () => AppError.conflict('IN_PROGRESS', 'Another payment is in progress.'),
@@ -49,7 +62,11 @@ const PAYMENT_ERRORS = {
 @ApiTags('Payments')
 @Controller('bookings')
 export class PaymentsController {
-  constructor(private readonly payForBooking: PayForBooking) {}
+  constructor(
+    private readonly payForBooking: PayForBooking,
+    @Inject(BOOKING_PAYMENTS) private readonly booking: BookingPayments,
+    private readonly payments: PaymentsRepository,
+  ) {}
 
   @Post(':reference/payments')
   @ApiOperation({ summary: 'Pay for your pending booking using a mock payment token' })
@@ -79,9 +96,31 @@ export class PaymentsController {
         token: body.token,
         idempotencyKey: key,
       });
-      if (!result.ok) throw PAYMENT_ERRORS[result.error]();
+      if (!result.ok) {
+        const error = result.error;
+        if (error.code === 'DECLINED') {
+          throw AppError.badRequest('DECLINED', 'The gateway declined this payment.', {
+            reason: error.reason,
+          });
+        }
+        throw PAYMENT_ERRORS[error.code]();
+      }
       response.status(result.value.status === 'PENDING' ? 202 : 201);
       return result.value;
+    });
+    return new WithRole(action, UserRole.Traveler).execute(ctx, undefined);
+  }
+  @Get(':reference/receipt')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Read your payment receipt and refund status' })
+  getReceipt(@Ctx() ctx: RequestContext, @Param('reference') rawReference: string) {
+    const action = new Action(async () => {
+      const reference = rawReference.toUpperCase();
+      const payerId = signedIn(ctx).id;
+      const bookingId = await this.booking.ownedId(reference, payerId);
+      const result = bookingId && (await this.payments.receipt(bookingId, payerId));
+      if (!result) throw AppError.notFound('NOT_FOUND', 'Not found.');
+      return receipt(reference, result.payment, result.refund);
     });
     return new WithRole(action, UserRole.Traveler).execute(ctx, undefined);
   }

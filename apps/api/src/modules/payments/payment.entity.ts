@@ -1,3 +1,4 @@
+import type { DeclineReason } from './gateway/payment-gateway';
 import { Column, Entity, Index, PrimaryGeneratedColumn, Unique } from 'typeorm';
 
 @Entity('payments')
@@ -10,6 +11,10 @@ export class PaymentEntity {
   @PrimaryGeneratedColumn('uuid') id!: string;
   @Column('uuid') bookingId!: string;
   @Column('uuid') payerId!: string;
+  @Column({ type: 'timestamptz', default: () => 'now()' }) createdAt!: Date;
+  @Column({ type: 'timestamptz', nullable: true }) resolvedAt!: Date | null;
+  @Column({ type: 'timestamptz', default: () => "now() + interval '5 minutes'" }) recoveryAt!: Date;
+  @Column({ type: 'varchar', length: 32, nullable: true }) declineReason!: DeclineReason | null;
   @Column({ type: 'varchar', length: 100 }) idempotencyKey!: string;
   @Column({ type: 'varchar', length: 64 }) requestHash!: string;
   @Column('integer') amountMinor!: number;

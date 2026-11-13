@@ -1,7 +1,7 @@
 import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import type { Cabin } from '../flight-catalog/index';
 
-export type BookingStatus = 'PENDING_PAYMENT' | 'CONFIRMED';
+export type BookingStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED';
 
 @Entity('bookings')
 @Index('bookings_by_flight', ['flightId'])

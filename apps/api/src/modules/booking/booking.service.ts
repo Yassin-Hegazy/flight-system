@@ -38,18 +38,17 @@ export class BookingService implements BookingPayments, BookingOwners {
 
   /** The M2 path reserves one adult seat and snapshots its fare. */
   async reserve(ownerId: string, flightId: string, cabin: Cabin) {
-    const flight = await this.catalog.getFlight(flightId);
-    const fare = flight?.fares[cabin];
-    if (!flight || !fare || !this.catalog.isBookable(flight, new Date())) {
-      throw AppError.conflict(
-        'FLIGHT_UNAVAILABLE',
-        'The requested flight and cabin are unavailable.',
-      );
-    }
-
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         return await this.db.transaction('READ COMMITTED', async (tx) => {
+          const flight = await this.catalog.getFlightForUpdate(tx, flightId);
+          const fare = flight?.fares[cabin];
+          if (!flight || !fare || !this.catalog.isBookable(flight, new Date())) {
+            throw AppError.conflict(
+              'FLIGHT_UNAVAILABLE',
+              'The requested flight and cabin are unavailable.',
+            );
+          }
           const id = randomUUID();
           const hold = await this.inventory.hold(tx, { bookingId: id, flightId, cabin, seats: 1 });
           if (!hold.ok) throw AppError.conflict(hold.error, 'The requested seat is unavailable.');
@@ -77,6 +76,10 @@ export class BookingService implements BookingPayments, BookingOwners {
     return this.db.manager.findOneBy(BookingEntity, { reference, ownerId });
   }
 
+  async ownedId(reference: string, ownerId: string) {
+    return (await this.findOwned(reference, ownerId))?.id ?? null;
+  }
+
   async getOwned(reference: string, ownerId: string) {
     const booking = await this.findOwned(reference, ownerId);
     return booking ? view(booking) : null;
@@ -101,6 +104,7 @@ export class BookingService implements BookingPayments, BookingOwners {
     const booking = await this.findOwned(reference, payerId);
     if (!booking) return err('NOT_FOUND' as const);
     if (booking.status === 'CONFIRMED') return err('ALREADY_PAID' as const);
+    if (booking.status === 'CANCELLED') return err('NOT_FOUND' as const);
     const hold = await this.inventory.validateForPayment(booking.holdId, booking.id);
     if (!hold.ok) return err('HOLD_EXPIRED' as const);
     return ok({ bookingId: booking.id, amount: money(booking.amountMinor, booking.currency) });
@@ -111,6 +115,7 @@ export class BookingService implements BookingPayments, BookingOwners {
       where: { id: bookingId },
       lock: { mode: 'pessimistic_write' },
     });
+    if (booking?.status === 'CANCELLED') return err('BOOKING_CANCELLED' as const);
     if (!booking || booking.status !== 'PENDING_PAYMENT') {
       throw new Error('Cannot settle a booking outside PENDING_PAYMENT');
     }

@@ -11,12 +11,13 @@ export interface PayableBooking {
 }
 
 export interface BookingPayments {
+  ownedId(reference: string, payerId: string): Promise<string | null>;
   getPayable(reference: string, payerId: string): Promise<Result<PayableBooking, PayableError>>;
   confirmPaid(
     tx: Tx,
     bookingId: string,
     paymentId: string,
-  ): Promise<Result<BookingConfirmed, 'HOLD_EXPIRED'>>;
+  ): Promise<Result<BookingConfirmed, 'HOLD_EXPIRED' | 'BOOKING_CANCELLED'>>;
 }
 
 export const BOOKING_PAYMENTS = Symbol('BOOKING_PAYMENTS');

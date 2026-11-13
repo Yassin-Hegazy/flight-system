@@ -318,6 +318,34 @@
       "title": "Never be charged twice",
       "milestone": "beta",
       "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-02",
+      "module": "payments",
+      "title": "Retry a declined payment",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-04",
+      "module": "payments",
+      "title": "Refund eligible cancellations",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-05",
+      "module": "payments",
+      "title": "Retrieve a payment receipt",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-PAY-06",
+      "module": "payments",
+      "title": "Recover interrupted payments",
+      "milestone": "final",
+      "verifiedBy": "test"
     }
   ]
 }

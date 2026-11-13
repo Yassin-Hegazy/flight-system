@@ -55,7 +55,15 @@ const ROUTES: RouteSpec[] = [
     access: 'admin',
     body: () => ({ status: 'BOARDING' }),
   },
+  {
+    method: 'post',
+    path: '/admin/flights/:id/cancel',
+    access: 'admin',
+    body: () => ({ reason: 'Maintenance' }),
+  },
   { method: 'get', path: '/flights', access: 'public' },
+  { method: 'post', path: '/bookings/:reference/cancel', access: 'owner', travelerOnly: true },
+  { method: 'get', path: '/bookings/:reference/receipt', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/flights/airports/suggestions', access: 'public' },
   { method: 'get', path: '/flights/:id', access: 'public' },
   {
