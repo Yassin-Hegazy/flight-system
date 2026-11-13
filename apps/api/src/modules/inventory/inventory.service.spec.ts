@@ -18,6 +18,7 @@ function fixture() {
     findPaymentHold: vi.fn(),
     lockHold: vi.fn(),
     commitHeld: vi.fn(),
+    releaseLocked: vi.fn(),
     ensureCabin: vi.fn(),
     updateCapacity: vi.fn(),
     findCabinLoad: vi.fn(),

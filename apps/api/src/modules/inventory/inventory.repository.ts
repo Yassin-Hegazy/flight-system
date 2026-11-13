@@ -33,6 +33,8 @@ export interface InventoryRepository {
   findPaymentHold(id: string, bookingId: string): Promise<StoredSeatHold | null>;
   lockHold(tx: Tx, id: string): Promise<StoredSeatHold | null>;
   commitHeld(tx: Tx, hold: StoredSeatHold): Promise<void>;
+  /** Only called with both cabin and hold locked and a non-RELEASED current state. */
+  releaseLocked(tx: Tx, hold: StoredSeatHold): Promise<void>;
   ensureCabin(tx: Tx, flightId: string, cabin: Cabin): Promise<boolean>;
   updateCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number): Promise<void>;
   findCabinLoad(flightIds: readonly string[], now: Date, tx?: Tx): Promise<CabinLoad[]>;

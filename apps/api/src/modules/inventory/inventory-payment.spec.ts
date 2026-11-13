@@ -25,6 +25,7 @@ function fixture() {
     lockHold: vi.fn().mockResolvedValue(hold),
     lockCabin: vi.fn().mockResolvedValue(true),
     commitHeld: vi.fn().mockResolvedValue(undefined),
+    releaseLocked: vi.fn(),
     ensureCabin: vi.fn().mockResolvedValue(true),
     updateCapacity: vi.fn().mockResolvedValue(undefined),
     findCabinLoad: vi.fn().mockResolvedValue([
