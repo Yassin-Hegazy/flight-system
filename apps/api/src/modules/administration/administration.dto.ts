@@ -80,12 +80,17 @@ export class FlightTemplateBody {
   @Matches(/^[A-Z]{3}$/, { message: '$property must be an ISO 4217 code such as EGP' })
   currency!: string;
 
+  @ApiProperty({ type: CabinFaresBody, description: 'Adult fare per cabin, in minor units.' })
   @IsDefined()
   @IsObject()
   @ValidateNested()
   @Type(() => CabinFaresBody)
   fares!: CabinFaresBody;
 
+  @ApiProperty({
+    type: CabinCapacityBody,
+    description: 'Seats per cabin; at least one cabin above zero.',
+  })
   @IsDefined()
   @IsObject()
   @ValidateNested()

@@ -13,14 +13,15 @@ import {
 import {
   ApiAcceptedResponse,
   ApiBody,
-  ApiConflictResponse,
   ApiCreatedResponse,
   ApiHeader,
+  ApiOkResponse,
   ApiOperation,
   ApiProperty,
   ApiTags,
 } from '@nestjs/swagger';
 import { Matches } from 'class-validator';
+import { ApiSession } from '../../shared/api-docs';
 import type { Response } from 'express';
 import { AppError, fieldErrorsFrom, validationError } from '../../shared/errors';
 import {
@@ -74,9 +75,7 @@ export class PaymentsController {
   @ApiHeader({ name: 'Idempotency-Key', required: true, example: 'checkout-1' })
   @ApiCreatedResponse({ description: 'The payment succeeded and the booking was confirmed.' })
   @ApiAcceptedResponse({ description: 'The payment attempt is still pending.' })
-  @ApiConflictResponse({
-    description: 'The booking is paid, the hold expired, or the key conflicts.',
-  })
+  @ApiSession(400, 403, 404, 409)
   pay(
     @Ctx() ctx: RequestContext,
     @Param('reference') reference: string,
@@ -113,6 +112,8 @@ export class PaymentsController {
   @Get(':reference/receipt')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Read your payment receipt and refund status' })
+  @ApiOkResponse({ description: 'Amount, card brand and last four, times, status and any refund.' })
+  @ApiSession(403, 404)
   getReceipt(@Ctx() ctx: RequestContext, @Param('reference') rawReference: string) {
     const action = new Action(async () => {
       const reference = rawReference.toUpperCase();

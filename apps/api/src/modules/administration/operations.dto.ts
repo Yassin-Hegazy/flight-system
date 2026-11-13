@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -63,10 +63,12 @@ export class AirportBody {
 }
 
 export class AuditQuery {
+  @ApiPropertyOptional({ format: 'uuid', description: 'Only changes to this flight.' })
   @ValidateIf((_query, value: unknown) => value !== undefined)
   @IsUUID()
   flightId?: string;
 
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
