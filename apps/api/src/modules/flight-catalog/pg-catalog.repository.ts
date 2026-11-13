@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, type EntityManager, In } from 'typeorm';
+import { DataSource, type EntityManager, In, QueryFailedError } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
 import { money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
@@ -91,8 +91,36 @@ export class PgCatalogRepository implements CatalogRepository {
       .getMany();
   }
 
+  async lockAirport(tx: Tx, code: string): Promise<AirportRecord | null> {
+    // Row locks cannot serialize creation of a previously unknown airport code.
+    await tx.query('SELECT pg_advisory_xact_lock(179470, hashtext($1))', [code]);
+    return tx.findOneBy(AirportEntity, { code });
+  }
+
+  async deleteAirport(
+    tx: Tx,
+    code: string,
+  ): Promise<Result<void, 'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'>> {
+    try {
+      const deleted = await tx.delete(AirportEntity, { code });
+      return deleted.affected ? ok(undefined) : err('AIRPORT_NOT_FOUND');
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        ['23503', '23001'].includes((error.driverError as { code?: string }).code ?? '')
+      ) {
+        return err('AIRPORT_IN_USE');
+      }
+      throw error;
+    }
+  }
+
   async saveAirport(tx: Tx, airport: AirportRecord): Promise<void> {
     await tx.save(AirportEntity, { ...airport });
+  }
+
+  hasDeparturesFrom(tx: Tx, code: string): Promise<boolean> {
+    return tx.exists(FlightEntity, { where: { originCode: code } });
   }
 
   async findAirlines(codes: readonly string[], tx = this.db): Promise<AirlineRecord[]> {

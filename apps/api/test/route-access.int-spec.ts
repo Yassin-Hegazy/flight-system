@@ -61,6 +61,55 @@ const ROUTES: RouteSpec[] = [
     access: 'admin',
     body: () => ({ reason: 'Maintenance' }),
   },
+  {
+    method: 'put',
+    path: '/admin/flights/:id/capacity/:cabin',
+    access: 'admin',
+    body: () => ({ capacity: 10 }),
+  },
+  {
+    method: 'put',
+    path: '/admin/flights/:id/fares/:cabin',
+    access: 'admin',
+    body: () => ({ amountMinor: 1000, currency: 'EGP' }),
+  },
+  { method: 'get', path: '/admin/flights/:id/load', access: 'admin' },
+  { method: 'get', path: '/admin/flights/:id/manifest', access: 'admin' },
+  { method: 'get', path: '/admin/airports/:code', access: 'admin' },
+  {
+    method: 'put',
+    path: '/admin/airports/:code',
+    access: 'admin',
+    body: () => ({
+      name: 'Matrix Airport',
+      city: 'Matrix City',
+      country: 'Egypt',
+      timezone: 'Africa/Cairo',
+    }),
+  },
+  { method: 'delete', path: '/admin/airports/:code', access: 'admin' },
+  { method: 'get', path: '/admin/audit', access: 'admin' },
+  {
+    method: 'post',
+    path: '/admin/flights/recurring',
+    access: 'admin',
+    body: () => ({
+      template: {
+        flightNumber: 'MS903',
+        airlineCode: 'MS',
+        originCode: 'CAI',
+        destinationCode: 'LHR',
+        currency: 'EGP',
+        fares: { ECONOMY: 1000, BUSINESS: 2000 },
+        capacity: { ECONOMY: 10, BUSINESS: 1 },
+      },
+      from: '2027-08-01',
+      to: '2027-08-07',
+      weekdays: [1],
+      localDeparture: '09:00',
+      durationMinutes: 300,
+    }),
+  },
   { method: 'get', path: '/flights', access: 'public' },
   { method: 'post', path: '/bookings/:reference/cancel', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/bookings/:reference/receipt', access: 'owner', travelerOnly: true },
@@ -198,7 +247,9 @@ describe('NFR-SEC-02 every route is authorised', () => {
   function call(route: RouteSpec, cookie: string | null, id?: string): Test {
     const path = route.path
       .replace(':id', id ?? '00000000-0000-4000-8000-000000000000')
-      .replace(':reference', id ?? 'AAAAAA');
+      .replace(':reference', id ?? 'AAAAAA')
+      .replace(':cabin', 'ECONOMY')
+      .replace(':code', 'ZZZ');
     let pending = request(app.getHttpServer())[route.method](path);
     if (route.method !== 'get') pending = pending.set('x-requested-with', 'fetch');
     if (cookie) pending = pending.set('cookie', cookie);

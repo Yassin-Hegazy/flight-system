@@ -16,7 +16,7 @@ describe('US-AD-01 Create a scheduled flight (command)', () => {
 
     const result = await command.execute(TX);
 
-    expect(result).toEqual({ ok: true, value: { value: { id: FLIGHT_ID } } });
+    expect(result).toMatchObject({ ok: true, value: { value: { id: FLIGHT_ID } } });
     expect(catalog.created).toEqual([{ tx: TX, flight: newFlight() }]);
     expect(inventory.capacities).toEqual([
       { tx: TX, flightId: FLIGHT_ID, cabin: 'ECONOMY', capacity: 180 },

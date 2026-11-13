@@ -4,7 +4,15 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { publishDomainEvent } from '../../shared/events';
 import { err, ok, type Result } from '../../shared/result';
-import { Action, type RequestContext, UserRole, WithAuth, WithRole } from '../users-access/index';
+import {
+  Action,
+  type RequestContext,
+  signedIn,
+  UserRole,
+  WithAuth,
+  WithRole,
+} from '../users-access/index';
+import { AuditLog } from './audit-log';
 import type { AdminCommand, CommandOutcome } from './admin-command';
 
 /** Carries a command's expected failure out of the transaction callback, so TypeORM rolls back. */
@@ -26,6 +34,7 @@ export class CommandBus {
   constructor(
     @InjectDataSource() private readonly dataSource: Pick<DataSource, 'transaction'>,
     private readonly events: EventEmitter2,
+    private readonly auditLog: AuditLog,
   ) {}
 
   /**
@@ -34,16 +43,19 @@ export class CommandBus {
    * 4. its events, only once that transaction has committed.
    */
   dispatch<O, E>(command: AdminCommand<O, E>, ctx: RequestContext): Promise<Result<O, E>> {
-    const run = new Action<undefined, Result<O, E>>(() => this.run(command));
+    const run = new Action<undefined, Result<O, E>>((caller) =>
+      this.run(command, signedIn(caller).id),
+    );
     return new WithAuth(new WithRole(run, UserRole.Admin)).execute(ctx, undefined);
   }
 
-  private async run<O, E>(command: AdminCommand<O, E>): Promise<Result<O, E>> {
+  private async run<O, E>(command: AdminCommand<O, E>, actorId: string): Promise<Result<O, E>> {
     let outcome: CommandOutcome<O>;
     try {
       outcome = await this.dataSource.transaction('READ COMMITTED', async (tx) => {
         const result = await command.execute(tx);
         if (!result.ok) throw new RolledBack(result.error);
+        await this.auditLog.append(tx, actorId, command.name, result.value.audit);
         return result.value;
       });
     } catch (error) {

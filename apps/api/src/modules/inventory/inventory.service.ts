@@ -91,6 +91,16 @@ export class InventoryService {
     cabin: Cabin,
     capacity: number,
   ): Promise<Result<void, CapacityError>> {
+    const result = await this.changeCapacity(tx, flightId, cabin, capacity);
+    return result.ok ? ok(undefined) : result;
+  }
+
+  async changeCapacity(
+    tx: Tx,
+    flightId: string,
+    cabin: Cabin,
+    capacity: number,
+  ): Promise<Result<number, CapacityError>> {
     if (!isUuid(flightId)) return err('INVALID_FLIGHT_ID');
     if (!isCabin(cabin)) return err('INVALID_CABIN');
     if (!isCount(capacity) || capacity > POSTGRES_INTEGER_MAX) return err('INVALID_CAPACITY');
@@ -109,7 +119,7 @@ export class InventoryService {
       });
     }
     await this.repository.updateCapacity(tx, id, cabin, capacity);
-    return ok(undefined);
+    return ok(load.capacity);
   }
 
   async cabinLoad(flightId: string): Promise<Result<CabinLoad[], CabinLoadError>> {

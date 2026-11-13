@@ -100,9 +100,33 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return Promise.resolve(matches.slice(0, limit));
   }
 
+  lockAirport(_tx: Tx, code: string): Promise<AirportRecord | null> {
+    return Promise.resolve(this.airports.get(code) ?? null);
+  }
+
+  deleteAirport(
+    _tx: Tx,
+    code: string,
+  ): Promise<Result<void, 'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'>> {
+    if (
+      [...this.flights.values()].some(
+        ({ route }) => route.origin.value === code || route.destination.value === code,
+      )
+    ) {
+      return Promise.resolve(err('AIRPORT_IN_USE'));
+    }
+    return Promise.resolve(this.airports.delete(code) ? ok(undefined) : err('AIRPORT_NOT_FOUND'));
+  }
+
   saveAirport(_tx: Tx, airport: AirportRecord): Promise<void> {
     this.airports.set(airport.code, { ...airport });
     return Promise.resolve();
+  }
+
+  hasDeparturesFrom(_tx: Tx, code: string): Promise<boolean> {
+    return Promise.resolve(
+      [...this.flights.values()].some(({ route }) => route.origin.value === code),
+    );
   }
 
   findAirlines(codes: readonly string[]): Promise<AirlineRecord[]> {

@@ -54,7 +54,7 @@ describe('US-AD-02 Update a flight status (command)', () => {
       { tx: TX, id: FLIGHT_ID, next: FlightStatus.Delayed, estimate: NEW_DEPARTURE },
     ]);
     expect(asked).toEqual([{ tx: TX, flightId: FLIGHT_ID }]);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       value: {
         value: { status: FlightStatus.Delayed, previousStatus: FlightStatus.Scheduled },
@@ -77,7 +77,7 @@ describe('US-AD-02 Update a flight status (command)', () => {
   it('US-AD-02-T06 a change that is not a delay announces nothing', async () => {
     const { asked, command } = fixture({ status: FlightStatus.Boarding });
 
-    expect(await command.execute(TX)).toEqual({
+    expect(await command.execute(TX)).toMatchObject({
       ok: true,
       value: {
         value: { status: FlightStatus.Boarding, previousStatus: FlightStatus.Scheduled },

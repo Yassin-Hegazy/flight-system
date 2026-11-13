@@ -9,6 +9,7 @@ export class BookingEntity {
   @PrimaryColumn('uuid') id!: string;
   @Column({ type: 'varchar', length: 6, unique: true }) reference!: string;
   @Column('uuid') ownerId!: string;
+  @Column({ length: 120 }) passengerName!: string;
   @Column('uuid') flightId!: string;
   @Column({ type: 'varchar', length: 8 }) cabin!: Cabin;
   @Column({ type: 'uuid', unique: true }) holdId!: string;

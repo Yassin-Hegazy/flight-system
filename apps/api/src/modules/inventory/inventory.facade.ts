@@ -34,6 +34,9 @@ export class InventoryFacade implements InventoryApi {
   setCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number) {
     return this.inventory.setCapacity(tx, flightId, cabin, capacity);
   }
+  changeCapacity(tx: Tx, flightId: string, cabin: Cabin, capacity: number) {
+    return this.inventory.changeCapacity(tx, flightId, cabin, capacity);
+  }
   cabinLoad(flightId: string) {
     return this.inventory.cabinLoad(flightId);
   }

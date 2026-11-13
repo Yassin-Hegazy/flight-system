@@ -193,7 +193,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     expect((await repository.findFlight(id))?.status).toBe(FlightStatus.Scheduled);
   });
 
-  it('US-AD-03-T01 sets a fare, returning the fare it replaced', async () => {
+  it('US-AD-03-T12 sets a fare, returning the fare it replaced', async () => {
     const { repository, service } = catalogWithReferenceData();
     const created = await service.createFlight(TX, cairoToLondon());
     if (!created.ok) throw new Error(created.error);
@@ -207,7 +207,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     );
   });
 
-  it('US-AD-03-T02 rejects a fare for an unknown flight, or one that is not a positive whole amount', async () => {
+  it('US-AD-03-T13 rejects a fare for an unknown flight, or one that is not a positive whole amount', async () => {
     const { repository, service } = catalogWithReferenceData();
     const id = repository.addFlight(scheduled(cairoToLondon()));
 
@@ -221,7 +221,7 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
     });
   });
 
-  it('US-AD-04-T01 an airport code that is not 3 letters is rejected', async () => {
+  it('US-AD-06-T02 an airport code that is not 3 letters is rejected', async () => {
     const { service } = catalogWithReferenceData();
     expect(
       await service.upsertAirport(TX, {
@@ -232,6 +232,37 @@ describe('Administration commands on the Catalog (US-AD stories)', () => {
         timezone: 'Africa/Cairo',
       }),
     ).toEqual({ ok: false, error: 'INVALID_AIRPORT_CODE' });
+  });
+
+  it('US-AD-06-T03 refuses to change the timezone of an airport flights depart from', async () => {
+    const { service } = catalogWithReferenceData();
+    const created = await service.createFlight(TX, cairoToLondon());
+    if (!created.ok) throw new Error(created.error);
+    const cairo = { code: 'CAI', name: 'Cairo International', city: 'Cairo', country: 'Egypt' };
+
+    expect(await service.upsertAirport(TX, { ...cairo, timezone: 'Europe/London' })).toEqual({
+      ok: false,
+      error: 'TIMEZONE_IN_USE',
+    });
+    expect(
+      await service.upsertAirport(TX, { ...cairo, name: 'Cairo Intl', timezone: 'Africa/Cairo' }),
+    ).toEqual({ ok: true, value: 'CAI' });
+  });
+
+  it('US-AD-06-T04 a timezone may change while no flight departs from the airport', async () => {
+    const { service } = catalogWithReferenceData();
+    const created = await service.createFlight(TX, cairoToLondon());
+    if (!created.ok) throw new Error(created.error);
+
+    expect(
+      await service.upsertAirport(TX, {
+        code: 'LHR',
+        name: 'Heathrow',
+        city: 'London',
+        country: 'United Kingdom',
+        timezone: 'Europe/Dublin',
+      }),
+    ).toEqual({ ok: true, value: 'LHR' });
   });
 
   it('US-FS-04-T07 prices a party through the Catalog boundary from loaded flight data', async () => {

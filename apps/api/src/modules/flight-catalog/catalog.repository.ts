@@ -38,7 +38,13 @@ export interface CatalogRepository {
 
   findAirports(codes: readonly string[], tx?: Tx): Promise<AirportRecord[]>;
   searchAirports(query: string, limit: number): Promise<AirportRecord[]>;
+  lockAirport(tx: Tx, code: string): Promise<AirportRecord | null>;
+  deleteAirport(
+    tx: Tx,
+    code: string,
+  ): Promise<Result<void, 'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'>>;
   saveAirport(tx: Tx, airport: AirportRecord): Promise<void>;
+  hasDeparturesFrom(tx: Tx, code: string): Promise<boolean>;
 
   findAirlines(codes: readonly string[], tx?: Tx): Promise<AirlineRecord[]>;
 

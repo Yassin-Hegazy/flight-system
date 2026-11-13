@@ -31,6 +31,18 @@ export class CancelFlight implements AdminCommand<{ status: FlightStatus }, Chan
     const cancelled = await this.bookings.cancelForFlight(tx, this.flightId);
     return ok({
       value: { status: FlightStatus.Cancelled },
+      audit: [
+        {
+          target: this.flightId,
+          flightId: this.flightId,
+          before: { status: changed.value, cancelReason: null },
+          after: {
+            status: FlightStatus.Cancelled,
+            cancelReason: this.reason,
+            bookingsCancelled: cancelled.length,
+          },
+        },
+      ],
       events: [
         ...cancelled,
         {

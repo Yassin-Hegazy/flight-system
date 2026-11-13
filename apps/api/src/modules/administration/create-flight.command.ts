@@ -44,6 +44,16 @@ export class CreateFlight implements AdminCommand<{ id: string }, CreateFlightFa
       // Nothing is sold on a flight created a moment ago, so a refusal here is a fault.
       if (!set.ok) throw new Error(`Inventory refused capacity: ${JSON.stringify(set.error)}`);
     }
-    return ok({ value: { id: created.value } });
+    return ok({
+      value: { id: created.value },
+      audit: [
+        {
+          target: created.value,
+          flightId: created.value,
+          before: null,
+          after: { ...flight, status: 'SCHEDULED', capacity },
+        },
+      ],
+    });
   }
 }

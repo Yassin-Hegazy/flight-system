@@ -236,6 +236,9 @@ export class CatalogStub implements CatalogApi {
   changeStatus = unused('changeStatus');
   setFare = unused('setFare');
   upsertAirport = unused('upsertAirport');
+  airport = unused('airport');
+  lockAirport = unused('lockAirport');
+  deleteAirport = unused('deleteAirport');
 }
 
 /**
@@ -275,6 +278,7 @@ export class InventoryStub implements InventoryApi {
   validateForPayment = unused('validateForPayment');
   setCapacity = unused('setCapacity');
   cabinLoad = unused('cabinLoad');
+  changeCapacity = unused('changeCapacity');
 }
 
 /** Cairo to London on 10 December, one adult, Economy; override what a test is about. */
