@@ -10,6 +10,8 @@
 
 - `NotificationsModule`: registered in `app.module.ts` (already done).
 - `NOTIFICATIONS_API` and the `NotificationsApi` interface (`inbox`, `markRead`, `markAllRead`, `ownerOf`) with the `InboxPage` and `NotificationView` types. These serve the inbox routes below; other modules have no reason to call them.
+- `PREFERENCES_API` and the `PreferencesApi` interface (`preferences`, `setEmailPreference`) with the `NotificationPreference` type: the email preference routes below.
+- `DEPARTURE_REMINDERS_API` and the `DepartureRemindersApi` interface (`sendDueReminders`): what the scheduled job calls, and what tests call to run the reminders at a chosen moment.
 
 **Other modules never call Notifications. They publish domain events and Notifications listens** (Observer pattern). Notifications imports no other domain module, so it cannot create a dependency cycle.
 
@@ -75,6 +77,8 @@ Notifications imports nothing from other domain modules. Where it needs somethin
 - **Observer** (`notification-event.handler.ts`): subscribes to every event type that has a template, when the module starts.
 - **Declarative** (`notification-templates.ts`): a table from event type to message. Adding a row observes a new event.
 - **Imperative** (`notification-event.handler.ts`): map, fan out per recipient, store, push outward.
+- **Single place to store and deliver** (`notification-publisher.ts`): `NotificationPublisher` stores one notification (the unique `(eventId, userId)` key decides whether it is new) and, only if it is new, hands it to the delivery channels. The event handler and the reminder service both publish through it, so neither repeats the "store once, then deliver" steps and neither knows the dispatcher's concrete class.
+- **Separate use cases** (`notifications.service.ts`, `notification-preferences.service.ts`): `NotificationsService` is the inbox only; `NotificationPreferencesService` is the email preferences only. Each implements its own small interface (`NotificationsApi`, `PreferencesApi`), so a caller depends only on what it uses.
 - **Adapter** (`notification-channel.ts`): the interface every way out of the app sits behind. `EmailChannel` is the only channel today; another is one more `NotificationChannel`. Delivery is started without waiting and its failures are logged and dropped, so a broken or slow channel never delays or undoes a booking or status change.
 - **Adapter for mail** (`mail.ts`): how an email leaves. `LocalMailCatcher` keeps the latest 100 messages in memory and sends nothing; a real SMTP transport would be another `MailTransport`.
 - **Ports** (`departure-source.ts`, `email-directory.ts`): dependency inversion. Notifications owns the interface and other modules implement it, so Notifications never imports them.

@@ -26,6 +26,8 @@ import {
   NOTIFICATIONS_API,
   type NotificationPreference,
   type NotificationsApi,
+  PREFERENCES_API,
+  type PreferencesApi,
 } from './notifications-api';
 
 /**
@@ -35,7 +37,10 @@ import {
  */
 @Controller('notifications')
 export class NotificationsController {
-  constructor(@Inject(NOTIFICATIONS_API) private readonly notifications: NotificationsApi) {}
+  constructor(
+    @Inject(NOTIFICATIONS_API) private readonly notifications: NotificationsApi,
+    @Inject(PREFERENCES_API) private readonly preferenceSettings: PreferencesApi,
+  ) {}
 
   /** Runs `run` for the signed-in user only: nobody signed in is a 401 before anything else. */
   private forSignedInUser<O>(
@@ -81,7 +86,7 @@ export class NotificationsController {
   @Get('preferences')
   preferences(@Ctx() ctx: RequestContext): Promise<{ preferences: NotificationPreference[] }> {
     return this.forSignedInUser(ctx, async (user) => ({
-      preferences: await this.notifications.preferences(user.id),
+      preferences: await this.preferenceSettings.preferences(user.id),
     }));
   }
 
@@ -94,7 +99,7 @@ export class NotificationsController {
     @Body() body: PreferenceBody,
   ): Promise<void> {
     return this.forSignedInUser(ctx, async (user) => {
-      const result = await this.notifications.setEmailPreference(user.id, type, body.email);
+      const result = await this.preferenceSettings.setEmailPreference(user.id, type, body.email);
       if (!result.ok) throw AppError.notFound('NOT_FOUND', 'Not found.');
     });
   }

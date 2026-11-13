@@ -7,12 +7,12 @@ import request, { type Response } from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  DEPARTURE_REMINDERS_API,
   DEPARTURE_SOURCE,
   EMAIL_DIRECTORY,
   MAIL_TRANSPORT,
-  NOTIFICATIONS_API,
+  type DepartureRemindersApi,
   type MailTransport,
-  type NotificationsApi,
   type UpcomingDeparture,
 } from '../src/modules/notifications/index';
 import { publishDomainEvent } from '../src/shared/events';
@@ -35,7 +35,7 @@ interface Traveler {
 describe('Notifications reminders and email', () => {
   let database: TestDatabase;
   let app: INestApplication<App>;
-  let notifications: NotificationsApi;
+  let reminders: DepartureRemindersApi;
   let departures: UpcomingDeparture[] = [];
   const addresses = new Map<string, string>();
   let counter = 0;
@@ -53,7 +53,7 @@ describe('Notifications reminders and email', () => {
       .compile();
     app = moduleRef.createNestApplication<INestApplication<App>>();
     await app.init();
-    notifications = app.get<NotificationsApi>(NOTIFICATIONS_API);
+    reminders = app.get<DepartureRemindersApi>(DEPARTURE_REMINDERS_API);
   });
 
   afterAll(async () => {
@@ -232,7 +232,7 @@ describe('Notifications reminders and email', () => {
       const alice = await newTraveler();
       departures = [upcoming(alice.id, 23.5, { ref: 'REMIND' })];
 
-      expect(await notifications.sendDepartureReminders(new Date())).toBe(1);
+      expect(await reminders.sendDueReminders(new Date())).toBe(1);
 
       const { items } = await inbox(alice);
       expect(items).toEqual([
@@ -250,7 +250,7 @@ describe('Notifications reminders and email', () => {
 
       const counts = [];
       for (let run = 0; run < 3; run += 1)
-        counts.push(await notifications.sendDepartureReminders(new Date()));
+        counts.push(await reminders.sendDueReminders(new Date()));
 
       expect(counts).toEqual([1, 0, 0]);
       expect((await inbox(alice)).total).toBe(1);
@@ -262,8 +262,8 @@ describe('Notifications reminders and email', () => {
       const now = new Date();
 
       const [first, second] = await Promise.all([
-        notifications.sendDepartureReminders(now),
-        notifications.sendDepartureReminders(now),
+        reminders.sendDueReminders(now),
+        reminders.sendDueReminders(now),
       ]);
 
       expect(first + second).toBe(1);
@@ -280,7 +280,7 @@ describe('Notifications reminders and email', () => {
         upcoming(alice.id, 10),
       ];
 
-      expect(await notifications.sendDepartureReminders(new Date())).toBe(0);
+      expect(await reminders.sendDueReminders(new Date())).toBe(0);
       expect((await inbox(alice)).total).toBe(0);
     });
 

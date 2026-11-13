@@ -2,12 +2,14 @@
 // Other modules do not call Notifications; they publish domain events (see shared/events.ts).
 // The ports below are the few things Notifications needs back from other modules.
 export { NotificationsModule } from './notifications.module';
-export { NOTIFICATIONS_API } from './notifications-api';
+export { DEPARTURE_REMINDERS_API, NOTIFICATIONS_API, PREFERENCES_API } from './notifications-api';
 export type {
+  DepartureRemindersApi,
   InboxPage,
   NotificationPreference,
   NotificationView,
   NotificationsApi,
+  PreferencesApi,
 } from './notifications-api';
 // Booking implements this, so reminders can find upcoming departures.
 export { DEPARTURE_SOURCE } from './departure-source';

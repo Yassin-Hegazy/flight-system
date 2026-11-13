@@ -4,6 +4,8 @@ import { InMemoryNotificationsRepository } from './in-memory-notifications.repos
 import type { DepartureSource, UpcomingDeparture } from './departure-source';
 import { NotificationChannelDispatcher } from './notification-channel.dispatcher';
 import type { NotificationChannel, OutgoingNotification } from './notification-channel';
+import { NotificationPublisher } from './notification-publisher';
+import { DEPARTURE_REMINDER } from './notification-templates';
 import { DepartureReminderService } from './departure-reminder.service';
 import { ALICE, BOB, ManualClock } from './test-support';
 
@@ -60,7 +62,10 @@ beforeEach(() => {
   channel = new RecordingChannel();
   dispatcher = new NotificationChannelDispatcher([channel]);
   source = new FakeSource([]);
-  service = new DepartureReminderService(source, repository, dispatcher, new ManualClock(NOW));
+  service = new DepartureReminderService(
+    source,
+    new NotificationPublisher(repository, dispatcher, new ManualClock(NOW)),
+  );
 });
 
 const remindersFor = (userId: string) =>
@@ -97,7 +102,7 @@ describe('US-NT-06 Get a departure reminder', () => {
     await service.sendDueReminders(NOW);
 
     expect(remindersFor(ALICE)[0]).toMatchObject({
-      type: 'DepartureReminder',
+      type: DEPARTURE_REMINDER,
       title: 'Flight MS123 departs tomorrow',
       link: '/bookings/K7M2QP',
     });

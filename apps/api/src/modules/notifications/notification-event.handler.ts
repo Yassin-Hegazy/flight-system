@@ -1,10 +1,8 @@
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { DomainEvent } from '../../shared/events';
-import { CLOCK, type Clock } from '../../shared/time';
-import { NotificationChannelDispatcher } from './notification-channel.dispatcher';
+import { NotificationPublisher } from './notification-publisher';
 import { NOTIFIED_EVENT_TYPES, type NotificationDraft, draftFor } from './notification-templates';
-import { NOTIFICATIONS_REPOSITORY, type NotificationsRepository } from './notifications.repository';
 
 /**
  * The Observer: subscribes to the domain events published by other modules and turns each into
@@ -17,9 +15,7 @@ export class NotificationEventHandler implements OnModuleInit {
 
   constructor(
     private readonly events: EventEmitter2,
-    @Inject(NOTIFICATIONS_REPOSITORY) private readonly repository: NotificationsRepository,
-    private readonly channels: NotificationChannelDispatcher,
-    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly publisher: NotificationPublisher,
   ) {}
 
   /**
@@ -61,17 +57,16 @@ export class NotificationEventHandler implements OnModuleInit {
     userId: string,
   ): Promise<void> {
     try {
-      const stored = await this.repository.insertIgnoringDuplicate({
-        // 4. the unique (eventId, userId) key makes a repeated event a no-op
+      // 4. the unique (eventId, userId) key makes a repeated event a no-op, and only a newly
+      //    stored notification goes outward (5)
+      await this.publisher.publish({
         userId,
         eventId: event.eventId,
         type: event.type,
         title: draft.title,
         body: draft.body,
         link: draft.link,
-        createdAt: this.clock.now(),
       });
-      if (stored) this.channels.dispatch(stored); // 5. only newly stored ones go outward
     } catch (error) {
       this.logFailure(event, error);
     }

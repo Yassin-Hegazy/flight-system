@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   NOTIFICATION_CHANNELS,
   type NotificationChannel,
+  type NotificationDispatcher,
   type OutgoingNotification,
 } from './notification-channel';
 
@@ -11,7 +12,7 @@ import {
  * (NFR 5). Failures are logged and dropped; the in-app notification is already stored.
  */
 @Injectable()
-export class NotificationChannelDispatcher {
+export class NotificationChannelDispatcher implements NotificationDispatcher {
   private readonly logger = new Logger(NotificationChannelDispatcher.name);
   private readonly inFlight = new Set<Promise<void>>();
 

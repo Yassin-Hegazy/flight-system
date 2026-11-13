@@ -19,3 +19,14 @@ export interface NotificationChannel {
 
 /** All configured delivery channels (an array of NotificationChannel). */
 export const NOTIFICATION_CHANNELS = Symbol('NOTIFICATION_CHANNELS');
+
+/**
+ * What the module needs from the thing that pushes a stored notification through the channels, so
+ * the publisher depends on this interface and not on the concrete dispatcher.
+ */
+export interface NotificationDispatcher {
+  /** Starts delivery and returns immediately; never throws. */
+  dispatch(notification: OutgoingNotification): void;
+}
+
+export const NOTIFICATION_DISPATCHER = Symbol('NOTIFICATION_DISPATCHER');

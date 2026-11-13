@@ -105,6 +105,9 @@ export function reminderDraft(departure: UpcomingDeparture): NotificationDraft {
   };
 }
 
+/** The type of the day-before reminder, which comes from a scheduled job and not from an event. */
+export const DEPARTURE_REMINDER = 'DepartureReminder';
+
 /** Every type a notification can have: the six events Notifications observes, plus the reminder. */
-export const NOTIFICATION_TYPES = [...NOTIFIED_EVENT_TYPES, 'DepartureReminder'] as const;
+export const NOTIFICATION_TYPES = [...NOTIFIED_EVENT_TYPES, DEPARTURE_REMINDER] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

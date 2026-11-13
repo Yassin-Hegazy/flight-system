@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CLOCK, type Clock } from '../../shared/time';
-import { DepartureReminderService } from './departure-reminder.service';
+import { DEPARTURE_REMINDERS_API, type DepartureRemindersApi } from './notifications-api';
 
 /**
  * The scheduled trigger for departure reminders. Every 10 minutes is more often than the 15 the
@@ -13,7 +13,7 @@ export class DepartureReminderJob {
   private readonly logger = new Logger(DepartureReminderJob.name);
 
   constructor(
-    private readonly reminders: DepartureReminderService,
+    @Inject(DEPARTURE_REMINDERS_API) private readonly reminders: DepartureRemindersApi,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 

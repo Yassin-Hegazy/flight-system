@@ -35,6 +35,14 @@ export interface NotificationsApi {
   markRead(id: string, userId: string): Promise<Result<void, 'NOT_FOUND'>>;
   /** Marks all of the user's unread notifications as read; returns how many changed. */
   markAllRead(userId: string): Promise<number>;
+  /** The owner of a notification, or null when there is none (including a malformed ID). */
+  ownerOf(id: string): Promise<string | null>;
+}
+
+export const NOTIFICATIONS_API = Symbol('NOTIFICATIONS_API');
+
+/** The preferences side of the boundary: which notification types are also sent by email. */
+export interface PreferencesApi {
   /** Every notification type with the user's email choice, off unless they opted in. */
   preferences(userId: string): Promise<NotificationPreference[]>;
   /** Opts in to, or out of, email for one notification type. */
@@ -43,10 +51,14 @@ export interface NotificationsApi {
     type: string,
     enabled: boolean,
   ): Promise<Result<void, 'UNKNOWN_TYPE'>>;
-  /** Sends the day-before reminders for departures 23 to 24 hours after `now`; returns how many. */
-  sendDepartureReminders(now: Date): Promise<number>;
-  /** The owner of a notification, or null when there is none (including a malformed ID). */
-  ownerOf(id: string): Promise<string | null>;
 }
 
-export const NOTIFICATIONS_API = Symbol('NOTIFICATIONS_API');
+export const PREFERENCES_API = Symbol('PREFERENCES_API');
+
+/** The reminders side of the boundary: what the scheduled job (and the tests) call. */
+export interface DepartureRemindersApi {
+  /** Sends the day-before reminders for departures 23 to 24 hours after `now`; returns how many were new. */
+  sendDueReminders(now: Date): Promise<number>;
+}
+
+export const DEPARTURE_REMINDERS_API = Symbol('DEPARTURE_REMINDERS_API');

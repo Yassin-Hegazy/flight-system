@@ -10,11 +10,13 @@ import { InMemoryPreferencesRepository } from './in-memory-preferences.repositor
 import { LocalMailCatcher } from './local-mail-catcher';
 import {
   NOTIFICATION_CHANNELS,
+  NOTIFICATION_DISPATCHER,
   type NotificationChannel,
   type OutgoingNotification,
 } from './notification-channel';
 import { NotificationChannelDispatcher } from './notification-channel.dispatcher';
 import { NotificationEventHandler } from './notification-event.handler';
+import { NotificationPublisher } from './notification-publisher';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import {
   ALICE,
@@ -48,7 +50,9 @@ async function startHarness(channels: NotificationChannel[] = []) {
     imports: [EventEmitterModule.forRoot()],
     providers: [
       NotificationEventHandler,
+      NotificationPublisher,
       NotificationChannelDispatcher,
+      { provide: NOTIFICATION_DISPATCHER, useExisting: NotificationChannelDispatcher },
       { provide: NOTIFICATIONS_REPOSITORY, useValue: repository },
       { provide: NOTIFICATION_CHANNELS, useValue: channels },
       { provide: CLOCK, useValue: new ManualClock(new Date('2026-11-07T10:00:00Z')) },

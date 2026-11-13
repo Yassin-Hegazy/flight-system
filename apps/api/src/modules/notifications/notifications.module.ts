@@ -8,12 +8,14 @@ import { EMAIL_DIRECTORY, NoEmailDirectory } from './email-directory';
 import { EmailChannel } from './email.channel';
 import { LocalMailCatcher } from './local-mail-catcher';
 import { MAIL_TRANSPORT } from './mail';
-import { NOTIFICATION_CHANNELS } from './notification-channel';
+import { NOTIFICATION_CHANNELS, NOTIFICATION_DISPATCHER } from './notification-channel';
 import { NotificationChannelDispatcher } from './notification-channel.dispatcher';
 import { NotificationEventHandler } from './notification-event.handler';
+import { NotificationPreferencesService } from './notification-preferences.service';
+import { NotificationPublisher } from './notification-publisher';
 import { NotificationPrefEntity } from './notification-pref.entity';
 import { NotificationEntity } from './notification.entity';
-import { NOTIFICATIONS_API } from './notifications-api';
+import { DEPARTURE_REMINDERS_API, NOTIFICATIONS_API, PREFERENCES_API } from './notifications-api';
 import { NotificationsController } from './notifications.controller';
 import { NOTIFICATIONS_REPOSITORY } from './notifications.repository';
 import { NotificationsService } from './notifications.service';
@@ -26,6 +28,10 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
   controllers: [NotificationsController],
   providers: [
     NotificationsService,
+    NotificationPreferencesService,
+    // Stores a notification once and pushes it out; the event handler and the reminder service
+    // both publish through it.
+    NotificationPublisher,
     // The Observer. It subscribes itself to the app's global event emitter when the module starts,
     // so no other module needs to know it exists.
     NotificationEventHandler,
@@ -33,6 +39,7 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
     DepartureReminderJob,
     DepartureReminderService,
     NotificationChannelDispatcher,
+    { provide: NOTIFICATION_DISPATCHER, useExisting: NotificationChannelDispatcher },
     // Delivery channels: email, for travelers who opted in. Add a channel here to add a way out.
     EmailChannel,
     {
@@ -45,6 +52,8 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
     { provide: NOTIFICATIONS_REPOSITORY, useClass: PgNotificationsRepository },
     { provide: PREFERENCES_REPOSITORY, useClass: PgPreferencesRepository },
     { provide: NOTIFICATIONS_API, useExisting: NotificationsService },
+    { provide: PREFERENCES_API, useExisting: NotificationPreferencesService },
+    { provide: DEPARTURE_REMINDERS_API, useExisting: DepartureReminderService },
     { provide: CLOCK, useValue: systemClock },
 
     // Integration points owned by other modules. Each default below does nothing until the owning

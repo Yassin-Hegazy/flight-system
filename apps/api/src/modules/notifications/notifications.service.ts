@@ -2,15 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock } from '../../shared/time';
-import { DepartureReminderService } from './departure-reminder.service';
-import { NOTIFICATION_TYPES } from './notification-templates';
-import type {
-  InboxPage,
-  NotificationPreference,
-  NotificationView,
-  NotificationsApi,
-} from './notifications-api';
-import { PREFERENCES_REPOSITORY, type PreferencesRepository } from './preferences.repository';
+import type { InboxPage, NotificationView, NotificationsApi } from './notifications-api';
 import {
   NOTIFICATIONS_REPOSITORY,
   type NotificationRecord,
@@ -42,8 +34,6 @@ export class NotificationsService implements NotificationsApi {
   constructor(
     @Inject(NOTIFICATIONS_REPOSITORY) private readonly repository: NotificationsRepository,
     @Inject(CLOCK) private readonly clock: Clock,
-    private readonly reminders: DepartureReminderService,
-    @Inject(PREFERENCES_REPOSITORY) private readonly preferenceStore: PreferencesRepository,
   ) {}
 
   async inbox(userId: string, page: number): Promise<InboxPage> {
@@ -69,24 +59,5 @@ export class NotificationsService implements NotificationsApi {
   ownerOf(id: string): Promise<string | null> {
     // A malformed ID is "no such notification", not a database error.
     return isUUID(id) ? this.repository.findOwner(id) : Promise.resolve(null);
-  }
-
-  async preferences(userId: string): Promise<NotificationPreference[]> {
-    const saved = new Map((await this.preferenceStore.list(userId)).map((p) => [p.type, p.email]));
-    return NOTIFICATION_TYPES.map((type) => ({ type, email: saved.get(type) ?? false }));
-  }
-
-  async setEmailPreference(
-    userId: string,
-    type: string,
-    enabled: boolean,
-  ): Promise<Result<void, 'UNKNOWN_TYPE'>> {
-    if (!(NOTIFICATION_TYPES as readonly string[]).includes(type)) return err('UNKNOWN_TYPE');
-    await this.preferenceStore.setEmail(userId, type, enabled);
-    return ok(undefined);
-  }
-
-  sendDepartureReminders(now: Date): Promise<number> {
-    return this.reminders.sendDueReminders(now);
   }
 }

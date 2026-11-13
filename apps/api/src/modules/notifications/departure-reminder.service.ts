@@ -1,9 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CLOCK, type Clock } from '../../shared/time';
 import { DEPARTURE_SOURCE, type DepartureSource, type UpcomingDeparture } from './departure-source';
-import { NotificationChannelDispatcher } from './notification-channel.dispatcher';
-import { reminderDraft } from './notification-templates';
-import { NOTIFICATIONS_REPOSITORY, type NotificationsRepository } from './notifications.repository';
+import { NotificationPublisher } from './notification-publisher';
+import { DEPARTURE_REMINDER, reminderDraft } from './notification-templates';
+import type { DepartureRemindersApi } from './notifications-api';
 
 const HOUR_MS = 60 * 60 * 1000;
 /** "The day before": a flight 23 to 24 hours away. Run at least every 15 minutes, every booking passes through. */
@@ -30,14 +29,12 @@ function isDue(departure: UpcomingDeparture, from: Date, to: Date): boolean {
  * (US-NT-06 AC-2, NFR-REL-02).
  */
 @Injectable()
-export class DepartureReminderService {
+export class DepartureReminderService implements DepartureRemindersApi {
   private readonly logger = new Logger(DepartureReminderService.name);
 
   constructor(
     @Inject(DEPARTURE_SOURCE) private readonly source: DepartureSource,
-    @Inject(NOTIFICATIONS_REPOSITORY) private readonly repository: NotificationsRepository,
-    private readonly channels: NotificationChannelDispatcher,
-    @Inject(CLOCK) private readonly clock: Clock,
+    private readonly publisher: NotificationPublisher,
   ) {}
 
   /** Reminds every booking departing 23 to 24 hours after `now`; returns how many were new. */
@@ -58,17 +55,14 @@ export class DepartureReminderService {
   private async remind(departure: UpcomingDeparture): Promise<boolean> {
     try {
       const draft = reminderDraft(departure);
-      const stored = await this.repository.insertIgnoringDuplicate({
+      return await this.publisher.publish({
         userId: departure.ownerId,
         eventId: `reminder:${departure.bookingId}`,
-        type: 'DepartureReminder',
+        type: DEPARTURE_REMINDER,
         title: draft.title,
         body: draft.body,
         link: draft.link,
-        createdAt: this.clock.now(),
       });
-      if (stored) this.channels.dispatch(stored);
-      return stored !== null;
     } catch (error) {
       const failure = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
