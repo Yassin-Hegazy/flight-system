@@ -25,20 +25,30 @@ export type NewTicket = Omit<Ticket, 'status' | 'voidedAt'>;
 
 /** Factory Method, ConcreteProduct: an electronic ticket, VALID when issued. */
 export class ETicket implements Ticket {
-  readonly number!: string;
-  readonly bookingId!: string;
-  readonly passengerId!: string;
-  readonly passengerName!: string;
-  readonly segmentId!: string;
-  readonly flightId!: string;
-  readonly cabin!: Cabin;
-  readonly fare!: Money;
+  readonly number: string;
+  readonly bookingId: string;
+  readonly passengerId: string;
+  readonly passengerName: string;
+  readonly segmentId: string;
+  readonly flightId: string;
+  readonly cabin: Cabin;
+  readonly fare: Money;
   readonly status: TicketStatus = 'VALID';
-  readonly issuedAt!: Date;
+  readonly issuedAt: Date;
   readonly voidedAt: Date | null = null;
 
   constructor(fields: NewTicket) {
-    void fields;
-    throw new Error('Not implemented');
+    if (!TICKET_NUMBER.test(fields.number)) {
+      throw new Error(`A ticket number has 13 digits: ${fields.number}`);
+    }
+    this.number = fields.number;
+    this.bookingId = fields.bookingId;
+    this.passengerId = fields.passengerId;
+    this.passengerName = fields.passengerName;
+    this.segmentId = fields.segmentId;
+    this.flightId = fields.flightId;
+    this.cabin = fields.cabin;
+    this.fare = fields.fare;
+    this.issuedAt = fields.issuedAt;
   }
 }
