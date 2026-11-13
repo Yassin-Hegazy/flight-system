@@ -71,6 +71,10 @@ export class InMemoryTickets {
     return Promise.resolve(this.rows.filter((row) => row.bookingId === bookingId));
   }
 
+  findByNumber(number: string): Promise<Ticket | null> {
+    return Promise.resolve(this.rows.find((row) => row.number === number) ?? null);
+  }
+
   insertAll(_tx: Tx, tickets: readonly Ticket[]): Promise<void> {
     const clash = tickets.some((ticket) =>
       this.rows.some(
