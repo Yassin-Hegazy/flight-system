@@ -105,6 +105,12 @@ describe('NFR-ERR-01 the API documentation at /docs', () => {
     expect(failing((operation, label) => !PUBLIC.includes(label) || !operation.security)).toEqual(
       [],
     );
+    // The scheme the routes name must exist, or Swagger UI cannot send the cookie.
+    expect(document.components?.securitySchemes?.flight_session).toMatchObject({
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'flight_session',
+    });
   });
 
   it('NFR-ERR-01-T11 every request body is documented field by field', () => {
