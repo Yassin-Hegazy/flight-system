@@ -5,6 +5,7 @@ import { err, ok, type Result } from '../../shared/result';
 import { CLOCK, type Clock, isValidTimeZone, localDayToUtcRange } from '../../shared/time';
 import type {
   AirportError,
+  AirportInfo,
   AirportInput,
   AirportSuggestion,
   CatalogApi,
@@ -76,6 +77,10 @@ export class FlightCatalogService implements CatalogApi {
     if (normalized.length < MIN_AIRPORT_QUERY) return [];
     const airports = await this.repository.searchAirports(normalized, MAX_AIRPORT_SUGGESTIONS);
     return airports.map(({ code, name, city, country }) => ({ code, name, city, country }));
+  }
+
+  getAirports(codes: readonly string[]): Promise<AirportInfo[]> {
+    return Promise.reject(new Error(`Not implemented: getAirports(${codes.join(',')})`));
   }
 
   isBookable(flight: FlightInfo, now: Date): boolean {
