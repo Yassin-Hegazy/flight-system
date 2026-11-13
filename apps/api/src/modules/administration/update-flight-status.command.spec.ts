@@ -56,7 +56,7 @@ describe('US-AD-02 Update a flight status (command)', () => {
     expect(result).toEqual({
       ok: true,
       value: {
-        value: { status: FlightStatus.Delayed },
+        value: { status: FlightStatus.Delayed, previousStatus: FlightStatus.Scheduled },
         events: [
           {
             type: 'FlightDelayed',
@@ -78,7 +78,10 @@ describe('US-AD-02 Update a flight status (command)', () => {
 
     expect(await command.execute(TX)).toEqual({
       ok: true,
-      value: { value: { status: FlightStatus.Boarding }, events: [] },
+      value: {
+        value: { status: FlightStatus.Boarding, previousStatus: FlightStatus.Scheduled },
+        events: [],
+      },
     });
     expect(asked).toEqual([]);
   });

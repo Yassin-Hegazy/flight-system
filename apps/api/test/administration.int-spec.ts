@@ -192,7 +192,11 @@ describe('Administration over HTTP', () => {
         'ESTIMATE_REQUIRED',
       );
 
-      await setStatus(id, { status: 'DELAYED', estimatedDepartureUtc: oneMinuteLater }).expect(200);
+      const delayed = await setStatus(id, {
+        status: 'DELAYED',
+        estimatedDepartureUtc: oneMinuteLater,
+      }).expect(200);
+      expect(delayed.body).toEqual({ status: 'DELAYED', previousStatus: 'SCHEDULED' });
       expect(await statusOf(id)).toMatchObject({
         status: 'DELAYED',
         estimatedDepartureUtc: new Date(oneMinuteLater).toISOString(),
