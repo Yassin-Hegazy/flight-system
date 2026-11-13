@@ -17,7 +17,14 @@ export const SORT_STRATEGIES = Symbol('SORT_STRATEGIES');
  * equal-priced flights come back in engine order, tests flake and pages repeat or skip flights.
  */
 export function tieBreak(a: SearchResult, b: SearchResult): number {
-  void a;
-  void b;
-  throw new Error('Not implemented: tieBreak');
+  return (
+    a.departureUtc.getTime() - b.departureUtc.getTime() ||
+    compareText(a.flightNumber, b.flightNumber)
+  );
+}
+
+/** Code-unit order, so the result never depends on the server's locale. */
+function compareText(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
 }
