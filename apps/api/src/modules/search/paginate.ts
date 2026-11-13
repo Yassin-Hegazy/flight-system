@@ -1,4 +1,4 @@
-import { ok, type Result } from '../../shared/result';
+import { err, ok, type Result } from '../../shared/result';
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
@@ -16,12 +16,19 @@ export interface Page<T> {
   hasNext: boolean;
 }
 
-/** The page asked for, with defaults applied. */
+const isPositiveWhole = (value: number) => Number.isSafeInteger(value) && value >= 1;
+
+/**
+ * The page asked for (US-FS-05 AC-1): page 1 of 20 by default. A size above 50 is capped, since a
+ * user never typed it; a size or page below 1 is a client bug, so it is reported.
+ */
 export function pageRequest(
   page = 1,
   pageSize = DEFAULT_PAGE_SIZE,
 ): Result<PageRequest, 'INVALID_PAGE' | 'INVALID_PAGE_SIZE'> {
-  return ok({ page, pageSize });
+  if (!isPositiveWhole(page)) return err('INVALID_PAGE');
+  if (!isPositiveWhole(pageSize)) return err('INVALID_PAGE_SIZE');
+  return ok({ page, pageSize: Math.min(pageSize, MAX_PAGE_SIZE) });
 }
 
 /** Step 8: one page of an already filtered and sorted list, with the metadata the UI needs. */
