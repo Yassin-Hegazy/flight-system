@@ -11,7 +11,7 @@ function fixture(capacity = { ECONOMY: 180, BUSINESS: 20 }) {
 }
 
 describe('US-AD-01 Create a scheduled flight (command)', () => {
-  it('US-AD-01-T08 creates the flight in the Catalog and both cabins in Inventory, in the same transaction', async () => {
+  it('US-AD-01-T20 creates the flight in the Catalog and both cabins in Inventory, in the same transaction', async () => {
     const { catalog, inventory, command } = fixture();
 
     const result = await command.execute(TX);
@@ -50,7 +50,7 @@ describe('US-AD-01 Create a scheduled flight (command)', () => {
     },
   );
 
-  it('US-AD-01-T09 a capacity Inventory refuses for a new flight is a fault, not a business result', async () => {
+  it('US-AD-01-T21 a capacity Inventory refuses for a new flight is a fault, not a business result', async () => {
     const { inventory, command } = fixture();
     inventory.capacityResult = err('FLIGHT_NOT_FOUND');
 

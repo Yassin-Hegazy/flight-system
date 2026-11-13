@@ -79,7 +79,7 @@ describe('US-AD-01 Create a scheduled flight (command bus)', () => {
     expect(log).toEqual([]);
   });
 
-  it('US-AD-01-T05 an administrator runs the command inside one transaction', async () => {
+  it('US-AD-01-T17 an administrator runs the command inside one transaction', async () => {
     const { bus, log } = fixture();
 
     const result = await bus.dispatch(new Recorded(log, ok({ value: 'done' })), asAdmin());
@@ -88,7 +88,7 @@ describe('US-AD-01 Create a scheduled flight (command bus)', () => {
     expect(log).toEqual(['begin', 'execute in transaction', 'commit']);
   });
 
-  it('US-AD-01-T06 an expected failure rolls the transaction back and is returned, not thrown', async () => {
+  it('US-AD-01-T18 an expected failure rolls the transaction back and is returned, not thrown', async () => {
     const { bus, log } = fixture();
 
     const result = await bus.dispatch(new Recorded(log, err('REFUSED')), asAdmin());
@@ -97,7 +97,7 @@ describe('US-AD-01 Create a scheduled flight (command bus)', () => {
     expect(log).toEqual(['begin', 'execute in transaction', 'rollback']);
   });
 
-  it('US-AD-01-T07 an unexpected error rolls back and propagates', async () => {
+  it('US-AD-01-T19 an unexpected error rolls back and propagates', async () => {
     const { bus, log } = fixture();
 
     await expect(
