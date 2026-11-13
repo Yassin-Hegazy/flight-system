@@ -1,6 +1,12 @@
 import type { Tx } from '../../shared/db';
-import type { Result } from '../../shared/result';
-import type { CatalogApi, ChangeStatusError, FlightStatus } from '../flight-catalog/index';
+import type { FlightDelayed } from '../../shared/events';
+import { err, ok, type Result } from '../../shared/result';
+import {
+  type CatalogApi,
+  type ChangeStatusError,
+  type FlightInfo,
+  FlightStatus,
+} from '../flight-catalog/index';
 import type { AdminCommand, CommandOutcome } from './admin-command';
 import type { BookingOwners } from './booking-owners';
 
@@ -32,10 +38,34 @@ export class UpdateFlightStatus implements AdminCommand<
     private readonly newEventId: () => string,
   ) {}
 
-  execute(
+  async execute(
     tx: Tx,
   ): Promise<Result<CommandOutcome<{ status: FlightStatus }>, UpdateFlightStatusFailure>> {
-    void tx;
-    return Promise.reject(new Error(`Not implemented: ${this.name}`));
+    const { flightId, status, estimatedDepartureUtc } = this.input;
+    if (status === FlightStatus.Cancelled) return err('USE_CANCEL_FLIGHT');
+    const flight = await this.catalog.getFlight(flightId);
+    if (!flight) return err('FLIGHT_NOT_FOUND');
+
+    const changed = await this.catalog.changeStatus(tx, flightId, status, estimatedDepartureUtc);
+    if (!changed.ok) return changed;
+
+    const delayed = status === FlightStatus.Delayed && estimatedDepartureUtc !== undefined;
+    return ok({
+      value: { status: changed.value },
+      events: delayed ? [await this.flightDelayed(flight, estimatedDepartureUtc)] : [],
+    });
+  }
+
+  private async flightDelayed(flight: FlightInfo, newDeparture: Date): Promise<FlightDelayed> {
+    return {
+      type: 'FlightDelayed',
+      eventId: this.newEventId(),
+      flightId: flight.id,
+      flightNumber: flight.flightNumber,
+      departureTimeZone: flight.origin.timezone,
+      affectedUserIds: await this.owners.activeOwnersOf(flight.id),
+      oldDepartureUtc: flight.scheduledDepartureUtc.toISOString(),
+      newDepartureUtc: newDeparture.toISOString(),
+    };
   }
 }

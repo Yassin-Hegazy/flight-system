@@ -1,6 +1,12 @@
 import type { Tx } from '../../shared/db';
-import type { Result } from '../../shared/result';
-import type { Cabin, CatalogApi, CreateFlightError, NewFlight } from '../flight-catalog/index';
+import { err, ok, type Result } from '../../shared/result';
+import {
+  CABINS,
+  type Cabin,
+  type CatalogApi,
+  type CreateFlightError,
+  type NewFlight,
+} from '../flight-catalog/index';
 import type { InventoryApi } from '../inventory/index';
 import type { AdminCommand, CommandOutcome } from './admin-command';
 
@@ -26,8 +32,18 @@ export class CreateFlight implements AdminCommand<{ id: string }, CreateFlightFa
     private readonly input: CreateFlightInput,
   ) {}
 
-  execute(tx: Tx): Promise<Result<CommandOutcome<{ id: string }>, CreateFlightFailure>> {
-    void tx;
-    return Promise.reject(new Error(`Not implemented: ${this.name}`));
+  async execute(tx: Tx): Promise<Result<CommandOutcome<{ id: string }>, CreateFlightFailure>> {
+    const { flight, capacity } = this.input;
+    if (!CABINS.some((cabin) => capacity[cabin] > 0)) return err('NO_SEATS');
+
+    const created = await this.catalog.createFlight(tx, flight);
+    if (!created.ok) return created;
+
+    for (const cabin of CABINS) {
+      const set = await this.inventory.setCapacity(tx, created.value, cabin, capacity[cabin]);
+      // Nothing is sold on a flight created a moment ago, so a refusal here is a fault.
+      if (!set.ok) throw new Error(`Inventory refused capacity: ${JSON.stringify(set.error)}`);
+    }
+    return ok({ value: { id: created.value } });
   }
 }
