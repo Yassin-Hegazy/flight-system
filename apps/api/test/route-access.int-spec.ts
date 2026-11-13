@@ -32,6 +32,28 @@ const freshEmail = () => `matrix${++unique}@example.com`;
 
 const ROUTES: RouteSpec[] = [
   { method: 'get', path: '/health', access: 'public' },
+  {
+    method: 'post',
+    path: '/admin/flights',
+    access: 'admin',
+    body: () => ({
+      flightNumber: 'MS901',
+      airlineCode: 'MS',
+      originCode: 'CAI',
+      destinationCode: 'LHR',
+      scheduledDepartureUtc: '2027-08-01T06:00:00Z',
+      scheduledArrivalUtc: '2027-08-01T11:00:00Z',
+      currency: 'EGP',
+      fares: { ECONOMY: 1_500_000, BUSINESS: 4_500_000 },
+      capacity: { ECONOMY: 100, BUSINESS: 10 },
+    }),
+  },
+  {
+    method: 'patch',
+    path: '/admin/flights/:id/status',
+    access: 'admin',
+    body: () => ({ status: 'BOARDING' }),
+  },
   { method: 'get', path: '/flights', access: 'public' },
   { method: 'get', path: '/flights/airports/suggestions', access: 'public' },
   { method: 'get', path: '/flights/:id', access: 'public' },

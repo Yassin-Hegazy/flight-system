@@ -1,3 +1,4 @@
+import { POSTGRES_INTEGER_MAX } from '../../shared/db';
 import type { Money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
 import { localDateOf } from '../../shared/time';
@@ -199,6 +200,7 @@ export function isPositiveFare(fare: Money): boolean {
   return (
     Number.isSafeInteger(fare.amountMinor) &&
     fare.amountMinor > 0 &&
+    fare.amountMinor <= POSTGRES_INTEGER_MAX &&
     /^[A-Z]{3}$/.test(fare.currency)
   );
 }

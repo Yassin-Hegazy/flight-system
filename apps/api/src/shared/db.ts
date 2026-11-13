@@ -1,5 +1,7 @@
 import { type EntityManager, QueryFailedError } from 'typeorm';
 
+export const POSTGRES_INTEGER_MAX = 2_147_483_647;
+
 /**
  * A database transaction passed across module boundaries, so work that must be atomic across
  * modules commits or rolls back together (overview, section 2.2 rule 4).

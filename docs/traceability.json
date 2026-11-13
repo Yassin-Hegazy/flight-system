@@ -216,15 +216,15 @@
     },
     {
       "id": "US-AD-01",
-      "module": "flight-catalog",
-      "title": "Schedule a flight with its airline and cabin fares",
+      "module": "administration",
+      "title": "Create a scheduled flight",
       "milestone": "beta",
       "verifiedBy": "test"
     },
     {
       "id": "US-AD-02",
-      "module": "flight-catalog",
-      "title": "Change a flight status",
+      "module": "administration",
+      "title": "Update a flight's operational status",
       "milestone": "beta",
       "verifiedBy": "test"
     },

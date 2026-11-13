@@ -27,8 +27,8 @@ export class PgCatalogRepository implements CatalogRepository {
     return this.dataSource.manager;
   }
 
-  async findFlight(id: string): Promise<Flight | null> {
-    const row = await this.db.findOne(FlightEntity, { where: { id } });
+  async findFlight(id: string, tx = this.db): Promise<Flight | null> {
+    const row = await tx.findOne(FlightEntity, { where: { id } });
     return row ? toFlight(row) : null;
   }
 
@@ -71,9 +71,9 @@ export class PgCatalogRepository implements CatalogRepository {
     await tx.update(FlightEntity, { id: flight.id }, toRow(flight));
   }
 
-  async findAirports(codes: readonly string[]): Promise<AirportRecord[]> {
+  async findAirports(codes: readonly string[], tx = this.db): Promise<AirportRecord[]> {
     if (codes.length === 0) return [];
-    return this.db.find(AirportEntity, { where: { code: In([...codes]) } });
+    return tx.find(AirportEntity, { where: { code: In([...codes]) } });
   }
 
   async searchAirports(query: string, limit: number): Promise<AirportRecord[]> {
@@ -95,14 +95,14 @@ export class PgCatalogRepository implements CatalogRepository {
     await tx.save(AirportEntity, { ...airport });
   }
 
-  async findAirlines(codes: readonly string[]): Promise<AirlineRecord[]> {
+  async findAirlines(codes: readonly string[], tx = this.db): Promise<AirlineRecord[]> {
     if (codes.length === 0) return [];
-    return this.db.find(AirlineEntity, { where: { code: In([...codes]) } });
+    return tx.find(AirlineEntity, { where: { code: In([...codes]) } });
   }
 
-  async findFares(flightIds: readonly string[]): Promise<FareRecord[]> {
+  async findFares(flightIds: readonly string[], tx = this.db): Promise<FareRecord[]> {
     if (flightIds.length === 0) return [];
-    const rows = await this.db.find(FlightFareEntity, { where: { flightId: In([...flightIds]) } });
+    const rows = await tx.find(FlightFareEntity, { where: { flightId: In([...flightIds]) } });
     return rows.map(toFareRecord);
   }
 
