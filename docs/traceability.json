@@ -243,6 +243,34 @@
       "verifiedBy": "test"
     },
     {
+      "id": "US-INV-01",
+      "module": "inventory",
+      "title": "Show genuine availability",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-02",
+      "module": "inventory",
+      "title": "Prevent overselling",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-03",
+      "module": "inventory",
+      "title": "Hold seats while I pay",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-INV-04",
+      "module": "inventory",
+      "title": "Release seats exactly once",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
       "id": "US-FL-01",
       "module": "flight-catalog",
       "title": "View flight details",
