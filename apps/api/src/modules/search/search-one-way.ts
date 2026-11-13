@@ -4,6 +4,7 @@ import { CLOCK, type Clock } from '../../shared/time';
 import { CATALOG_API, type CatalogApi, type FlightInfo } from '../flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { type CheckedCriteria, checkAirportsAndDate, checkCriteria } from './criteria-validator';
+import { buildFilter } from './filtering/filters';
 import { paginate } from './paginate';
 import { toSearchResult } from './result-mapper';
 import type { OneWayCriteria, ResultPage, SearchError, SearchResult } from './search-api';
@@ -80,6 +81,7 @@ export class SearchOneWay {
 
 /** Steps 6 to 8. Sorting and filtering happen before paging, so `total` counts every page. */
 function present(results: SearchResult[], checked: CheckedCriteria): ResultPage {
-  const sorted = [...results].sort((a, b) => checked.sort.compare(a, b));
-  return { ...paginate(sorted, checked), sort: checked.sort.key, filters: {} };
+  const kept = results.filter(buildFilter(checked.filters));
+  const sorted = kept.sort((a, b) => checked.sort.compare(a, b));
+  return { ...paginate(sorted, checked), sort: checked.sort.key, filters: checked.filters };
 }

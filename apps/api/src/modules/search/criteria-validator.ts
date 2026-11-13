@@ -1,8 +1,9 @@
 import { err, ok, type Result } from '../../shared/result';
 import { isLocalDate, localDateOf } from '../../shared/time';
 import { type AirportInfo, type PassengerMix, Route } from '../flight-catalog/index';
+import { isValidFilters } from './filtering/filters';
 import { type PageRequest, pageRequest } from './paginate';
-import type { OneWayCriteria, SearchError } from './search-api';
+import type { Filters, OneWayCriteria, SearchError } from './search-api';
 import type { SortRegistry } from './sorting/sort-registry';
 import type { SortStrategy } from './sorting/sort-strategy';
 
@@ -14,6 +15,7 @@ export const MAX_SEATED_PASSENGERS = 9;
 export interface CheckedCriteria extends PageRequest {
   route: Route;
   sort: SortStrategy;
+  filters: Filters;
 }
 
 /**
@@ -28,11 +30,12 @@ export function checkCriteria(
   if (!route.ok) return route;
   if (!isLocalDate(criteria.date)) return err('INVALID_DATE');
   if (!isValidParty(criteria.passengers)) return err('INVALID_PASSENGERS');
+  if (!isValidFilters(criteria.filters ?? {})) return err('INVALID_FILTER');
   const sort = sorts.get(criteria.sort ?? DEFAULT_SORT);
   if (!sort) return err('UNSUPPORTED_SORT');
   const paging = pageRequest(criteria.page, criteria.pageSize);
   if (!paging.ok) return paging;
-  return ok({ route: route.value, sort, ...paging.value });
+  return ok({ route: route.value, sort, filters: criteria.filters ?? {}, ...paging.value });
 }
 
 const isCount = (value: unknown) =>
