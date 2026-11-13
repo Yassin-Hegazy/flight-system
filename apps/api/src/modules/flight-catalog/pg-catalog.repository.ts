@@ -119,6 +119,10 @@ export class PgCatalogRepository implements CatalogRepository {
     await tx.save(AirportEntity, { ...airport });
   }
 
+  hasDeparturesFrom(tx: Tx, code: string): Promise<boolean> {
+    return tx.exists(FlightEntity, { where: { originCode: code } });
+  }
+
   async findAirlines(codes: readonly string[], tx = this.db): Promise<AirlineRecord[]> {
     if (codes.length === 0) return [];
     return tx.find(AirlineEntity, { where: { code: In([...codes]) } });

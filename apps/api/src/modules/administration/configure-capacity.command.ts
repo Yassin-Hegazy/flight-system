@@ -1,9 +1,10 @@
 import type { Tx } from '../../shared/db';
 import { ok } from '../../shared/result';
 import type { Cabin } from '../flight-catalog/index';
-import type { InventoryApi } from '../inventory/index';
+import type { CapacityError, InventoryApi } from '../inventory/index';
+import type { AdminCommand } from './admin-command';
 
-export class ConfigureCapacity {
+export class ConfigureCapacity implements AdminCommand<{ capacity: number }, CapacityError> {
   readonly name = 'ConfigureCapacity';
 
   constructor(

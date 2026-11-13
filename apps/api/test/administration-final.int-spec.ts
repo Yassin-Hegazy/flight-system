@@ -122,7 +122,6 @@ describe('Administration final stories', () => {
       { cabin: 'ECONOMY', capacity: 3, committedSeats: 1, activeHeldSeats: 2, availableSeats: 0 },
       { cabin: 'BUSINESS', capacity: 0, committedSeats: 0, activeHeldSeats: 0, availableSeats: 0 },
     ]);
-    await get(`${flightPath()}/manifest`, traveler).expect(403);
     const manifest = await get(`${flightPath()}/manifest`)
       .expect('Cache-Control', 'no-store')
       .expect(200);
@@ -137,9 +136,73 @@ describe('Administration final stories', () => {
     ticketNumber = (manifest.body as { ticketNumber: string }[])[0].ticketNumber;
   });
 
+  it('US-AD-05-T02 load and manifest are for administrators only', async () => {
+    for (const path of [`${flightPath()}/load`, `${flightPath()}/manifest`]) {
+      await get(path, traveler).expect(403);
+      await server().get(path).expect(401);
+    }
+  });
+
+  it('US-AD-05-T03 over random bookings, payments, cancellations and capacity changes, the load adds up', async () => {
+    const id = await createFlight(new Date(Date.now() + 96 * 3_600_000), 'MS735');
+    let seed = 20261113;
+    const random = (n: number) => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed % n;
+    };
+    const pending: string[] = [];
+    const active: string[] = [];
+    for (let step = 0; step < 20; step += 1) {
+      const action = random(4);
+      if (action === 0) {
+        const booked = await write('post', '/bookings', traveler).send({
+          flightId: id,
+          cabin: 'ECONOMY',
+        });
+        if (booked.status === 201) {
+          const { reference } = booked.body as { reference: string };
+          pending.push(reference);
+          active.push(reference);
+        }
+      } else if (action === 1 && pending.length) {
+        const [reference] = pending.splice(random(pending.length), 1);
+        await write('post', `/bookings/${reference}/payments`, traveler)
+          .set('idempotency-key', randomUUID())
+          .send({ token: 'tok_success' });
+      } else if (action === 2 && active.length) {
+        const [reference] = active.splice(random(active.length), 1);
+        const unpaid = pending.indexOf(reference);
+        if (unpaid >= 0) pending.splice(unpaid, 1);
+        await write('post', `/bookings/${reference}/cancel`, traveler);
+      } else {
+        await write('put', `/admin/flights/${id}/capacity/ECONOMY`).send({ capacity: random(6) });
+      }
+      const load = (await get(`/admin/flights/${id}/load`).expect(200)).body as {
+        capacity: number;
+        committedSeats: number;
+        activeHeldSeats: number;
+        availableSeats: number;
+      }[];
+      for (const cabin of load) {
+        expect(cabin.committedSeats + cabin.activeHeldSeats + cabin.availableSeats).toBe(
+          cabin.capacity,
+        );
+        expect(cabin.availableSeats).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it('US-AD-04-T02 an empty or blank reason is rejected and the flight is unchanged', async () => {
+    for (const body of [{}, { reason: '' }, { reason: ' ' }]) {
+      await write('post', `${flightPath()}/cancel`).send(body).expect(400);
+    }
+    expect((await get(`/flights/${flightId}`).expect(200)).body).toMatchObject({
+      status: 'SCHEDULED',
+    });
+  });
+
   it('US-AD-04-T04 rolls back ticket voiding if refund recording fails and commits the full cascade on retry', async () => {
     const path = `${flightPath()}/cancel`;
-    await write('post', path).send({ reason: ' ' }).expect(400);
     await db.query(
       `ALTER TABLE refunds ADD CONSTRAINT reject_test_refund CHECK (status <> 'PENDING') NOT VALID`,
     );
@@ -195,6 +258,54 @@ describe('Administration final stories', () => {
     }
   });
 
+  it('US-AD-04-T01 one cancellation handles a confirmed, a pending and an already cancelled booking', async () => {
+    const id = await createFlight(new Date(Date.now() + 72 * 3_600_000), 'MS734');
+    const book = async () =>
+      (
+        (
+          await write('post', '/bookings', traveler)
+            .send({ flightId: id, cabin: 'ECONOMY' })
+            .expect(201)
+        ).body as { reference: string }
+      ).reference;
+    const [paid, pending, withdrawn] = [await book(), await book(), await book()];
+    for (const reference of [paid, withdrawn]) {
+      await write('post', `/bookings/${reference}/payments`, traveler)
+        .set('idempotency-key', randomUUID())
+        .send({ token: 'tok_success' })
+        .expect(201);
+    }
+    // Travelers can cancel only confirmed bookings; this one is refunded once, here.
+    await write('post', `/bookings/${withdrawn}/cancel`, traveler).expect(200);
+
+    await write('post', `/admin/flights/${id}/cancel`)
+      .send({ reason: 'Crew shortage' })
+      .expect(200);
+
+    for (const reference of [paid, pending, withdrawn]) {
+      expect((await get(`/bookings/${reference}`, traveler).expect(200)).body).toMatchObject({
+        status: 'CANCELLED',
+      });
+    }
+    const refunds = await db.query<{ reference: string }[]>(
+      `SELECT b.reference FROM refunds r JOIN payments p ON p.id = r."paymentId"
+       JOIN bookings b ON b.id = p."bookingId" WHERE b."flightId" = $1 ORDER BY b.reference`,
+      [id],
+    );
+    expect(refunds).toEqual([paid, withdrawn].sort().map((reference) => ({ reference })));
+    expect(
+      await db.query(
+        `SELECT t.status FROM tickets t JOIN bookings b ON b.id = t."bookingId" WHERE b."flightId" = $1`,
+        [id],
+      ),
+    ).toEqual([{ status: 'VOID' }, { status: 'VOID' }]);
+    const [economy] = (await get(`/admin/flights/${id}/load`).expect(200)).body as {
+      committedSeats: number;
+      activeHeldSeats: number;
+    }[];
+    expect(economy).toMatchObject({ committedSeats: 0, activeHeldSeats: 0 });
+  });
+
   it('US-AD-04-T03 refuses to cancel a departed flight', async () => {
     const id = await createFlight(new Date(Date.now() + 72 * 3_600_000), 'MS733');
     for (const status of ['BOARDING', 'DEPARTED']) {
@@ -222,6 +333,21 @@ describe('Administration final stories', () => {
     await write('delete', '/admin/airports/CAI').expect(409);
     await write('delete', path).expect(200);
     await get(path).expect(404);
+  });
+
+  it('US-AD-06-T05 a timezone change on an airport with departures is a 409 and changes nothing', async () => {
+    const cairo = (await get('/admin/airports/CAI').expect(200)).body as Record<string, string>;
+    const before = (await get(`/flights/${flightId}`).expect(200)).body as unknown;
+
+    const response = await write('put', '/admin/airports/CAI')
+      .send({ name: cairo.name, city: cairo.city, country: cairo.country, timezone: 'Asia/Tokyo' })
+      .expect(409);
+
+    expect(response.body).toMatchObject({ code: 'TIMEZONE_IN_USE' });
+    expect((await get('/admin/airports/CAI').expect(200)).body).toMatchObject({
+      timezone: 'Africa/Cairo',
+    });
+    expect((await get(`/flights/${flightId}`).expect(200)).body).toEqual(before);
   });
 
   it('US-AD-07-T01 records actor, target and values, rolls back writes when audit fails, and filters by flight', async () => {

@@ -4,14 +4,17 @@ import { err, ok } from '../../shared/result';
 import { isLocalDate, localDepartureInstant } from '../../shared/time';
 import type { CatalogApi } from '../flight-catalog/index';
 import type { InventoryApi } from '../inventory/index';
-import type { AuditChange } from './admin-command';
+import type { AdminCommand, AuditChange } from './admin-command';
 import { CreateFlight } from './create-flight.command';
 import type { RecurringFlightBody } from './operations.dto';
 
 const DAY_MS = 86_400_000;
 export type RecurringFailure = { code: string; dates?: Record<string, string> };
 
-export class ScheduleRecurring {
+export class ScheduleRecurring implements AdminCommand<
+  { flights: { date: string; id: string }[] },
+  RecurringFailure
+> {
   readonly name = 'ScheduleRecurring';
 
   constructor(

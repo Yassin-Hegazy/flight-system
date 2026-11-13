@@ -1,9 +1,10 @@
 import type { Tx } from '../../shared/db';
 import type { Money } from '../../shared/money';
 import { ok } from '../../shared/result';
-import type { Cabin, CatalogApi } from '../flight-catalog/index';
+import type { Cabin, CatalogApi, FareError } from '../flight-catalog/index';
+import type { AdminCommand } from './admin-command';
 
-export class UpdateFare {
+export class UpdateFare implements AdminCommand<Money, FareError> {
   readonly name = 'UpdateFare';
 
   constructor(

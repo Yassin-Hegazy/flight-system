@@ -176,8 +176,16 @@ export class FlightCatalogService implements CatalogApi {
     const city = input.city.trim();
     const country = input.country.trim();
     if (!name || !city || !country) return err('INVALID_AIRPORT_DETAILS');
+    if (await this.timezoneLocked(tx, code, input.timezone)) return err('TIMEZONE_IN_USE');
     await this.repository.saveAirport(tx, { code, name, city, country, timezone: input.timezone });
     return ok(code);
+  }
+
+  /** Each flight's departureLocalDate was computed in its origin's zone when it was stored. */
+  private async timezoneLocked(tx: Tx, code: string, timezone: string): Promise<boolean> {
+    const [current] = await this.repository.findAirports([code], tx);
+    if (!current || current.timezone === timezone) return false;
+    return this.repository.hasDeparturesFrom(tx, code);
   }
 
   /**

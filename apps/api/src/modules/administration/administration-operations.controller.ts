@@ -180,9 +180,13 @@ export class AdministrationOperationsController {
       new UpsertAirport(this.catalog, { ...body, code: airportCode(code) }),
       ctx,
     );
-    if (!result.ok)
-      throw AppError.badRequest(result.error, 'Use valid airport details and an IANA time zone.');
-    return result.value;
+    if (result.ok) return result.value;
+    if (result.error === 'TIMEZONE_IN_USE')
+      throw AppError.conflict(
+        result.error,
+        'Flights depart from this airport in its current zone.',
+      );
+    throw AppError.badRequest(result.error, 'Use valid airport details and an IANA time zone.');
   }
 
   @Delete('airports/:code')

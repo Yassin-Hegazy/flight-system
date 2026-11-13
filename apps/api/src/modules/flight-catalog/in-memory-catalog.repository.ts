@@ -123,6 +123,12 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return Promise.resolve();
   }
 
+  hasDeparturesFrom(_tx: Tx, code: string): Promise<boolean> {
+    return Promise.resolve(
+      [...this.flights.values()].some(({ route }) => route.origin.value === code),
+    );
+  }
+
   findAirlines(codes: readonly string[]): Promise<AirlineRecord[]> {
     return Promise.resolve(
       codes.flatMap((code) => {

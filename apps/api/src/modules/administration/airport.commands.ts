@@ -1,8 +1,9 @@
 import type { Tx } from '../../shared/db';
 import { ok } from '../../shared/result';
-import type { AirportInput, CatalogApi } from '../flight-catalog/index';
+import type { AirportError, AirportInput, CatalogApi } from '../flight-catalog/index';
+import type { AdminCommand } from './admin-command';
 
-export class UpsertAirport {
+export class UpsertAirport implements AdminCommand<{ code: string }, AirportError> {
   readonly name = 'UpsertAirport';
 
   constructor(
@@ -22,7 +23,10 @@ export class UpsertAirport {
   }
 }
 
-export class DeleteAirport {
+export class DeleteAirport implements AdminCommand<
+  { code: string },
+  'AIRPORT_NOT_FOUND' | 'AIRPORT_IN_USE'
+> {
   readonly name = 'DeleteAirport';
 
   constructor(
