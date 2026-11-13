@@ -8,6 +8,7 @@ import { RefundPayments } from './refund-payments';
 import { SettleCharge } from './settle-charge';
 import { RecoverPayments } from './recover-payments';
 import { MockGatewayAdapter } from './gateway/mock-gateway.adapter';
+import { MockProvider } from './gateway/mock-provider';
 import { PAYMENT_GATEWAY } from './gateway/payment-gateway';
 import { PayForBooking } from './pay-for-booking';
 import { PaymentEntity } from './payment.entity';
@@ -26,6 +27,7 @@ import { PaymentsRepository } from './payments.repository';
     SettleCharge,
     RecoverPayments,
     PaymentsRepository,
+    MockProvider,
     { provide: PAYMENT_GATEWAY, useClass: MockGatewayAdapter },
   ],
 })

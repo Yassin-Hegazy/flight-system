@@ -16,6 +16,11 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    // NFR-COMP-01: the narrowest supported width, a 375 px phone.
+    {
+      name: 'chromium-375',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 812 }, hasTouch: true },
+    },
   ],
   // Starts both apps unless they are already running (e.g. via `pnpm dev`).
   // The API needs a reachable PostgreSQL database (docker compose up -d).

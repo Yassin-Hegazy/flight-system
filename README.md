@@ -6,8 +6,9 @@ A university team project, built as a modular monolith:
 - `apps/web`: one Next.js frontend.
 - One PostgreSQL database.
 
-The backend includes Users and Access, Flight Catalog, Inventory, Notifications, and the two
-Administration Beta operations. For the milestone demo, see the
+The backend includes Users and Access, Flight Catalog, Search and Comparison, Inventory,
+Notifications, and the two Administration Beta operations. The web app has a flight search page
+at `/search`. For the milestone demo, see the
 [Administration Swagger walkthrough](apps/api/src/modules/administration/README.md#m2-demo-in-swagger).
 
 ## Prerequisites

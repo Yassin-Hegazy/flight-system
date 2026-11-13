@@ -287,6 +287,30 @@ describe('US-FL-03 airport suggestions (Catalog service)', () => {
     ]);
     expect(await service.searchAirports(' c ')).toEqual([]);
   });
+
+  it('US-FL-03-T08 getAirports returns the known airports with their time zones in one query', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const findAirports = vi.spyOn(repository, 'findAirports');
+
+    const airports = await service.getAirports(['cai', 'LHR', 'XXX', 'CAI']);
+
+    expect(airports).toEqual(
+      expect.arrayContaining([
+        { code: 'CAI', name: 'Cairo International', city: 'Cairo', timezone: 'Africa/Cairo' },
+        { code: 'LHR', name: 'Heathrow', city: 'London', timezone: 'Europe/London' },
+      ]),
+    );
+    expect(airports).toHaveLength(2);
+    expect(findAirports).toHaveBeenCalledTimes(1);
+  });
+
+  it('US-FL-03-T09 getAirports with no codes answers without a query', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    const findAirports = vi.spyOn(repository, 'findAirports');
+
+    expect(await service.getAirports([])).toEqual([]);
+    expect(findAirports).not.toHaveBeenCalled();
+  });
 });
 
 describe('NFR-PERF-01 search loads reference data in a fixed number of queries', () => {

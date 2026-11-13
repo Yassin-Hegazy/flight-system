@@ -292,6 +292,48 @@
       "verifiedBy": "test"
     },
     {
+      "id": "US-FS-01",
+      "module": "search",
+      "title": "Search one-way flights",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FS-02",
+      "module": "search",
+      "title": "Compare search results",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FS-03",
+      "module": "search",
+      "title": "Filter search results",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FS-05",
+      "module": "search",
+      "title": "Page through results",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-FS-06",
+      "module": "search",
+      "title": "Search round trips",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "NFR-COMP-01",
+      "module": "search",
+      "title": "Chrome and Firefox; 375 px to 1440 px wide",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
       "id": "US-FS-04",
       "module": "flight-catalog",
       "title": "Party pricing for adults, children and infants",

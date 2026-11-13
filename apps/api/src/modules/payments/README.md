@@ -30,9 +30,12 @@ Swagger supplies the CSRF header. In Postman, keep the session cookie and send
 
 ## Architecture and individual questions
 
-- **Where is Adapter?** `PayForBooking`, `RecoverPayments`, and `RefundPayments` depend on
-  `PaymentGateway`. The mock stores charge outcomes independently so lookup can recover them
-  after a restart. The refund ID is the gateway's idempotency key.
+- **Where is Adapter?** In the lecture's roles: `PaymentGateway` is the Target, `MockProvider`
+  is the Adaptee (a simulated provider with its own API: `createPayment`, `amount_cents`,
+  `state: 'captured'`), and `MockGatewayAdapter` is the Adapter that wraps it and translates both
+  ways. The clients, `PayForBooking`, `RecoverPayments` and `RefundPayments`, see only the Target.
+  The provider stores charge outcomes independently so lookup can recover them after a restart.
+  The refund ID is the gateway's idempotency key.
 - **What commits together?** The payment attempt commits before the gateway call. A separate
   transaction settles the charge, confirms the booking and commits the hold, or records the
   refund if confirmation is impossible. Booking cancellation records its refund in the same

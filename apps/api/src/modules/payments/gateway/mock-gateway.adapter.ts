@@ -1,65 +1,73 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { MockChargeEntity } from './mock-charge.entity';
-import { MockRefundEntity } from './mock-refund.entity';
-import type { ChargeRequest, ChargeResult, PaymentGateway, RefundRequest } from './payment-gateway';
+import type {
+  ChargeRequest,
+  ChargeResult,
+  DeclineReason,
+  PaymentGateway,
+  RefundRequest,
+} from './payment-gateway';
+import { MockProvider, ProviderTimeout, type ProviderPayment } from './mock-provider';
 
-const OUTCOMES = new Map<string, MockChargeEntity['outcome']>([
-  ['tok_success', 'SUCCEEDED'],
-  ['tok_declined', 'DECLINED'],
-  ['tok_timeout', 'SUCCEEDED'],
-]);
+const DECLINES: Record<'insufficient_funds' | 'invalid_source', DeclineReason> = {
+  insufficient_funds: 'insufficient_funds',
+  invalid_source: 'unknown_token',
+};
 
-/** The simulated provider commits independently of Booking and retains outcomes across restarts. */
+/**
+ * Adapter pattern, Adapter: makes MockProvider (the Adaptee) usable as a PaymentGateway (the
+ * Target). It only translates names, shapes and states; it decides nothing about bookings.
+ */
 @Injectable()
 export class MockGatewayAdapter implements PaymentGateway {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(private readonly provider: MockProvider) {}
 
-  async charge({ token, idempotencyKey }: ChargeRequest): Promise<ChargeResult> {
-    const result = await this.resolve(idempotencyKey, OUTCOMES.get(token) ?? 'UNKNOWN');
-    return token === 'tok_timeout' && result.status === 'SUCCEEDED'
-      ? { status: 'UNAVAILABLE' }
-      : result;
+  async charge({ token, amount, idempotencyKey }: ChargeRequest): Promise<ChargeResult> {
+    try {
+      const payment = await this.provider.createPayment({
+        source: token,
+        amount_cents: amount.amountMinor,
+        currency: amount.currency,
+        merchant_reference: idempotencyKey,
+      });
+      return toChargeResult(payment);
+    } catch (error) {
+      // A timeout is not a decline: the provider may have captured the money.
+      if (error instanceof ProviderTimeout) return { status: 'UNAVAILABLE' };
+      throw error;
+    }
   }
 
-  lookup(idempotencyKey: string): Promise<ChargeResult> {
-    // A lookup racing a never-started charge closes its key. A late charge can't reopen it.
-    return this.resolve(idempotencyKey, 'NOT_CHARGED');
+  async lookup(idempotencyKey: string): Promise<ChargeResult> {
+    return toChargeResult(await this.provider.retrievePayment(idempotencyKey));
   }
 
   async refund({
-    idempotencyKey,
     gatewayRef,
+    amount,
+    idempotencyKey,
   }: RefundRequest): Promise<{ gatewayRef: string } | false> {
-    const records = this.db.getRepository(MockRefundEntity);
-    await records
-      .createQueryBuilder()
-      .insert()
-      .values({ refundId: idempotencyKey, chargeRef: gatewayRef })
-      .orIgnore()
-      .execute();
-    const stored = await records.findOneBy({ refundId: idempotencyKey });
-    return stored?.chargeRef === gatewayRef
-      ? { gatewayRef: `mock-refund-${idempotencyKey}` }
-      : false;
+    const refund = await this.provider.createRefund({
+      payment_id: gatewayRef,
+      amount_cents: amount.amountMinor,
+      currency: amount.currency,
+      merchant_reference: idempotencyKey,
+    });
+    return refund.state === 'refunded' ? { gatewayRef: refund.id } : false;
   }
+}
 
-  private async resolve(
-    paymentId: string,
-    outcome: MockChargeEntity['outcome'],
-  ): Promise<ChargeResult> {
-    const records = this.db.getRepository(MockChargeEntity);
-    await records.createQueryBuilder().insert().values({ paymentId, outcome }).orIgnore().execute();
-    const stored = await records.findOneByOrFail({ paymentId });
-    if (stored.outcome === 'SUCCEEDED') {
-      return { status: 'SUCCEEDED', gatewayRef: `mock-${paymentId}`, brand: 'VISA', last4: '4242' };
-    }
-    const reasons = {
-      DECLINED: 'insufficient_funds',
-      UNKNOWN: 'unknown_token',
-      NOT_CHARGED: 'no_charge',
-    } as const;
-    return { status: 'DECLINED', reason: reasons[stored.outcome] };
+function toChargeResult(payment: ProviderPayment): ChargeResult {
+  switch (payment.state) {
+    case 'captured':
+      return {
+        status: 'SUCCEEDED',
+        gatewayRef: payment.id,
+        brand: payment.card.network.toUpperCase(),
+        last4: payment.card.last_four,
+      };
+    case 'declined':
+      return { status: 'DECLINED', reason: DECLINES[payment.decline_code] };
+    case 'voided':
+      return { status: 'DECLINED', reason: 'no_charge' };
   }
 }

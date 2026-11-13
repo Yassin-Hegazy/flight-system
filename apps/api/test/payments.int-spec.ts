@@ -400,7 +400,14 @@ describe('Payments over HTTP', () => {
     });
     expect(response.body).not.toHaveProperty('gatewayRef');
     expect(response.body).not.toHaveProperty('idempotencyKey');
-    await receipt(reference, other).expect(404);
+  });
+
+  it('US-PAY-05-T02 another traveler gets not-found for a receipt that is not theirs', async () => {
+    const reference = await reserve();
+    await pay(reference, randomUUID()).send({ token: 'tok_success' }).expect(201);
+
+    const response = await receipt(reference, other).expect(404);
+    expect(JSON.stringify(response.body)).not.toContain('4242');
   });
 
   it('US-PAY-06-T01 recovers a timeout once under concurrent job runs and confirms the booking', async () => {
