@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 
 type HealthResponse = {
   status: string;
@@ -32,6 +33,14 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-4 px-6 py-16">
       <h1 className="text-3xl font-semibold tracking-tight">Flight Booking System</h1>
       <p className="text-muted-foreground">Placeholder page.</p>
+      <p>
+        <Link
+          href="/search"
+          className="inline-flex h-11 items-center rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Search flights
+        </Link>
+      </p>
       <section aria-labelledby="health-heading" className="rounded-lg border p-4">
         <h2 id="health-heading" className="font-medium">
           API health
