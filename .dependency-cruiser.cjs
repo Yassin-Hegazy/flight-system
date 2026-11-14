@@ -39,6 +39,18 @@ module.exports = {
       },
     },
     {
+      name: 'notifications-only-listens',
+      comment:
+        'Notifications calls into no domain module: it learns everything from events (Notifications ' +
+        'pack, "Calls into: nothing"). Users and Access is the exception every module has: its guards.',
+      severity: 'error',
+      from: { path: `${MODULES}notifications/`, pathNot: '\\.spec\\.ts$' },
+      to: {
+        path: MODULES,
+        pathNot: [`${MODULES}notifications/`, `${MODULES}users-access/index\\.ts$`],
+      },
+    },
+    {
       name: 'shared-does-not-import-modules',
       comment: 'shared/ holds framework-level helpers and must not depend on any module.',
       severity: 'error',

@@ -4,6 +4,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { seedAdmin } from '../src/database/seed-admin';
 import { CATALOG_API, type CatalogApi } from '../src/modules/flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../src/modules/inventory/index';
 import {
@@ -88,6 +89,33 @@ describe('Notifications wired to Booking, the Catalog and Users and Access', () 
 
   const reminders = () => app.get<DepartureRemindersApi>(DEPARTURE_REMINDERS_API);
 
+  let admin: string | undefined;
+  async function adminCookie(): Promise<string> {
+    if (admin) return admin;
+    await seedAdmin(app, { email: 'wired-admin@example.com', password: PASSWORD, name: 'Admin' });
+    const login = await post('/users/sign-in', '')
+      .send({ email: 'wired-admin@example.com', password: PASSWORD })
+      .expect(200);
+    admin = (login.headers['set-cookie'] as unknown as string[])
+      .find((value) => value.startsWith('flight_session='))!
+      .split(';')[0];
+    return admin;
+  }
+
+  /** The administrator delays the flight so it leaves `hours` from now. */
+  async function delay(flightId: string, hours: number): Promise<void> {
+    const cookie = await adminCookie();
+    await server()
+      .patch(`/admin/flights/${flightId}/status`)
+      .set('x-requested-with', 'fetch')
+      .set('cookie', cookie)
+      .send({
+        status: 'DELAYED',
+        estimatedDepartureUtc: new Date(Date.now() + hours * HOUR_MS).toISOString(),
+      })
+      .expect(200);
+  }
+
   beforeAll(async () => {
     database = await startTestDatabase();
     app = await createTestApp(database.url);
@@ -132,6 +160,37 @@ describe('Notifications wired to Booking, the Catalog and Users and Access', () 
 
     await reminders().sendDueReminders(new Date());
 
+    expect((await inbox(cookie)).filter((item) => item.type === 'DepartureReminder')).toEqual([]);
+  });
+
+  it('US-NT-06-T10 a delayed flight is reminded the day before its new departure, not the old', async () => {
+    const { cookie } = await traveler();
+    const flightId = await flight('CAI', 'LHR', 23.5);
+    await ticketed(cookie, flightId);
+    await delay(flightId, 30);
+
+    await reminders().sendDueReminders(new Date());
+    expect((await inbox(cookie)).filter((item) => item.type === 'DepartureReminder')).toEqual([]);
+
+    await reminders().sendDueReminders(new Date(Date.now() + 6.5 * HOUR_MS));
+    expect((await inbox(cookie)).filter((item) => item.type === 'DepartureReminder')).toHaveLength(
+      1,
+    );
+  });
+
+  it('US-NT-06-T11 travelers on a flight the airline cancelled are not reminded', async () => {
+    const { cookie } = await traveler();
+    const flightId = await flight('CAI', 'LHR', 23.5);
+    await ticketed(cookie, flightId);
+    const session = await adminCookie();
+    await post(`/admin/flights/${flightId}/cancel`, session)
+      .send({ reason: 'Weather' })
+      .expect(200);
+
+    await vi.waitFor(async () =>
+      expect((await inbox(cookie)).map((item) => item.type)).toContain('FlightCancelled'),
+    );
+    await reminders().sendDueReminders(new Date());
     expect((await inbox(cookie)).filter((item) => item.type === 'DepartureReminder')).toEqual([]);
   });
 
