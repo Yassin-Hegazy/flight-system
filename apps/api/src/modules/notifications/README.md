@@ -61,16 +61,13 @@ All routes need a signed-in user and only ever touch the caller's own notificati
 
 ### Integration points
 
-Where Notifications needs data another module owns, it defines a **port** (an interface plus an injection token, exported from `index.ts`) and answers it with an **Adapter** over that module's public API, wired in `notifications.module.ts`.
+Notifications calls into no domain module (the pack: "Calls into: nothing"); a dependency-cruiser rule, `notifications-only-listens`, fails CI if it ever does. Everything it needs arrives in events:
 
-| Port               | Answered by                                                                                     | Used for                                                 |
-| ------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| domain events      | Booking, Ticketing, Administration publish them                                                 | every notification above                                 |
-| `DEPARTURE_SOURCE` | `BookedDeparturesAdapter`: the Catalog's `departingBetween` and Booking's `BOOKINGS_ON_FLIGHTS` | the reminder job: bookings with their flight's departure |
-| `EMAIL_DIRECTORY`  | `UsersEmailDirectoryAdapter`: Users and Access `emailOf`                                        | email: the address for a user ID                         |
-
-- `DepartureSource.ticketedDeparturesBetween(from, to)` returns one entry per booking per leg (any status) whose flight departs in that range, as `UpcomingDeparture` objects carrying the booking and flight status. Notifications decides whom to remind.
-- `EmailDirectory.emailOf(userId)` returns the user's address, or `null`.
+| Needs                          | Comes from                                                                                                                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| who to tell and what happened  | the domain events Booking, Ticketing and Administration publish                                                                                                                                                                                   |
+| upcoming departures, reminders | `DepartureTracker` keeps `tracked_departures` from `TicketsIssued` (which carries each leg), `FlightDelayed`, `FlightCancelled`, `BookingCancelled` and `BookingExpired`; `TrackedDepartures` serves it to the job as the `DEPARTURE_SOURCE` port |
+| an email address               | `EMAIL_DIRECTORY`, answered by `UsersEmailDirectoryAdapter` over Users and Access `emailOf`; every module already depends on Users and Access for its guards                                                                                      |
 
 ## Design
 
@@ -81,7 +78,8 @@ Where Notifications needs data another module owns, it defines a **port** (an in
 - **Separate use cases** (`notifications.service.ts`, `notification-preferences.service.ts`): `NotificationsService` is the inbox only; `NotificationPreferencesService` is the email preferences only. Each implements its own small interface (`NotificationsApi`, `PreferencesApi`), so a caller depends only on what it uses.
 - **Adapter** (`notification-channel.ts`): the interface every way out of the app sits behind. `EmailChannel` is the only channel today; another is one more `NotificationChannel`. Delivery is started without waiting and its failures are logged and dropped, so a broken or slow channel never delays or undoes a booking or status change.
 - **Adapter for mail** (`mail.ts`): how an email leaves. `LocalMailCatcher` keeps the latest 100 messages in memory and sends nothing; a real SMTP transport would be another `MailTransport`.
-- **Ports and Adapters** (`departure-source.ts`, `email-directory.ts`, `booked-departures.adapter.ts`, `users-email-directory.adapter.ts`): Notifications owns each interface (the Target); an Adapter translates the owning module's API (the Adaptee) into it, so the reminder and email code never sees Booking, the Catalog or Users and Access.
+- **Observer for reminders** (`departure-tracker.ts`): a second observer keeps the ticketed legs, moved on a delay and forgotten on a cancellation or expiry, in this module's own table.
+- **Ports** (`departure-source.ts`, `email-directory.ts`): the reminder job and the email channel depend on interfaces. `TrackedDepartures` answers the first from the table above; `UsersEmailDirectoryAdapter` (an Adapter: Target `EmailDirectory`, Adaptee Users and Access) answers the second.
 - **Scheduled job** (`departure-reminder.job.ts`): runs every 10 minutes through `@nestjs/schedule`. The reminder rule lives in `departure-reminder.service.ts`.
 - **Repository** (`notifications.repository.ts`, `preferences.repository.ts`): the `Pg...` classes are the only files with SQL. The unique `(eventId, userId)` key makes a repeated event, or a repeated reminder, a no-op.
 - **Guards** (`notifications.controller.ts`): routes use `secure()` from Users and Access, so ownership is enforced on the server.

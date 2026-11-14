@@ -3,9 +3,10 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
-import { type BookingConfirmed, publishDomainEvent } from '../../shared/events';
+import { type BookingConfirmed, publishDomainEvent, type TicketedLeg } from '../../shared/events';
 import { err, ok, type Result } from '../../shared/result';
 import { BOOKING_TICKETING, type BookingTicketing, type EligibleBooking } from '../booking/index';
+import { CATALOG_API, type CatalogApi } from '../flight-catalog/index';
 import type { Ticket } from './ticket';
 import { NotEligibleForTicketing, TicketCreator } from './ticket-creator';
 import { TicketsRepository } from './tickets.repository';
@@ -27,6 +28,7 @@ export class IssueTickets {
     private readonly tickets: TicketsRepository,
     private readonly creator: TicketCreator,
     private readonly events: EventEmitter2,
+    @Inject(CATALOG_API) private readonly catalog: Pick<CatalogApi, 'getFlight'>,
   ) {}
 
   /** After BookingConfirmed commits. A failure leaves the booking CONFIRMED for the repair job. */
@@ -72,6 +74,27 @@ export class IssueTickets {
     return tickets;
   }
 
+  /** The booking's flights as the event carries them; a flight the Catalog lacks is left out. */
+  private async legsOf(booking: EligibleBooking): Promise<TicketedLeg[]> {
+    const flights = await Promise.all(
+      booking.segments.map((segment) => this.catalog.getFlight(segment.flightId)),
+    );
+    return flights.flatMap((flight) =>
+      flight
+        ? [
+            {
+              flightId: flight.id,
+              flightNumber: flight.flightNumber,
+              departureUtc: (
+                flight.estimatedDepartureUtc ?? flight.scheduledDepartureUtc
+              ).toISOString(),
+              departureTimeZone: flight.origin.timezone,
+            },
+          ]
+        : [],
+    );
+  }
+
   private async announce(booking: EligibleBooking): Promise<void> {
     try {
       await publishDomainEvent(this.events, {
@@ -80,6 +103,7 @@ export class IssueTickets {
         bookingId: booking.id,
         ownerId: booking.ownerId,
         ref: booking.reference,
+        legs: await this.legsOf(booking),
       });
     } catch (error) {
       this.logger.warn(

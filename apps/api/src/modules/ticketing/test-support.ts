@@ -154,6 +154,7 @@ export function issueFixture(current: EligibleBooking | null = booking()) {
     tickets as unknown as TicketsRepository,
     creator(),
     events,
+    { getFlight: () => Promise.resolve(null) },
   );
   return { issue, tickets, bookings, log };
 }

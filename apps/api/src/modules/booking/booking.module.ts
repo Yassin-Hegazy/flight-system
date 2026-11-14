@@ -11,7 +11,6 @@ import { BookingHistoryEntity } from './booking-history.entity';
 import { BookingIdempotencyEntity } from './booking-idempotency.entity';
 import { BookingPassengerEntity } from './booking-passenger.entity';
 import { BookingPassengers } from './booking-passengers';
-import { BOOKINGS_ON_FLIGHTS, BookingsOnFlightsQuery } from './bookings-on-flights';
 import { BookingQueries } from './booking-queries';
 import { BookingSegmentEntity } from './booking-segment.entity';
 import { BookingController } from './booking.controller';
@@ -48,12 +47,9 @@ import { BOOKING_EXPIRY, ExpireBookings } from './expire-bookings';
     { provide: BOOKING_PAYMENTS, useExisting: BookingService },
     { provide: BOOKING_OWNERS, useExisting: BookingService },
     { provide: BOOKING_TICKETING, useExisting: BookingService },
-    BookingsOnFlightsQuery,
-    { provide: BOOKINGS_ON_FLIGHTS, useExisting: BookingsOnFlightsQuery },
   ],
   exports: [
     BookingPassengers,
-    BOOKINGS_ON_FLIGHTS,
     BOOKING_OWNERS,
     BOOKING_PAYMENTS,
     BOOKING_TICKETING,

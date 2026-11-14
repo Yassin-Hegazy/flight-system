@@ -18,9 +18,9 @@ export interface UpcomingDeparture {
 }
 
 /**
- * What the reminder job needs to send departure reminders (a port, and the Adapter pattern's
- * Target): it belongs to Notifications, and BookedDeparturesAdapter answers it from the Catalog and
- * Booking, so the reminder rule never sees either.
+ * What the reminder job needs to send departure reminders (a port). TrackedDepartures answers it
+ * from this module's own record of ticketed legs, which DepartureTracker keeps from events, so the
+ * reminder rule never asks another module.
  */
 export interface DepartureSource {
   /**
@@ -30,5 +30,5 @@ export interface DepartureSource {
   ticketedDeparturesBetween(from: Date, to: Date): Promise<UpcomingDeparture[]>;
 }
 
-/** Injection token, provided by BookedDeparturesAdapter over the Catalog and Booking. */
+/** Injection token, provided by TrackedDepartures. */
 export const DEPARTURE_SOURCE = Symbol('DEPARTURE_SOURCE');

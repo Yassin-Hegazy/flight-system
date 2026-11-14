@@ -47,7 +47,20 @@ export interface BookingCancellationInTx {
 export type CancellationReason = 'TRAVELER' | 'AIRLINE';
 
 export type BookingConfirmed = { type: 'BookingConfirmed' } & BookingEventFields;
-export type TicketsIssued = { type: 'TicketsIssued' } & BookingEventFields;
+/** One flight a ticketed booking flies, so observers need not ask the Catalog (or Booking). */
+export interface TicketedLeg {
+  flightId: string;
+  flightNumber: string;
+  departureUtc: IsoInstant;
+  /** IANA time zone of the departure airport. */
+  departureTimeZone: string;
+}
+
+export type TicketsIssued = {
+  type: 'TicketsIssued';
+  /** Every flight of the booking, outbound and return: Notifications reminds before each. */
+  legs: TicketedLeg[];
+} & BookingEventFields;
 export type BookingExpired = { type: 'BookingExpired' } & BookingEventFields;
 export type BookingCancelled = {
   type: 'BookingCancelled';
