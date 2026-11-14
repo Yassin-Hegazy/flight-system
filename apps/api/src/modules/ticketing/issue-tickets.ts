@@ -5,7 +5,7 @@ import { DataSource } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
 import { type BookingConfirmed, publishDomainEvent } from '../../shared/events';
 import { err, ok, type Result } from '../../shared/result';
-import { BOOKING_TICKETING, type BookingTicketing, type TicketingBooking } from '../booking/index';
+import { BOOKING_TICKETING, type BookingTicketing, type EligibleBooking } from '../booking/index';
 import type { Ticket } from './ticket';
 import { NotEligibleForTicketing, TicketCreator } from './ticket-creator';
 import { TicketsRepository } from './tickets.repository';
@@ -62,7 +62,7 @@ export class IssueTickets {
     return ok(issued);
   }
 
-  private async issue(tx: Tx, booking: TicketingBooking) {
+  private async issue(tx: Tx, booking: EligibleBooking) {
     // Marking first locks the booking row, so a concurrent cancellation waits for this commit.
     if (!(await this.booking.markTicketed(tx, booking.id))) {
       throw new NotEligibleForTicketing('no longer CONFIRMED');
@@ -72,7 +72,7 @@ export class IssueTickets {
     return tickets;
   }
 
-  private async announce(booking: TicketingBooking): Promise<void> {
+  private async announce(booking: EligibleBooking): Promise<void> {
     try {
       await publishDomainEvent(this.events, {
         type: 'TicketsIssued',

@@ -10,7 +10,7 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * foreign key from a table outside that list would make those statements fail. Booking writes
  * every row in one transaction (see CreateBooking), so the ids always agree.
  */
-export class CompleteBooking1794787200000 implements MigrationInterface {
+export class CompleteBooking1794873600000 implements MigrationInterface {
   async up(db: QueryRunner): Promise<void> {
     await db.query(
       'ALTER TABLE bookings DROP CONSTRAINT bookings_status_check, DROP CONSTRAINT bookings_payment_state',

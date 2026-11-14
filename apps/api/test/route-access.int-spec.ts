@@ -113,6 +113,9 @@ const ROUTES: RouteSpec[] = [
   { method: 'get', path: '/flights', access: 'public' },
   { method: 'post', path: '/bookings/:reference/cancel', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/bookings/:reference/receipt', access: 'owner', travelerOnly: true },
+  { method: 'get', path: '/bookings/:reference/tickets', access: 'owner', travelerOnly: true },
+  { method: 'get', path: '/tickets/:number', access: 'owner', travelerOnly: true },
+  { method: 'get', path: '/tickets/:number/print', access: 'owner', travelerOnly: true },
   { method: 'get', path: '/flights/airports/suggestions', access: 'public' },
   { method: 'get', path: '/flights/:id', access: 'public' },
   { method: 'get', path: '/search/flights', access: 'public' },
@@ -250,7 +253,8 @@ describe('NFR-SEC-02 every route is authorised', () => {
       .replace(':id', id ?? '00000000-0000-4000-8000-000000000000')
       .replace(':reference', id ?? 'AAAAAA')
       .replace(':cabin', 'ECONOMY')
-      .replace(':code', 'ZZZ');
+      .replace(':code', 'ZZZ')
+      .replace(':number', id ?? '9990000000000');
     let pending = request(app.getHttpServer())[route.method](path);
     if (route.method !== 'get') pending = pending.set('x-requested-with', 'fetch');
     if (cookie) pending = pending.set('cookie', cookie);

@@ -2,7 +2,7 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryFailedError } from 'typeorm';
 import type { Tx } from '../../shared/db';
 import { money } from '../../shared/money';
-import type { BookingTicketing, TicketingBooking } from '../booking/index';
+import type { BookingTicketing, EligibleBooking } from '../booking/index';
 import { IssueTickets } from './issue-tickets';
 import type { Ticket } from './ticket';
 import { ETicketCreator, type TicketNumberGenerator } from './ticket-creator';
@@ -33,7 +33,7 @@ export const creator = (numbers = new CountingNumbers()) =>
 const adult = (id: string, name: string) => ({ id, name, fare: money(1_500_000, 'EGP') });
 
 /** A booking for Ticketing; one adult on one Economy flight unless the test says otherwise. */
-export function booking(fields: Partial<TicketingBooking> = {}): TicketingBooking {
+export function booking(fields: Partial<EligibleBooking> = {}): EligibleBooking {
   return {
     id: BOOKING_ID,
     reference: 'K7M2QP',
@@ -97,9 +97,9 @@ export class FakeBooking implements BookingTicketing {
   /** What markTicketed answers: false when the booking has moved on, e.g. been cancelled. */
   markResult = true;
 
-  constructor(public current: TicketingBooking | null = booking()) {}
+  constructor(public current: EligibleBooking | null = booking()) {}
 
-  getForTicketing(): Promise<TicketingBooking | null> {
+  getForTicketing(): Promise<EligibleBooking | null> {
     return Promise.resolve(this.current);
   }
 
@@ -118,7 +118,7 @@ export class FakeBooking implements BookingTicketing {
 }
 
 /** IssueTickets over in-memory doubles; the log records begin, commit, rollback and publish. */
-export function issueFixture(current: TicketingBooking | null = booking()) {
+export function issueFixture(current: EligibleBooking | null = booking()) {
   const log: string[] = [];
   const db = {
     transaction: async (_isolation: string, work: (tx: Tx) => Promise<unknown>) => {

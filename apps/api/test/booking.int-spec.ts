@@ -318,7 +318,9 @@ describe('Booking over HTTP', () => {
     expect(after.history.map((h) => [h.from, h.to, h.cause])).toEqual([
       [null, 'PENDING_PAYMENT', 'CREATED'],
       ['PENDING_PAYMENT', 'CONFIRMED', 'PAYMENT'],
-      ['CONFIRMED', 'CANCELLED', 'TRAVELER'],
+      // Ticketing issues after the payment commits and moves the booking on.
+      ['CONFIRMED', 'TICKETED', 'TICKETING'],
+      ['TICKETED', 'CANCELLED', 'TRAVELER'],
     ]);
   });
 
@@ -456,7 +458,7 @@ describe('Booking over HTTP', () => {
     await pay(paid.reference).expect(201);
     const refused = await cancel(paid.reference).expect(409);
     expect(refused.body).toMatchObject({ code: 'CANCELLATION_CUTOFF' });
-    expect((await view(paid.reference)).status).toBe('CONFIRMED');
+    expect((await view(paid.reference)).status).toBe('TICKETED');
     expect((await load(soon)).committedSeats).toBe(1);
     // An unpaid booking on the same flight is still free to drop.
     const unpaid = await created({ passengers: [adult()] }, soon);
@@ -490,7 +492,7 @@ describe('Booking over HTTP', () => {
       `SELECT t.status FROM tickets t JOIN bookings b ON b.id = t."bookingId" WHERE b.reference = $1`,
       [paid.reference],
     );
-    expect(ticket.status).toBe('ISSUED');
+    expect(ticket.status).toBe('VALID');
     await cancel(paid.reference).expect(200);
     const [voided] = await db.query<{ status: string }[]>(
       `SELECT t.status FROM tickets t JOIN bookings b ON b.id = t."bookingId" WHERE b.reference = $1`,
@@ -515,13 +517,13 @@ describe('Booking over HTTP', () => {
       'ALTER TABLE booking_history DROP CONSTRAINT test_fail',
       () => cancel(paid.reference).expect(500),
     );
-    expect((await view(paid.reference)).status).toBe('CONFIRMED');
+    expect((await view(paid.reference)).status).toBe('TICKETED');
     expect(await load(flightId)).toEqual(before);
     const [ticket] = await db.query<{ status: string }[]>(
       `SELECT t.status FROM tickets t JOIN bookings b ON b.id = t."bookingId" WHERE b.reference = $1`,
       [paid.reference],
     );
-    expect(ticket.status).toBe('ISSUED');
+    expect(ticket.status).toBe('VALID');
   });
 
   // ------------------------------------------------------------- US-BK-06 List my bookings
@@ -740,7 +742,7 @@ describe('Booking over HTTP', () => {
       () => post(`/admin/flights/${own}/cancel`, admin).send({ reason: 'Strike' }).expect(500),
     );
     for (const booking of [first, second, third]) {
-      expect(['PENDING_PAYMENT', 'CONFIRMED']).toContain((await view(booking.reference)).status);
+      expect(['PENDING_PAYMENT', 'TICKETED']).toContain((await view(booking.reference)).status);
     }
     const flight = await catalog.getFlight(own);
     expect(flight?.status).not.toBe('CANCELLED');

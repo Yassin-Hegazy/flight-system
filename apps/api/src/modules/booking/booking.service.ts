@@ -3,7 +3,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { Tx } from '../../shared/db';
-import { BOOKING_TICKET_ISSUE_IN_TX, type BookingTicketIssueInTx } from '../../shared/events';
 import { money } from '../../shared/money';
 import { err, ok } from '../../shared/result';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
@@ -11,9 +10,10 @@ import type { BookingOwners } from './booking-owners';
 import type { BookingPayments } from './booking-payments';
 import { recordTransition } from './booking-history';
 import { BookingEntity } from './booking.entity';
-import { stateFor } from './booking-state';
+import { InvalidBookingTransition, stateFor } from './booking-state';
 import type { BookingTicketing, EligibleBooking } from './booking-ticketing';
 import { BookingPassengerEntity } from './booking-passenger.entity';
+import { BookingSegmentEntity } from './booking-segment.entity';
 
 /**
  * What Payments, Ticketing and Administration call into. Creating, reading, cancelling and
@@ -92,8 +92,7 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
     if (!seats.ok) return err('HOLD_EXPIRED' as const);
     await tx.update(BookingEntity, booking.id, { status: next.name, paymentId });
     await recordTransition(tx, booking.id, booking.status, next.name, 'PAYMENT');
-    const issue: BookingTicketIssueInTx = { tx, bookingId: booking.id, flightId: booking.flightId };
-    await this.events.emitAsync(BOOKING_TICKET_ISSUE_IN_TX, issue);
+    // Ticketing issues the tickets once this commits, on BookingConfirmed.
     return ok({
       type: 'BookingConfirmed' as const,
       eventId: paymentId,
@@ -103,28 +102,57 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
     });
   }
 
-  /** Ticketing: a confirmed booking that is eligible for tickets, or null. */
+  /** Ticketing: the booking with its passengers and segments, in their booking order. */
   async getForTicketing(bookingId: string): Promise<EligibleBooking | null> {
     const booking = await this.db.manager.findOneBy(BookingEntity, { id: bookingId });
-    if (!booking || booking.status !== 'CONFIRMED') return null;
-    const passengers = await this.db.manager.findBy(BookingPassengerEntity, { bookingId });
+    if (!booking) return null;
+    const order = { position: 'ASC' } as const;
+    const [passengers, segments] = await Promise.all([
+      this.db.manager.find(BookingPassengerEntity, { where: { bookingId }, order }),
+      this.db.manager.find(BookingSegmentEntity, { where: { bookingId }, order }),
+    ]);
     return {
       id: booking.id,
       reference: booking.reference,
       ownerId: booking.ownerId,
-      flightId: booking.flightId,
-      passengerCount: passengers.length,
+      status: booking.status,
+      passengers: passengers.map((passenger) => ({
+        id: passenger.id,
+        name: `${passenger.firstName} ${passenger.lastName}`.trim(),
+        fare: money(passenger.fareMinor, passenger.currency),
+      })),
+      segments: segments.map(({ id, flightId, cabin }) => ({ id, flightId, cabin })),
     };
   }
 
   /** Ticketing: CONFIRMED becomes TICKETED inside the caller's transaction. */
-  async markTicketed(tx: Tx, bookingId: string): Promise<void> {
-    const booking = await tx.findOneOrFail(BookingEntity, {
+  async markTicketed(tx: Tx, bookingId: string): Promise<boolean> {
+    const booking = await tx.findOne(BookingEntity, {
       where: { id: bookingId },
       lock: { mode: 'pessimistic_write' },
     });
-    const next = stateFor(booking.status).markTicketed();
+    if (!booking) return false;
+    let next;
+    try {
+      next = stateFor(booking.status).markTicketed();
+    } catch (error) {
+      // Cancelled or already ticketed meanwhile: the issuing run gives up and rolls back.
+      if (error instanceof InvalidBookingTransition) return false;
+      throw error;
+    }
     await tx.update(BookingEntity, booking.id, { status: next.name });
     await recordTransition(tx, booking.id, booking.status, next.name, 'TICKETING');
+    return true;
+  }
+
+  /** The ticket-repair job's work list: bookings still CONFIRMED. */
+  async awaitingTickets(limit: number): Promise<string[]> {
+    const bookings = await this.db.manager.find(BookingEntity, {
+      select: { id: true },
+      where: { status: 'CONFIRMED' },
+      order: { id: 'ASC' },
+      take: limit,
+    });
+    return bookings.map(({ id }) => id);
   }
 }
