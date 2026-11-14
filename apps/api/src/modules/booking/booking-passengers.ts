@@ -21,6 +21,8 @@ export class BookingPassengers {
       const booking = byBooking.get(passenger.bookingId)!;
       return {
         id: booking.id,
+        /** Ticketing's tickets name this passenger, so the manifest can match each one. */
+        passengerId: passenger.id,
         reference: booking.reference,
         passengerName: `${passenger.firstName} ${passenger.lastName}`.trim(),
         status: booking.status,

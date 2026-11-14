@@ -100,6 +100,11 @@ export class FlightTickets {
 
   async forFlight(tx: Tx, flightId: string) {
     const tickets = await this.tickets.forFlight(tx, flightId);
-    return tickets.map(({ number, bookingId, status }) => ({ number, bookingId, status }));
+    return tickets.map(({ number, bookingId, passengerId, status }) => ({
+      number,
+      bookingId,
+      passengerId,
+      status,
+    }));
   }
 }
