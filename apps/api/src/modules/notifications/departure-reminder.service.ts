@@ -12,6 +12,14 @@ const WINDOW_END_HOURS = 24;
 const TICKETED = 'TICKETED';
 const CANCELLED = 'CANCELLED';
 
+/**
+ * One reminder per booking per leg: re-running the job never repeats it (NFR-REL-02), and the
+ * return leg of a round trip still gets its own.
+ */
+function reminderId(departure: UpcomingDeparture): string {
+  return `reminder:${departure.bookingId}:${departure.flightNumber}:${departure.departureUtc.slice(0, 10)}`;
+}
+
 /** The reminder rule (US-NT-06 AC-1 and AC-3): a ticketed booking on a flight that still flies. */
 function isDue(departure: UpcomingDeparture, from: Date, to: Date): boolean {
   const at = Date.parse(departure.departureUtc);
@@ -57,7 +65,7 @@ export class DepartureReminderService implements DepartureRemindersApi {
       const draft = reminderDraft(departure);
       return await this.publisher.publish({
         userId: departure.ownerId,
-        eventId: `reminder:${departure.bookingId}`,
+        eventId: reminderId(departure),
         type: DEPARTURE_REMINDER,
         title: draft.title,
         body: draft.body,
@@ -67,7 +75,7 @@ export class DepartureReminderService implements DepartureRemindersApi {
       const failure = error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         {
-          eventId: `reminder:${departure.bookingId}`,
+          eventId: reminderId(departure),
           err: { name: failure.name, message: failure.message },
         },
         'Departure reminder failed',

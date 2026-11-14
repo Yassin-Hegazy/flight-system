@@ -33,6 +33,8 @@ export interface CatalogRepository {
   /** Loads a flight and locks its row until the transaction ends. */
   findFlightForUpdate(tx: Tx, id: string): Promise<Flight | null>;
   findFlightsDeparting(route: Route, range: { start: Date; end: Date }): Promise<Flight[]>;
+  /** Every flight departing from `start` to `end`, both inclusive, on any route. */
+  findAllFlightsDeparting(range: { start: Date; end: Date }): Promise<Flight[]>;
   insertFlight(tx: Tx, flight: Flight): Promise<Result<string, 'DUPLICATE_FLIGHT'>>;
   updateFlight(tx: Tx, flight: Flight): Promise<void>;
 

@@ -45,6 +45,16 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return this.findFlight(id);
   }
 
+  findAllFlightsDeparting(range: { start: Date; end: Date }): Promise<Flight[]> {
+    const found = [...this.flights.values()]
+      .filter(
+        (flight) =>
+          flight.scheduledDepartureUtc >= range.start && flight.scheduledDepartureUtc <= range.end,
+      )
+      .sort((a, b) => a.scheduledDepartureUtc.getTime() - b.scheduledDepartureUtc.getTime());
+    return Promise.resolve(found.map((flight) => this.copy(flight) as Flight));
+  }
+
   findFlightsDeparting(route: Route, range: { start: Date; end: Date }): Promise<Flight[]> {
     const found = [...this.flights.values()]
       .filter(
