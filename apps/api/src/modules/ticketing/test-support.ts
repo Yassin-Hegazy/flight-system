@@ -34,15 +34,22 @@ const adult = (id: string, name: string) => ({ id, name, fare: money(1_500_000, 
 
 /** A booking for Ticketing; one adult on one Economy flight unless the test says otherwise. */
 export function booking(fields: Partial<EligibleBooking> = {}): EligibleBooking {
-  return {
+  const result: EligibleBooking = {
     id: BOOKING_ID,
     reference: 'K7M2QP',
     ownerId: OWNER,
     status: 'CONFIRMED',
     passengers: [adult('p-1', 'Mona Adel')],
-    segments: [{ id: 's-1', flightId: OUTBOUND, cabin: 'ECONOMY' }],
+    segments: [{ id: 's-1', flightId: OUTBOUND, cabin: 'ECONOMY', fares: {} }],
     ...fields,
   };
+  // Unless a test sets them, each passenger pays their own fare on every leg.
+  const fares = Object.fromEntries(result.passengers.map(({ id, fare }) => [id, fare]));
+  result.segments = result.segments.map((segment) => ({
+    ...segment,
+    fares: Object.keys(segment.fares).length ? segment.fares : fares,
+  }));
+  return result;
 }
 
 export const family = () => [
@@ -52,8 +59,8 @@ export const family = () => [
 ];
 
 export const roundTrip = () => [
-  { id: 's-1', flightId: OUTBOUND, cabin: 'ECONOMY' as const },
-  { id: 's-2', flightId: RETURN, cabin: 'ECONOMY' as const },
+  { id: 's-1', flightId: OUTBOUND, cabin: 'ECONOMY' as const, fares: {} },
+  { id: 's-2', flightId: RETURN, cabin: 'ECONOMY' as const, fares: {} },
 ];
 
 function uniqueViolation() {

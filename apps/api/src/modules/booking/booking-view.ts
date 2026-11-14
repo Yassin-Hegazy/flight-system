@@ -1,3 +1,4 @@
+import { BookingSegmentEntity } from './booking-segment.entity';
 import type { Tx } from '../../shared/db';
 import { type Money, money } from '../../shared/money';
 import { BookingHistoryEntity } from './booking-history.entity';
@@ -33,6 +34,8 @@ export interface BookingView {
   expiresAt: string | null;
   cancelReason: BookingEntity['cancelReason'];
   passengers: PassengerView[];
+  /** Every flight of the booking in travel order: one, or the outbound and return of a round trip. */
+  segments: { flightId: string; cabin: BookingEntity['cabin'] }[];
   history: HistoryView[];
 }
 
@@ -41,6 +44,7 @@ export function toView(
   booking: BookingEntity,
   passengers: readonly BookingPassengerEntity[],
   history: readonly BookingHistoryEntity[],
+  segments: readonly BookingSegmentEntity[] = [],
 ): BookingView {
   return {
     reference: booking.reference,
@@ -62,6 +66,9 @@ export function toView(
         type: p.type,
         fare: money(p.fareMinor, p.currency),
       })),
+    segments: [...segments]
+      .sort((a, b) => a.position - b.position)
+      .map(({ flightId, cabin }) => ({ flightId, cabin })),
     history: [...history]
       .sort((a, b) => a.id - b.id)
       .map((h) => ({
@@ -75,9 +82,10 @@ export function toView(
 
 /** Loads a booking's passengers and history and maps them. */
 export async function loadView(manager: Tx, booking: BookingEntity): Promise<BookingView> {
-  const [passengers, history] = await Promise.all([
+  const [passengers, history, segments] = await Promise.all([
     manager.findBy(BookingPassengerEntity, { bookingId: booking.id }),
     manager.findBy(BookingHistoryEntity, { bookingId: booking.id }),
+    manager.findBy(BookingSegmentEntity, { bookingId: booking.id }),
   ]);
-  return toView(booking, passengers, history);
+  return toView(booking, passengers, history, segments);
 }

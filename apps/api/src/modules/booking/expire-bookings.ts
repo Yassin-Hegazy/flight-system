@@ -7,6 +7,7 @@ import { type BookingExpired, publishDomainEvent } from '../../shared/events';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { recordTransition } from './booking-history';
 import { BookingEntity } from './booking.entity';
+import { segmentsInLockOrder } from './booking-segments';
 import { stateFor } from './booking-state';
 
 const BATCH = 100;
@@ -73,8 +74,10 @@ export class ExpireBookings implements BookingExpiry {
       }
       const next = stateFor(booking.status).expire();
       // Releases only a still-HELD hold at or past its expiry; anything else is a no-op.
-      const released = await this.inventory.release(tx, booking.holdId, { expiredOnly: true });
-      if (!released.ok) throw new Error('Booking hold could not be released');
+      for (const segment of await segmentsInLockOrder(tx, booking.id)) {
+        const released = await this.inventory.release(tx, segment.holdId, { expiredOnly: true });
+        if (!released.ok) throw new Error('Booking hold could not be released');
+      }
       await tx.update(BookingEntity, booking.id, { status: next.name });
       await recordTransition(tx, booking.id, booking.status, next.name, 'EXPIRY');
       return {

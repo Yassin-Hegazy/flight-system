@@ -4,6 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
 import { AppError } from '../../shared/errors';
+import { money, type Money } from '../../shared/money';
 import { CLOCK, type Clock } from '../../shared/time';
 import {
   CATALOG_API,
@@ -22,6 +23,7 @@ import { BookingEntity } from './booking.entity';
 import {
   countParty,
   type PassengerInput,
+  type PassengerKind,
   seatsNeeded,
   validatePassengers,
 } from './passenger-rules';
@@ -39,6 +41,8 @@ export interface CreateBookingCommand {
   passengers?: PassengerInput[];
   /** The total the client displayed, in minor units. A different current total is rejected. */
   displayedTotal?: number;
+  /** A round trip's return flight (US-FS-06 AC-3): the reverse route, after the outbound lands. */
+  returnFlightId?: string;
 }
 
 function newReference(): string {
@@ -52,11 +56,28 @@ interface Passenger {
   type: PassengerInput['type'];
 }
 
+/** One flight of the booking with its price for the whole party. */
+interface Leg {
+  flight: FlightInfo;
+  quote: PriceQuote;
+}
+
 interface Prepared {
   passengers: Passenger[];
-  quote: PriceQuote;
+  /** Outbound first, then the return if there is one. */
+  legs: Leg[];
+  total: Money;
   seats: number;
 }
+
+const unavailable = () =>
+  AppError.conflict('FLIGHT_UNAVAILABLE', 'The requested flight and cabin are unavailable.');
+
+const badReturn = (message: string) =>
+  AppError.badRequest('VALIDATION_ERROR', 'Some fields are invalid.', { returnFlightId: message });
+
+const unitPrice = (quote: PriceQuote, type: PassengerKind) =>
+  quote.lines.find((line) => line.passengerType === type)?.unitPrice;
 
 /**
  * US-BK-01 and US-BK-03: creates a booking. The steps are a strict sequence, so they are written
@@ -81,8 +102,7 @@ export class CreateBooking {
       if (replay) return replay;
     }
     // 2. The cheap rules, before any lock is taken.
-    const early = await this.catalog.getFlight(command.flightId);
-    this.prepare(early, command);
+    this.prepare(await this.flights(command, (id) => this.catalog.getFlight(id)), command);
 
     // 3. The atomic part.
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -109,23 +129,13 @@ export class CreateBooking {
     hash: string,
     key: string | undefined,
   ): Promise<BookingView> {
-    // The flight row is locked, so its status and fares cannot change under this booking.
-    const flight = await this.catalog.getFlightForUpdate(tx, command.flightId);
-    const { passengers, quote, seats } = this.prepare(flight, command);
+    // The flight rows are locked, so their status and fares cannot change under this booking.
+    const flights = await this.flights(command, (id) => this.catalog.getFlightForUpdate(tx, id));
+    const { passengers, legs, total, seats } = this.prepare(flights, command);
 
     const id = randomUUID();
-    const hold = await this.inventory.hold(tx, {
-      bookingId: id,
-      flightId: command.flightId,
-      cabin: command.cabin,
-      seats,
-    });
-    if (!hold.ok) {
-      throw AppError.conflict(hold.error, 'The requested seats are unavailable.');
-    }
-    const eligibility = await this.inventory.validateForPayment(hold.value, id, tx);
-    if (!eligibility.ok) throw new Error('A new hold must be payable');
-
+    const holds = await this.holdEveryLeg(tx, id, legs, command.cabin, seats);
+    const outbound = holds.get(command.flightId)!;
     const booking = await tx.save(BookingEntity, {
       id,
       reference: newReference(),
@@ -133,25 +143,33 @@ export class CreateBooking {
       passengerName: `${passengers[0].firstName} ${passengers[0].lastName}`.trim(),
       flightId: command.flightId,
       cabin: command.cabin,
-      holdId: hold.value,
-      amountMinor: quote.total.amountMinor,
-      currency: quote.total.currency,
+      holdId: outbound.holdId,
+      amountMinor: total.amountMinor,
+      currency: total.currency,
       status: 'PENDING_PAYMENT',
-      expiresAt: eligibility.value.expiresAt,
+      // The booking lapses when its first hold does.
+      expiresAt: new Date(
+        Math.min(...[...holds.values()].map(({ expiresAt }) => expiresAt.getTime())),
+      ),
       cancelReason: null,
       paymentId: null,
     });
-    await tx.insert(BookingSegmentEntity, {
-      id: randomUUID(),
-      bookingId: id,
-      position: 0,
-      flightId: command.flightId,
-      cabin: command.cabin,
-      holdId: hold.value,
-    });
-    // The fare snapshot: each passenger's fare is copied in and never looked up again.
-    const fareOf = (type: Passenger['type']) =>
-      quote.lines.find((line) => line.passengerType === type)!.unitPrice;
+    await tx.insert(
+      BookingSegmentEntity,
+      legs.map(({ flight, quote }, position) => ({
+        id: randomUUID(),
+        bookingId: id,
+        position,
+        flightId: flight.id,
+        cabin: command.cabin,
+        holdId: holds.get(flight.id)!.holdId,
+        unitFares: Object.fromEntries(
+          quote.lines.map((line) => [line.passengerType, line.unitPrice.amountMinor]),
+        ),
+      })),
+    );
+    // The fare snapshot: each passenger's fare is copied in and never looked up again. On a round
+    // trip it is the sum of both legs' fares for that passenger type.
     await tx.insert(
       BookingPassengerEntity,
       passengers.map((passenger, position) => ({
@@ -162,8 +180,11 @@ export class CreateBooking {
         lastName: passenger.lastName,
         birthDate: passenger.birthDate,
         type: passenger.type,
-        fareMinor: fareOf(passenger.type).amountMinor,
-        currency: quote.total.currency,
+        fareMinor: legs.reduce(
+          (sum, leg) => sum + unitPrice(leg.quote, passenger.type)!.amountMinor,
+          0,
+        ),
+        currency: total.currency,
       })),
     );
     await recordTransition(tx, id, null, 'PENDING_PAYMENT', 'CREATED');
@@ -178,48 +199,94 @@ export class CreateBooking {
     return loadView(tx, booking);
   }
 
+  /** Outbound, then the return flight if any: null for a flight that does not exist. */
+  private async flights(
+    command: CreateBookingCommand,
+    load: (id: string) => Promise<FlightInfo | null>,
+  ): Promise<{ outbound: FlightInfo | null; back?: FlightInfo | null }> {
+    if (!command.returnFlightId) return { outbound: await load(command.flightId) };
+    // Two flight rows are locked here, so take them in ascending ID order as well.
+    const [first, second] = [command.flightId, command.returnFlightId].sort();
+    const loaded = new Map([
+      [first, await load(first)],
+      [second, await load(second)],
+    ]);
+    return {
+      outbound: loaded.get(command.flightId) ?? null,
+      back: loaded.get(command.returnFlightId) ?? null,
+    };
+  }
+
+  /** Holds every leg in ascending flight-ID order; a full leg rolls back the whole booking. */
+  private async holdEveryLeg(tx: Tx, bookingId: string, legs: Leg[], cabin: Cabin, seats: number) {
+    const holds = new Map<string, { holdId: string; expiresAt: Date }>();
+    const ordered = [...legs].sort((a, b) => a.flight.id.localeCompare(b.flight.id));
+    for (const { flight } of ordered) {
+      const hold = await this.inventory.hold(tx, { bookingId, flightId: flight.id, cabin, seats });
+      if (!hold.ok) throw AppError.conflict(hold.error, 'The requested seats are unavailable.');
+      const eligibility = await this.inventory.validateForPayment(hold.value, bookingId, tx);
+      if (!eligibility.ok) throw new Error('A new hold must be payable');
+      holds.set(flight.id, { holdId: hold.value, expiresAt: eligibility.value.expiresAt });
+    }
+    return holds;
+  }
+
   /**
    * Every rule that needs no lock, in the order a traveler would fix them. Run once before the
-   * transaction (so a rejection holds nothing) and again inside it against the locked flight.
+   * transaction (so a rejection holds nothing) and again inside it against the locked flights.
    */
-  private prepare(flight: FlightInfo | null, command: CreateBookingCommand): Prepared {
+  private prepare(
+    { outbound, back }: { outbound: FlightInfo | null; back?: FlightInfo | null },
+    command: CreateBookingCommand,
+  ): Prepared {
     const now = this.clock.now();
-    if (!flight || !this.catalog.isBookable(flight, now)) {
-      throw AppError.conflict(
-        'FLIGHT_UNAVAILABLE',
-        'The requested flight and cabin are unavailable.',
-      );
-    }
+    if (!outbound || !this.catalog.isBookable(outbound, now)) throw unavailable();
+    const flights = [outbound];
+    if (back !== undefined) flights.push(this.checkedReturn(outbound, back, now));
     const passengers: Passenger[] = command.passengers
-      ? this.validated(command.passengers, flight, now)
+      ? this.validated(command.passengers, outbound, now)
       : [{ ...splitName(command.ownerName), birthDate: null, type: 'ADULT' }];
 
-    const quote = this.catalog.priceParty(flight, command.cabin, countParty(passengers));
-    if (!quote.ok) {
-      if (quote.error === 'NO_FARE') {
-        throw AppError.conflict(
-          'FLIGHT_UNAVAILABLE',
-          'The requested flight and cabin are unavailable.',
-        );
-      }
-      throw AppError.badRequest('VALIDATION_ERROR', 'Some fields are invalid.', {
-        passengers:
-          quote.error === 'TOO_MANY_INFANTS'
-            ? 'There cannot be more infants than adults.'
-            : 'The party needs at least one adult or child.',
-      });
-    }
+    const legs = flights.map((flight) => ({
+      flight,
+      quote: this.quote(flight, command.cabin, passengers),
+    }));
+    const total = sumOf(legs.map(({ quote }) => quote.total));
     // Charging more than was shown, without asking, is the failure this stops (US-BK-03 AC-3).
-    if (
-      command.displayedTotal !== undefined &&
-      command.displayedTotal !== quote.value.total.amountMinor
-    ) {
+    if (command.displayedTotal !== undefined && command.displayedTotal !== total.amountMinor) {
       throw AppError.conflict('PRICE_CHANGED', 'The fare changed since it was displayed.', {
-        currentTotal: String(quote.value.total.amountMinor),
-        currency: quote.value.total.currency,
+        currentTotal: String(total.amountMinor),
+        currency: total.currency,
       });
     }
-    return { passengers, quote: quote.value, seats: seatsNeeded(countParty(passengers)) };
+    return { passengers, legs, total, seats: seatsNeeded(countParty(passengers)) };
+  }
+
+  /** The return leg flies the outbound's route backwards, after the outbound lands. */
+  private checkedReturn(outbound: FlightInfo, back: FlightInfo | null, now: Date): FlightInfo {
+    if (!back || !this.catalog.isBookable(back, now)) throw unavailable();
+    if (
+      back.origin.code !== outbound.destination.code ||
+      back.destination.code !== outbound.origin.code
+    ) {
+      throw badReturn('The return flight must fly from the destination back to the origin.');
+    }
+    if (back.scheduledDepartureUtc.getTime() < outbound.scheduledArrivalUtc.getTime()) {
+      throw badReturn('The return flight must leave after the outbound flight arrives.');
+    }
+    return back;
+  }
+
+  private quote(flight: FlightInfo, cabin: Cabin, passengers: Passenger[]): PriceQuote {
+    const quote = this.catalog.priceParty(flight, cabin, countParty(passengers));
+    if (quote.ok) return quote.value;
+    if (quote.error === 'NO_FARE') throw unavailable();
+    throw AppError.badRequest('VALIDATION_ERROR', 'Some fields are invalid.', {
+      passengers:
+        quote.error === 'TOO_MANY_INFANTS'
+          ? 'There cannot be more infants than adults.'
+          : 'The party needs at least one adult or child.',
+    });
   }
 
   private validated(
@@ -267,14 +334,24 @@ function splitName(name: string): Pick<Passenger, 'firstName' | 'lastName'> {
 }
 
 function requestHash(command: CreateBookingCommand): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify([
-        command.flightId,
-        command.cabin,
-        command.passengers ?? null,
-        command.displayedTotal ?? null,
-      ]),
-    )
-    .digest('hex');
+  const fields: unknown[] = [
+    command.flightId,
+    command.cabin,
+    command.passengers ?? null,
+    command.displayedTotal ?? null,
+  ];
+  if (command.returnFlightId) fields.push(command.returnFlightId);
+  return createHash('sha256').update(JSON.stringify(fields)).digest('hex');
+}
+
+/** Both legs are charged together, so they must be priced in one currency. */
+function sumOf(totals: Money[]): Money {
+  const currency = totals[0].currency;
+  if (totals.some((total) => total.currency !== currency)) {
+    throw AppError.conflict('FLIGHT_UNAVAILABLE', 'Both flights must be priced in one currency.');
+  }
+  return money(
+    totals.reduce((sum, total) => sum + total.amountMinor, 0),
+    currency,
+  );
 }

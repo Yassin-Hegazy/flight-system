@@ -83,6 +83,15 @@ class CreateBookingBody {
   @IsInt()
   @Min(0)
   displayedTotal?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'For a round trip: the return flight, on the reverse route after the outbound lands.',
+  })
+  @IsOptional()
+  @IsUUID()
+  returnFlightId?: string;
 }
 
 function validKey(raw: string | undefined): string | undefined {
@@ -129,6 +138,7 @@ export class BookingController {
           cabin: body.cabin,
           passengers: body.passengers,
           displayedTotal: body.displayedTotal,
+          returnFlightId: body.returnFlightId,
         },
         validKey(key),
       );

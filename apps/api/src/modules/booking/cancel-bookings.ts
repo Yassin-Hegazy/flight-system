@@ -18,6 +18,7 @@ import { INVENTORY_API, type InventoryApi } from '../inventory/index';
 import { recordTransition } from './booking-history';
 import { type BookingView, loadView } from './booking-view';
 import { BookingEntity } from './booking.entity';
+import { bookingIdsOnFlight, segmentsInLockOrder } from './booking-segments';
 import {
   type Actor,
   CancellationWindowClosed,
@@ -79,7 +80,11 @@ export class CancelBookings implements FlightBookingCancellation {
   /** Airline cancellation: every non-terminal booking on the flight, in the caller's transaction. */
   async cancelForFlight(tx: Tx, flightId: string): Promise<BookingCancelled[]> {
     const bookings = await tx.find(BookingEntity, {
-      where: { flightId, status: In([...NON_TERMINAL_STATUSES]) },
+      // Any booking with a leg on the flight: an airline cancelling the return cancels the trip.
+      where: {
+        id: In(await bookingIdsOnFlight(tx, flightId)),
+        status: In([...NON_TERMINAL_STATUSES]),
+      },
       order: { id: 'ASC' },
       lock: { mode: 'pessimistic_write' },
     });
@@ -131,8 +136,10 @@ export class CancelBookings implements FlightBookingCancellation {
     booking: BookingEntity,
     reason: BookingCancelled['reason'],
   ): Promise<BookingCancelled> {
-    const released = await this.inventory.release(tx, booking.holdId);
-    if (!released.ok) throw new Error('Booking hold could not be released');
+    for (const segment of await segmentsInLockOrder(tx, booking.id)) {
+      const released = await this.inventory.release(tx, segment.holdId);
+      if (!released.ok) throw new Error('Booking hold could not be released');
+    }
     await tx.update(BookingEntity, booking.id, { status: 'CANCELLED', cancelReason: reason });
     await recordTransition(tx, booking.id, booking.status, 'CANCELLED', reason);
     const event: BookingCancelled = {

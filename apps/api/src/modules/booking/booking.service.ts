@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import type { Tx } from '../../shared/db';
 import { money } from '../../shared/money';
 import { err, ok } from '../../shared/result';
@@ -14,6 +14,7 @@ import { InvalidBookingTransition, stateFor } from './booking-state';
 import type { BookingTicketing, EligibleBooking } from './booking-ticketing';
 import { BookingPassengerEntity } from './booking-passenger.entity';
 import { BookingSegmentEntity } from './booking-segment.entity';
+import { bookingIdsOnFlight, segmentsInLockOrder } from './booking-segments';
 
 /**
  * What Payments, Ticketing and Administration call into. Creating, reading, cancelling and
@@ -48,7 +49,10 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
   }
 
   async activeOwnersOf(tx: Tx, flightId: string): Promise<string[]> {
-    const bookings = await tx.findBy(BookingEntity, { flightId });
+    // Every booking with a leg on this flight, the return leg of a round trip included.
+    const bookings = await tx.findBy(BookingEntity, {
+      id: In(await bookingIdsOnFlight(tx, flightId)),
+    });
     const owners = new Set<string>();
     for (const booking of bookings) {
       if (owners.has(booking.ownerId)) continue;
@@ -72,8 +76,11 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
     }
     if (booking.status === 'CANCELLED') return err('NOT_FOUND' as const);
     if (booking.status === 'EXPIRED') return err('HOLD_EXPIRED' as const);
-    const hold = await this.inventory.validateForPayment(booking.holdId, booking.id);
-    if (!hold.ok) return err('HOLD_EXPIRED' as const);
+    // Every leg must still be held: paying for a round trip with one leg gone would strand it.
+    for (const segment of await segmentsInLockOrder(this.db.manager, booking.id)) {
+      const hold = await this.inventory.validateForPayment(segment.holdId, booking.id);
+      if (!hold.ok) return err('HOLD_EXPIRED' as const);
+    }
     return ok({ bookingId: booking.id, amount: money(booking.amountMinor, booking.currency) });
   }
 
@@ -88,8 +95,10 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
     if (!booking) throw new Error('Cannot settle a booking that does not exist');
     // The State pattern rejects anything but PENDING_PAYMENT.
     const next = stateFor(booking.status).confirm();
-    const seats = await this.inventory.commit(tx, booking.holdId);
-    if (!seats.ok) return err('HOLD_EXPIRED' as const);
+    for (const segment of await segmentsInLockOrder(tx, booking.id)) {
+      const seats = await this.inventory.commit(tx, segment.holdId);
+      if (!seats.ok) return err('HOLD_EXPIRED' as const);
+    }
     await tx.update(BookingEntity, booking.id, { status: next.name, paymentId });
     await recordTransition(tx, booking.id, booking.status, next.name, 'PAYMENT');
     // Ticketing issues the tickets once this commits, on BookingConfirmed.
@@ -121,7 +130,18 @@ export class BookingService implements BookingPayments, BookingOwners, BookingTi
         name: `${passenger.firstName} ${passenger.lastName}`.trim(),
         fare: money(passenger.fareMinor, passenger.currency),
       })),
-      segments: segments.map(({ id, flightId, cabin }) => ({ id, flightId, cabin })),
+      segments: segments.map(({ id, flightId, cabin, unitFares }) => ({
+        id,
+        flightId,
+        cabin,
+        // Each passenger's fare on this leg, from the leg's own snapshot.
+        fares: Object.fromEntries(
+          passengers.map((passenger) => [
+            passenger.id,
+            money(unitFares[passenger.type] ?? passenger.fareMinor, passenger.currency),
+          ]),
+        ),
+      })),
     };
   }
 

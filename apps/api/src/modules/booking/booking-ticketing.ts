@@ -14,8 +14,8 @@ export interface EligibleBooking {
   status: BookingStatus;
   /** Everyone travelling, infants included, each with the fare snapshot charged for them. */
   passengers: { id: string; name: string; fare: Money }[];
-  /** Every flight in the booking: one, or two for a round trip. */
-  segments: { id: string; flightId: string; cabin: Cabin }[];
+  /** Every flight in the booking (one, or two for a round trip), with each passenger's fare on it. */
+  segments: { id: string; flightId: string; cabin: Cabin; fares: Record<string, Money> }[];
 }
 
 /** The part of Booking's public API that Ticketing uses (Booking pack, section 2). */

@@ -31,7 +31,8 @@ export function draftsFor(booking: EligibleBooking): TicketDraft[] {
       segmentId: segment.id,
       flightId: segment.flightId,
       cabin: segment.cabin,
-      fare: passenger.fare,
+      // The fare for this leg: on a round trip each leg's ticket carries that leg's price.
+      fare: segment.fares[passenger.id] ?? passenger.fare,
     })),
   );
 }
