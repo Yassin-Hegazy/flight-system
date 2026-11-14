@@ -1,6 +1,11 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { CATALOG_API, type CatalogApi, type NewFlight } from '../modules/flight-catalog/index';
+import {
+  CATALOG_API,
+  type Cabin,
+  type CatalogApi,
+  type NewFlight,
+} from '../modules/flight-catalog/index';
 import { USERS_API, type UsersApi } from '../modules/users-access/index';
 import { money } from '../shared/money';
 import { seedAdmin, type AdminSeed, type SeedOutcome } from './seed-admin';
@@ -199,6 +204,9 @@ export const DEMO_ROUTES: DemoRoute[] = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Seats per cabin on every demo flight, so each can be booked. */
+export const DEMO_SEATS: Record<Cabin, number> = { ECONOMY: 180, BUSINESS: 24 };
 
 /**
  * The demo schedule: every route once a day, from tomorrow for DEMO_DAYS days. Pure, so the same
