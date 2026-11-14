@@ -7,7 +7,7 @@ import { HUBS, WORLD_DAYS, buildWorldFlights, type WorldFlight } from './network
 
 // A fixed "now": the schedule is built relative to it, so these tests never depend on the date.
 const NOW = new Date('2026-11-14T09:30:00Z');
-const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const zoneOf = new Map(WORLD_AIRPORTS.map(([code, , , , timezone]) => [code, timezone]));
 const countryOf = new Map(WORLD_AIRPORTS.map(([code, , , country]) => [code, country]));
@@ -81,11 +81,18 @@ describe('NFR-PORT-01 a world network of real airports for the demo database', (
   it('NFR-PORT-01-T15 the same moment gives the same schedule, and a later run agrees on the days both cover', () => {
     expect(buildWorldFlights(NOW)).toEqual(flights);
 
-    const tomorrow = new Date(NOW.getTime() + 24 * HOUR_MS);
+    const tomorrow = new Date(NOW.getTime() + DAY_MS);
     const key = (flight: WorldFlight) =>
       `${flight.flightNumber}|${flight.scheduledDepartureUtc.toISOString()}`;
     const later = new Set(buildWorldFlights(tomorrow).map(key));
-    const overlap = flights.filter((flight) => flight.scheduledDepartureUtc > tomorrow);
+    // Days both runs schedule in full, with margin for zones far from UTC and long return legs.
+    const today = Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth(), NOW.getUTCDate());
+    const from = today + 3 * DAY_MS;
+    const until = today + WORLD_DAYS * DAY_MS;
+    const overlap = flights.filter((flight) => {
+      const departure = flight.scheduledDepartureUtc.getTime();
+      return departure >= from && departure < until;
+    });
     expect(overlap.length).toBeGreaterThan(0);
     for (const flight of overlap) expect(later.has(key(flight)), key(flight)).toBe(true);
   });
