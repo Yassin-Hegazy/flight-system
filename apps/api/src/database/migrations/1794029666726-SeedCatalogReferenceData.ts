@@ -5,7 +5,7 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * Catalog pack section 1.1) and the airports they fly between, each with its IANA time zone.
  * Administrators maintain airports afterwards through the Catalog's upsertAirport.
  */
-const AIRLINES: [code: string, name: string][] = [
+export const AIRLINES: [code: string, name: string][] = [
   ['MS', 'EgyptAir'],
   ['SM', 'Air Cairo'],
   ['NP', 'Nile Air'],
