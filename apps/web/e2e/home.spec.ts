@@ -41,7 +41,9 @@ test('US-FS-01-T19 a one-way search from the landing page opens the results for 
   await rail(page).getByLabel('From').fill('CAI');
   await rail(page).getByLabel('To', { exact: true }).fill('LHR');
   await rail(page).getByLabel('Depart').fill('2026-12-10');
-  await rail(page).getByRole('button', { name: /Search flights/ }).click();
+  await rail(page)
+    .getByRole('button', { name: /search flights/i })
+    .click();
 
   await expect(page).toHaveURL(/\/search\?/);
   const query = new URL(page.url()).searchParams;
@@ -57,13 +59,17 @@ test('US-FS-01-T19 a one-way search from the landing page opens the results for 
   await expect(page.getByRole('heading', { name: 'Search flights' })).toBeVisible();
 });
 
-test('US-FS-02-T16 a round trip from the landing page carries the return date', async ({ page }) => {
+test('US-FS-02-T16 a round trip from the landing page carries the return date', async ({
+  page,
+}) => {
   await expect(page.getByRole('radio', { name: 'Round trip' })).toBeChecked();
   await rail(page).getByLabel('From').fill('CAI');
   await rail(page).getByLabel('To', { exact: true }).fill('LHR');
   await rail(page).getByLabel('Depart').fill('2026-12-10');
   await rail(page).getByLabel('Return').fill('2026-12-17');
-  await rail(page).getByRole('button', { name: /Search flights/ }).click();
+  await rail(page)
+    .getByRole('button', { name: /search flights/i })
+    .click();
 
   await expect(page).toHaveURL(/returnDate=2026-12-17/);
   await expect(page.getByRole('heading', { name: 'Outbound' })).toBeVisible();
@@ -76,12 +82,16 @@ test('US-FS-01-T20 the party and cabin chosen on the landing page are sent with 
   await rail(page).getByLabel('From').fill('CAI');
   await rail(page).getByLabel('To', { exact: true }).fill('LHR');
   await rail(page).getByLabel('Depart').fill('2026-12-10');
-  await rail(page).getByRole('button', { name: /Travelers/ }).click();
+  await rail(page)
+    .getByRole('button', { name: /Travelers/ })
+    .click();
   await page.getByRole('button', { name: 'More adults' }).click();
   await page.getByRole('button', { name: 'More children' }).click();
-  await page.getByLabel('Cabin').selectOption('BUSINESS');
+  await page.getByLabel('Cabin', { exact: true }).selectOption('BUSINESS');
   await page.keyboard.press('Escape');
-  await rail(page).getByRole('button', { name: /Search flights/ }).click();
+  await rail(page)
+    .getByRole('button', { name: /search flights/i })
+    .click();
 
   await expect(page).toHaveURL(/adults=2&children=1&infants=0&cabin=BUSINESS/);
 });
@@ -89,7 +99,9 @@ test('US-FS-01-T20 the party and cabin chosen on the landing page are sent with 
 test('US-FS-01-T21 a search with nothing filled in stays on the page and says what is missing', async ({
   page,
 }) => {
-  await rail(page).getByRole('button', { name: /Search flights/ }).click();
+  await rail(page)
+    .getByRole('button', { name: /search flights/i })
+    .click();
 
   await expect(page).toHaveURL(/\/$/);
   const from = rail(page).getByLabel('From');
@@ -98,7 +110,9 @@ test('US-FS-01-T21 a search with nothing filled in stays on the page and says wh
   await expect(from).toBeFocused();
 });
 
-test('US-FS-06-T16 typing in From on the landing page offers matching airports', async ({ page }) => {
+test('US-FS-06-T16 typing in From on the landing page offers matching airports', async ({
+  page,
+}) => {
   await rail(page).getByLabel('From').fill('ca');
 
   await expect(page.locator('#rail-origin-options option[value="CAI"]')).toBeAttached();
@@ -110,7 +124,9 @@ test('NFR-COMP-01-T04 a destination card opens the search with that route filled
   await page.getByRole('link', { name: /London/ }).click();
 
   await expect(page).toHaveURL(/\/search\?origin=CAI&destination=LHR/);
-  await expect(page.getByLabel('To', { exact: true })).toHaveValue('LHR');
+  // The landing page stays mounted but hidden after the navigation, so the form is named.
+  const form = page.getByRole('form', { name: 'Search flights' });
+  await expect(form.getByLabel('To', { exact: true })).toHaveValue('LHR');
 });
 
 test('NFR-USAB-01-T04 the landing page has no detectable accessibility violations', async ({

@@ -5,7 +5,7 @@ import { type ResultPage, type SearchResult, SORT_OPTIONS } from '@/lib/search-a
 import { INPUT_CLASS } from './field';
 
 const BUTTON_CLASS =
-  'h-10 rounded-md border px-4 text-sm font-medium hover:bg-accent ' +
+  'h-11 cursor-pointer rounded-full border border-navy/25 px-5 text-sm font-bold hover:border-navy ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -34,7 +34,7 @@ export function ResultsSection(props: ResultsSectionProps) {
     <section aria-labelledby={headingId} className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id={headingId} className="text-xl font-semibold">
+          <h2 id={headingId} className="text-2xl font-extrabold">
             {title}
           </h2>
           <p role="status" className="text-sm text-muted-foreground">
@@ -128,7 +128,7 @@ function ResultCard({ result }: { result: SearchResult }) {
   return (
     <article
       aria-label={`${result.flightNumber}, ${result.airline.name}`}
-      className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+      className="grid gap-4 rounded-[18px] bg-card p-5 sm:grid-cols-[1fr_auto] sm:items-center"
       data-testid="search-result"
     >
       <div className="flex flex-col gap-2">
@@ -163,7 +163,7 @@ function ResultCard({ result }: { result: SearchResult }) {
         )}
       </div>
       <div className="flex flex-col gap-1 sm:items-end sm:text-right">
-        <p className="text-xl font-bold" data-testid="result-total">
+        <p className="text-2xl font-extrabold" data-testid="result-total">
           {formatMoney(result.total)}
         </p>
         <p className="text-xs text-muted-foreground">

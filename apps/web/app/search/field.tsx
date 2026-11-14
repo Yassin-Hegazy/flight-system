@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const INPUT_CLASS =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm ' +
+  'h-11 w-full rounded-[12px] border border-input bg-white px-3 text-sm font-semibold ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ' +
   'aria-invalid:border-destructive';
 
@@ -30,7 +30,7 @@ export function Field({ id, label, error, hint, className, children }: FieldProp
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
   return (
     <div className={`flex flex-col gap-1 ${className ?? ''}`}>
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-xs font-bold text-navy-soft uppercase">
         {label}
       </label>
       {children({
