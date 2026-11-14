@@ -61,7 +61,7 @@ export function SearchForm({ params, errors, pending, onSearch }: SearchFormProp
       onSubmit={submit}
       noValidate
       aria-label="Search flights"
-      className="flex flex-col gap-6 rounded-lg border p-4 sm:p-6"
+      className="flex flex-col gap-6 rounded-[22px] bg-card p-5 sm:p-7"
     >
       <fieldset className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <legend className="mb-2 text-base font-semibold">Where and when</legend>
@@ -226,7 +226,7 @@ export function SearchForm({ params, errors, pending, onSearch }: SearchFormProp
         <button
           type="submit"
           disabled={pending}
-          className="h-11 w-full rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 sm:w-auto"
+          className="h-[52px] w-full cursor-pointer rounded-full bg-pink px-8 text-[15px] font-bold text-navy hover:brightness-105 focus-visible:outline-navy disabled:opacity-60 sm:w-auto"
         >
           {pending ? 'Searching…' : 'Search flights'}
         </button>

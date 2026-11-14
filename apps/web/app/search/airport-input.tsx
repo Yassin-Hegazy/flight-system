@@ -8,13 +8,15 @@ import { type ControlProps, INPUT_CLASS } from './field';
 interface AirportInputProps extends ControlProps {
   name: string;
   defaultValue: string;
+  /** Replaces the default input styling (the landing rail has its own). */
+  className?: string;
 }
 
 /**
  * A text field with airport suggestions from the Catalog (GET /api/flights/airports/suggestions).
  * Typing a city or code lists matches; choosing one fills in its 3-letter code.
  */
-export function AirportInput({ name, defaultValue, ...control }: AirportInputProps) {
+export function AirportInput({ name, defaultValue, className, ...control }: AirportInputProps) {
   const [text, setText] = useState(defaultValue);
   const query = text.trim();
   const suggestions = useQuery({
@@ -36,7 +38,7 @@ export function AirportInput({ name, defaultValue, ...control }: AirportInputPro
         spellCheck={false}
         maxLength={60}
         placeholder="City or code, e.g. CAI"
-        className={`${INPUT_CLASS} uppercase placeholder:normal-case`}
+        className={className ?? `${INPUT_CLASS} uppercase placeholder:normal-case`}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />

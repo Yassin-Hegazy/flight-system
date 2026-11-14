@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Suspense } from 'react';
 import { SearchView } from './search-view';
 
 export const metadata: Metadata = {
-  title: 'Search flights · Flight Booking System',
+  title: 'Search flights · aeron',
 };
 
 /**
@@ -13,13 +12,13 @@ export const metadata: Metadata = {
  */
 export default function SearchPage() {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <nav aria-label="Breadcrumb" className="text-sm">
-        <Link href="/" className="underline underline-offset-4">
-          Home
-        </Link>
-      </nav>
-      <h1 className="text-3xl font-semibold tracking-tight">Search flights</h1>
+    <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-8 px-5 py-10 md:px-10 xl:px-[72px]">
+      <div className="flex flex-col gap-4">
+        <p className="text-xs leading-none font-bold text-navy-soft">01 / THE TAKEOFF</p>
+        <h1 className="text-[clamp(2.5rem,5vw,64px)] leading-none font-extrabold">
+          Search flights
+        </h1>
+      </div>
       <Suspense fallback={<p className="text-muted-foreground">Loading the search form…</p>}>
         <SearchView />
       </Suspense>
