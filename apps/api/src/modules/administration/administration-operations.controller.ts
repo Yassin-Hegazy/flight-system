@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrors, ApiSession } from '../../shared/api-docs';
@@ -21,7 +22,14 @@ import { BookingPassengers } from '../booking/index';
 import { CATALOG_API, type CatalogApi, CABINS, isCabin } from '../flight-catalog/index';
 import { INVENTORY_API, type CapacityError, type InventoryApi } from '../inventory/index';
 import { FlightTickets } from '../ticketing/index';
-import { Action, Ctx, type RequestContext, UserRole, WithRole } from '../users-access/index';
+import {
+  Action,
+  Ctx,
+  type RequestContext,
+  UserRole,
+  WithRole,
+  AdminGuard,
+} from '../users-access/index';
 import { DeleteAirport, UpsertAirport } from './airport.commands';
 import { AuditLog } from './audit-log';
 import { CommandBus } from './command-bus';
@@ -66,6 +74,7 @@ function capacityError(error: CapacityError): AppError {
     : AppError.badRequest(error, 'The cabin capacity is invalid.');
 }
 
+@UseGuards(AdminGuard)
 @Controller('admin')
 @ApiTags('Administration')
 @ApiSession(403)

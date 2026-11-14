@@ -1,4 +1,5 @@
 import type { FieldErrors } from '../../shared/errors';
+import { NAME_PART } from '../../shared/person-name';
 import { isLocalDate } from '../../shared/time';
 
 /** US-BK-01 AC-1 and AC-5: what a valid passenger looks like, as pure functions. */
@@ -15,8 +16,8 @@ export interface PassengerInput {
 
 export const MAX_PASSENGERS = 9;
 
-// 1-50 letters, spaces, hyphens or apostrophes: O'Neil and Abdel-Rahman are real names.
-const NAME = /^[\p{L} '’-]{1,50}$/u;
+// 1-50 letters, spaces, hyphens or apostrophes: the rule saved travelers share (shared/person-name).
+const NAME = NAME_PART;
 
 /** Whole years completed on `onDate` by someone born on `birthDate` (both YYYY-MM-DD). */
 export function ageOn(birthDate: string, onDate: string): number {

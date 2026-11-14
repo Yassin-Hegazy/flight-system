@@ -35,6 +35,22 @@ export class BookingQueries {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
+  /** Who owns a booking, or null when there is none: the lookup WithOwnership needs. */
+  async ownerOf(reference: string): Promise<string | null> {
+    const booking = await this.db.manager.findOneBy(BookingEntity, {
+      reference: reference.toUpperCase(),
+    });
+    return booking?.ownerId ?? null;
+  }
+
+  /** Any booking by reference, for a caller WithOwnership has already let through. */
+  async get(reference: string): Promise<BookingView | null> {
+    const booking = await this.db.manager.findOneBy(BookingEntity, {
+      reference: reference.toUpperCase(),
+    });
+    return booking ? loadView(this.db.manager, booking) : null;
+  }
+
   /** The owner's booking. Someone else's reference answers exactly like an unknown one: null. */
   async getOwned(reference: string, ownerId: string): Promise<BookingView | null> {
     const booking = await this.db.manager.findOneBy(BookingEntity, {

@@ -144,13 +144,13 @@ describe('Users and Access over HTTP', () => {
         await http()
           .post('/users/me/saved-travelers')
           .set('cookie', cookie)
-          .send({ name: `Traveler ${i}`, dateOfBirth: '1990-01-01' })
+          .send({ name: `Traveler ${String.fromCharCode(64 + i)}`, dateOfBirth: '1990-01-01' })
           .expect(201);
       }
       const eleventh = await http()
         .post('/users/me/saved-travelers')
         .set('cookie', cookie)
-        .send({ name: 'Traveler 11', dateOfBirth: '1990-01-01' })
+        .send({ name: 'Traveler Eleven', dateOfBirth: '1990-01-01' })
         .expect(409);
       expect(eleventh.body.code).toBe('SAVED_TRAVELER_LIMIT');
     });

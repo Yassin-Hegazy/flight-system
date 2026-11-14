@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -30,7 +31,7 @@ import {
 } from '../booking/index';
 import { CATALOG_API, type CatalogApi, FlightStatus } from '../flight-catalog/index';
 import { INVENTORY_API, type InventoryApi } from '../inventory/index';
-import { Ctx, type RequestContext } from '../users-access/index';
+import { Ctx, type RequestContext, AdminGuard } from '../users-access/index';
 import { CreateFlightBody, UpdateFlightStatusBody } from './administration.dto';
 import { CancelFlight } from './cancel-flight.command';
 import { CommandBus } from './command-bus';
@@ -93,6 +94,7 @@ const FLIGHT_ID = new ParseUUIDPipe({
  */
 @ApiTags('Administration')
 @ApiSession(403)
+@UseGuards(AdminGuard)
 @Controller('admin')
 export class AdministrationController {
   constructor(

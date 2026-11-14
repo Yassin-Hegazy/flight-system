@@ -9,6 +9,7 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrors, ApiSession } from '../../shared/api-docs';
@@ -21,6 +22,7 @@ import {
   signedIn,
   WithAuth,
   WithOwnership,
+  SignedInGuard,
 } from '../users-access/index';
 import { InboxQuery, PreferenceBody } from './notifications.dto';
 import {
@@ -39,6 +41,7 @@ import {
  */
 @ApiTags('Notifications')
 @ApiSession()
+@UseGuards(SignedInGuard)
 @Controller('notifications')
 export class NotificationsController {
   constructor(

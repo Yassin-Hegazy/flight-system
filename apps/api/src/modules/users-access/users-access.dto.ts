@@ -9,6 +9,7 @@ import {
   type ValidationOptions,
   registerDecorator,
 } from 'class-validator';
+import { splitFullName } from '../../shared/person-name';
 import { isLocalDate } from '../../shared/time';
 import { passwordProblem } from './users-access.domain';
 
@@ -47,6 +48,24 @@ function IsBirthDate(options?: ValidationOptions): PropertyDecorator {
           isLocalDate(value) &&
           value >= '1900-01-01' &&
           value <= new Date().toISOString().slice(0, 10),
+      },
+    });
+  };
+}
+
+/** A full name a booking passenger form can fill from (US-USR-06 AC-2). */
+function IsPassengerName(options?: ValidationOptions): PropertyDecorator {
+  return (target, propertyName) => {
+    registerDecorator({
+      name: 'isPassengerName',
+      target: target.constructor,
+      propertyName: propertyName as string,
+      options: {
+        message: "$property must be a first and a last name, in letters, spaces, - or '",
+        ...options,
+      },
+      validator: {
+        validate: (value: unknown) => typeof value === 'string' && splitFullName(value) !== null,
       },
     });
   };
@@ -131,9 +150,11 @@ export class ChangePasswordInput {
 
 /** The same name and date-of-birth rules a booking passenger has (US-USR-06 AC-2). */
 export class SavedTravelerInput {
-  @ApiProperty({ example: 'Omar Hassan', minLength: 2, maxLength: 120 })
-  @IsString()
-  @Length(2, 120)
+  @ApiProperty({
+    example: 'Omar Hassan',
+    description: "First name, a space, then last name; each 1 to 50 letters, spaces, - or '.",
+  })
+  @IsPassengerName()
   name!: string;
 
   @ApiProperty({ example: '2015-06-01', description: 'A past date written as YYYY-MM-DD.' })

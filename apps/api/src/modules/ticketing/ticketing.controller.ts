@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param } from '@nestjs/common';
+import { Controller, Get, Header, Param, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiSession } from '../../shared/api-docs';
 import { AppError } from '../../shared/errors';
@@ -9,6 +9,7 @@ import {
   signedIn,
   UserRole,
   WithRole,
+  SignedInGuard,
 } from '../users-access/index';
 import { printableTicket, TicketViews } from './ticket-views';
 
@@ -16,6 +17,7 @@ const notFound = () => AppError.notFound('NOT_FOUND', 'Not found.');
 
 /** Ticket reads. Each is the owner's only: anyone else gets the same 404 as a missing ticket. */
 @ApiTags('Ticketing')
+@UseGuards(SignedInGuard)
 @Controller()
 export class TicketingController {
   constructor(private readonly views: TicketViews) {}
