@@ -121,6 +121,40 @@ describe('Ticketing over HTTP', () => {
     expect(ticket.ticketNumber).toMatch(/^\d{13}$/);
   });
 
+  it('US-TK-01-T13 a family booking gets one ticket per passenger, infant included, each at their fare', async () => {
+    const booked = await post('/bookings')
+      .send({
+        flightId,
+        cabin: 'ECONOMY',
+        passengers: [
+          { firstName: 'Mona', lastName: 'Adel', birthDate: '1990-05-01', type: 'ADULT' },
+          { firstName: 'Karim', lastName: 'Adel', birthDate: '1988-02-11', type: 'ADULT' },
+          { firstName: 'Laila', lastName: 'Adel', birthDate: '2026-01-15', type: 'INFANT' },
+        ],
+      })
+      .expect(201);
+    const { reference } = booked.body as { reference: string };
+    await pay(reference);
+
+    const tickets = (await get(`/bookings/${reference}/tickets`).expect(200)).body as TicketBody[];
+
+    expect(tickets.map(({ passengerName }) => passengerName).sort()).toEqual([
+      'Karim Adel',
+      'Laila Adel',
+      'Mona Adel',
+    ]);
+    expect(new Set(tickets.map(({ ticketNumber }) => ticketNumber)).size).toBe(3);
+    const fares = await db.query<{ passengerName: string; fareMinor: number }[]>(
+      'SELECT "passengerName", "fareMinor" FROM tickets WHERE "bookingId" = $1 ORDER BY "passengerName"',
+      [await bookingId(reference)],
+    );
+    expect(fares).toEqual([
+      { passengerName: 'Karim Adel', fareMinor: 1_500_000 },
+      { passengerName: 'Laila Adel', fareMinor: 150_000 },
+      { passengerName: 'Mona Adel', fareMinor: 1_500_000 },
+    ]);
+  });
+
   it('US-TK-01-T03 the database refuses a repeated number and a second ticket for the same passenger and flight', async () => {
     const { reference, ticket } = await ticketed();
     const [row] = await db.query<Record<string, unknown>[]>(
