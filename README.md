@@ -36,6 +36,19 @@ Then open:
 - <http://localhost:3000>: the web app. It shows the API health, which should read "Database connected".
 - <http://localhost:3001/docs>: the API documentation (Swagger UI).
 
+### Demo data
+
+`pnpm bootstrap` seeds an administrator, a demo traveler and a world flight network: 1,168 real
+airports in 233 countries and territories, and about 52,000 flights over the next 14 days. Hubs
+fly to each other daily; every other airport links to its three nearest hubs three times a week,
+with a return after each arrival. It goes through the Catalog and Inventory APIs and takes about
+2.5 minutes on a 2-core machine; a re-run only counts what is already there. Set
+`SEED_WORLD=false` to seed just the 15 hand-written demo routes.
+
+The airports are real; the schedules and fares are generated. Airport data comes from
+[OurAirports](https://ourairports.com/data/) (public domain) and time zones from
+[OpenFlights](https://openflights.org/data.html) (Open Database License).
+
 To run the Playwright tests for the first time, install the browsers once:
 
 ```sh
