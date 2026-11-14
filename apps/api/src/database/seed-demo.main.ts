@@ -3,12 +3,14 @@
  * Run by `pnpm bootstrap`, or directly with `node dist/database/seed-demo.main.js`.
  *
  * Optional environment (apps/api/.env or the shell): ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME,
- * DEMO_TRAVELER_EMAIL, DEMO_TRAVELER_PASSWORD. The built-in defaults are for local development
+ * DEMO_TRAVELER_EMAIL, DEMO_TRAVELER_PASSWORD, and SEED_WORLD=false to skip the world network
+ * (about 50,000 flights over 1,168 airports, src/database/world). The built-in defaults are for local development
  * only, so a production environment must supply its own passwords.
  */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
-import { seedDemo } from './seed-demo';
+import { seedDemo, type FlightSeedResult } from './seed-demo';
+import { seedWorld } from './world/seed-world';
 
 const LOCAL_DEFAULTS = {
   adminEmail: 'admin@example.com',
@@ -40,18 +42,34 @@ async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
   try {
     const summary = await seedDemo(app, { admin, traveler });
-    const { flights } = summary;
     console.log(`Administrator ${admin.email}: ${summary.admin}.`);
     console.log(`Demo traveler ${traveler.email}: ${summary.traveler}.`);
-    console.log(`Flights: ${flights.created} created, ${flights.existing} already there.`);
-    if (flights.rejected.length > 0) {
-      const first = flights.rejected[0];
-      throw new Error(
-        `The Catalog refused ${flights.rejected.length} demo flights, e.g. ${first.flightNumber} on ${first.departure}: ${first.reason}`,
+    report('Demo flights', summary.flights);
+
+    if (env.SEED_WORLD !== 'false') {
+      const started = Date.now();
+      const world = await seedWorld(app, {
+        onProgress: (done, total) => process.stdout.write(`\rWorld network: ${done}/${total}`),
+      });
+      process.stdout.write('\n');
+      console.log(
+        `Airports: ${world.airports.created} created, ${world.airports.existing} already there.`,
       );
+      report('World flights', world.flights);
+      console.log(`World network seeded in ${Math.round((Date.now() - started) / 1000)} s.`);
     }
   } finally {
     await app.close();
+  }
+}
+
+function report(label: string, flights: FlightSeedResult): void {
+  console.log(`${label}: ${flights.created} created, ${flights.existing} already there.`);
+  if (flights.rejected.length > 0) {
+    const first = flights.rejected[0];
+    throw new Error(
+      `The Catalog refused ${flights.rejected.length} ${label.toLowerCase()}, e.g. ${first.flightNumber} on ${first.departure}: ${first.reason}`,
+    );
   }
 }
 
