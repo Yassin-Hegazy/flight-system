@@ -425,30 +425,65 @@
       "verifiedBy": "test"
     },
     {
-      "id": "US-TK-01",
-      "module": "ticketing",
-      "title": "Issue passenger tickets",
+      "id": "US-BK-01",
+      "module": "booking",
+      "title": "Create a booking",
       "milestone": "beta",
       "verifiedBy": "test"
     },
     {
-      "id": "US-TK-02",
-      "module": "ticketing",
-      "title": "View ticket information",
+      "id": "US-BK-02",
+      "module": "booking",
+      "title": "Track the booking lifecycle",
       "milestone": "beta",
       "verifiedBy": "test"
     },
     {
-      "id": "US-TK-03",
-      "module": "ticketing",
-      "title": "Void tickets on cancellation",
+      "id": "US-BK-03",
+      "module": "booking",
+      "title": "Preserve the booked fare",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-BK-04",
+      "module": "booking",
+      "title": "Retrieve a booking by reference",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-BK-05",
+      "module": "booking",
+      "title": "Cancel an eligible booking",
       "milestone": "final",
       "verifiedBy": "test"
     },
     {
-      "id": "US-TK-04",
-      "module": "ticketing",
-      "title": "Print an e-ticket",
+      "id": "US-BK-06",
+      "module": "booking",
+      "title": "List my bookings",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-BK-07",
+      "module": "booking",
+      "title": "Expire unpaid bookings",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-BK-08",
+      "module": "booking",
+      "title": "React to an airline cancellation",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-BK-09",
+      "module": "booking",
+      "title": "Fill passengers from saved travelers",
       "milestone": "final",
       "verifiedBy": "test"
     }
