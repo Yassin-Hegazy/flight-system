@@ -5,7 +5,11 @@ import {
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { ApiSession } from '../../shared/api-docs';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -83,6 +87,15 @@ class CreateBookingBody {
   @IsInt()
   @Min(0)
   displayedTotal?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'For a round trip: the return flight, on the reverse route after the outbound lands.',
+  })
+  @IsOptional()
+  @IsUUID()
+  returnFlightId?: string;
 }
 
 function validKey(raw: string | undefined): string | undefined {
@@ -108,6 +121,11 @@ export class BookingController {
 
   @Post()
   @ApiOperation({ summary: 'Book a flight for your passengers (held for payment)' })
+  @ApiCreatedResponse({
+    description:
+      'PENDING_PAYMENT, with passengers, segments, the fare snapshot and the hold expiry. A repeated Idempotency-Key returns the original booking.',
+  })
+  @ApiSession(400, 403, 409)
   @ApiHeader({
     name: 'Idempotency-Key',
     required: false,
@@ -129,6 +147,7 @@ export class BookingController {
           cabin: body.cabin,
           passengers: body.passengers,
           displayedTotal: body.displayedTotal,
+          returnFlightId: body.returnFlightId,
         },
         validKey(key),
       );
@@ -138,6 +157,16 @@ export class BookingController {
 
   @Get()
   @ApiOperation({ summary: 'List your bookings, split into upcoming and past' })
+  @ApiQuery({
+    name: 'includeExpired',
+    required: false,
+    type: Boolean,
+    description: 'Also list expired bookings (hidden by default).',
+  })
+  @ApiOkResponse({
+    description: 'Reference, route, local departure, status and total for each booking.',
+  })
+  @ApiSession(403)
   list(@Ctx() ctx: RequestContext, @Query('includeExpired') includeExpired?: string) {
     const action = new Action(() =>
       this.queries.listMine(signedIn(ctx).id, { includeExpired: includeExpired === 'true' }),
@@ -147,6 +176,10 @@ export class BookingController {
 
   @Get(':reference')
   @ApiOperation({ summary: 'Read your booking: status, passengers, fare snapshot and history' })
+  @ApiOkResponse({
+    description: 'The booking with its segments, passengers and every status change.',
+  })
+  @ApiSession(403, 404)
   read(@Ctx() ctx: RequestContext, @Param('reference') reference: string) {
     const action = new Action(async () => {
       const booking = await this.queries.getOwned(reference, signedIn(ctx).id);
@@ -159,6 +192,8 @@ export class BookingController {
   @Post(':reference/cancel')
   @HttpCode(200)
   @ApiOperation({ summary: 'Cancel your booking (paid ones until 24 h before departure)' })
+  @ApiOkResponse({ description: 'The cancelled booking; cancelling again returns it unchanged.' })
+  @ApiSession(403, 404, 409)
   cancel(@Ctx() ctx: RequestContext, @Param('reference') reference: string) {
     const action = new Action(() => this.cancellations.cancelOwned(reference, signedIn(ctx).id));
     return new WithRole(action, UserRole.Traveler).execute(ctx, undefined);

@@ -486,6 +486,34 @@
       "title": "Fill passengers from saved travelers",
       "milestone": "final",
       "verifiedBy": "test"
+    },
+    {
+      "id": "US-TK-01",
+      "module": "ticketing",
+      "title": "Issue passenger tickets",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-TK-02",
+      "module": "ticketing",
+      "title": "View ticket information",
+      "milestone": "beta",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-TK-03",
+      "module": "ticketing",
+      "title": "Void tickets on cancellation",
+      "milestone": "final",
+      "verifiedBy": "test"
+    },
+    {
+      "id": "US-TK-04",
+      "module": "ticketing",
+      "title": "Print an e-ticket",
+      "milestone": "final",
+      "verifiedBy": "test"
     }
   ]
 }

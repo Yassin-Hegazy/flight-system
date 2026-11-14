@@ -157,13 +157,14 @@ export class AdministrationOperationsController {
         if (!(await this.catalog.getFlight(id, tx))) throw flightNotFound();
         const passengers = await this.passengers.confirmedFlight(tx, id);
         const tickets = await this.tickets.forFlight(tx, id);
-        const numbers = new Map(tickets.map((ticket) => [ticket.bookingId, ticket]));
+        // One ticket per passenger on this flight, so each passenger shows their own.
+        const numbers = new Map(tickets.map((ticket) => [ticket.passengerId, ticket]));
         return passengers
           .map((passenger) => ({
             passengerName: passenger.passengerName,
             bookingReference: passenger.reference,
-            ticketNumber: numbers.get(passenger.id)?.number ?? null,
-            status: numbers.get(passenger.id)?.status ?? passenger.status,
+            ticketNumber: numbers.get(passenger.passengerId)?.number ?? null,
+            status: numbers.get(passenger.passengerId)?.status ?? passenger.status,
           }))
           .sort((a, b) => a.bookingReference.localeCompare(b.bookingReference));
       }),

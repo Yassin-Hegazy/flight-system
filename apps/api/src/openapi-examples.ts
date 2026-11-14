@@ -20,11 +20,11 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   'GET /admin/audit': {
     '200': [
       {
-        id: '6432f78d-b1a5-4170-bb31-9ad0aa509795',
-        actorId: '1d95955d-e964-4440-ac42-393f8a45529b',
+        id: 'd83ed73e-bb8e-42fc-8e4c-7d8154e53efe',
+        actorId: 'a125bf99-b622-45e3-b0a7-cdc30268be85',
         action: 'CancelFlight',
-        target: '92df7417-15fa-4057-b8ef-22c81789dc12',
-        flightId: '92df7417-15fa-4057-b8ef-22c81789dc12',
+        target: 'acae291f-e6c1-4f29-983a-2b2f07965637',
+        flightId: 'acae291f-e6c1-4f29-983a-2b2f07965637',
         before: {
           status: 'DELAYED',
           cancelReason: null,
@@ -34,30 +34,30 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
           cancelReason: 'Aircraft change',
           bookingsCancelled: 0,
         },
-        createdAt: '2026-11-13T21:46:12.127Z',
+        createdAt: '2026-11-14T10:37:03.968Z',
       },
       {
-        id: 'ba9aa971-e324-4ae8-af18-3cd72e4f4694',
-        actorId: '1d95955d-e964-4440-ac42-393f8a45529b',
+        id: 'fbc45f16-e848-4a5f-87a0-849c57fb1142',
+        actorId: 'a125bf99-b622-45e3-b0a7-cdc30268be85',
         action: 'UpdateFlightStatus',
-        target: '92df7417-15fa-4057-b8ef-22c81789dc12',
-        flightId: '92df7417-15fa-4057-b8ef-22c81789dc12',
+        target: 'acae291f-e6c1-4f29-983a-2b2f07965637',
+        flightId: 'acae291f-e6c1-4f29-983a-2b2f07965637',
         before: {
           status: 'SCHEDULED',
           estimatedDepartureUtc: null,
         },
         after: {
           status: 'DELAYED',
-          estimatedDepartureUtc: '2026-11-23T10:00:00.000Z',
+          estimatedDepartureUtc: '2026-11-24T10:00:00.000Z',
         },
-        createdAt: '2026-11-13T21:46:12.093Z',
+        createdAt: '2026-11-14T10:37:03.938Z',
       },
     ],
   },
   'GET /admin/flights/{id}/load': {
     '200': [
       {
-        flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
+        flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
         cabin: 'ECONOMY',
         capacity: 160,
         committedSeats: 0,
@@ -65,7 +65,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
         availableSeats: 160,
       },
       {
-        flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
+        flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
         cabin: 'BUSINESS',
         capacity: 20,
         committedSeats: 0,
@@ -77,49 +77,106 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   'GET /admin/flights/{id}/manifest': {
     '200': [
       {
-        passengerName: 'Demo Traveler',
-        bookingReference: 'F4CSK4',
+        passengerName: 'Sara Hassan',
+        bookingReference: '9TG6GF',
         ticketNumber: '9990000000001',
+        status: 'VALID',
+      },
+      {
+        passengerName: 'Ahmed Hassan',
+        bookingReference: '9TG6GF',
+        ticketNumber: '9990000000002',
         status: 'VALID',
       },
     ],
   },
+  'GET /bookings': {
+    '200': {
+      upcoming: [
+        {
+          reference: '9TG6GF',
+          route: {
+            origin: 'CAI',
+            destination: 'LHR',
+          },
+          departureLocal: '2026-11-17T12:00+02:00',
+          status: 'PENDING_PAYMENT',
+          total: {
+            amountMinor: 3987500,
+            currency: 'EGP',
+          },
+        },
+      ],
+      past: [],
+    },
+  },
   'GET /bookings/{reference}': {
     '200': {
-      reference: 'F4CSK4',
-      flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
+      reference: '9TG6GF',
+      flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
       cabin: 'ECONOMY',
-      status: 'TICKETED',
+      status: 'PENDING_PAYMENT',
       amount: {
-        amountMinor: 1450000,
+        amountMinor: 3987500,
         currency: 'EGP',
       },
+      expiresAt: '2026-11-14T10:52:03.341Z',
+      cancelReason: null,
+      passengers: [
+        {
+          firstName: 'Sara',
+          lastName: 'Hassan',
+          birthDate: '1990-05-01',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+        {
+          firstName: 'Ahmed',
+          lastName: 'Hassan',
+          birthDate: '1988-02-11',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+      ],
+      segments: [
+        {
+          flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+          cabin: 'ECONOMY',
+        },
+      ],
+      history: [
+        {
+          from: null,
+          to: 'PENDING_PAYMENT',
+          cause: 'CREATED',
+          at: '2026-11-14T10:37:03.336Z',
+        },
+      ],
     },
   },
   'GET /bookings/{reference}/receipt': {
     '200': {
-      id: '3479178e-0086-4d3e-8e59-1869d79cbcd3',
+      id: 'f0134cbb-872c-4164-950d-5f6c9ea66f37',
       status: 'SUCCEEDED',
       amount: {
-        amountMinor: 1450000,
+        amountMinor: 3987500,
         currency: 'EGP',
       },
       card: {
         brand: 'VISA',
         last4: '4242',
       },
-      bookingReference: 'F4CSK4',
-      createdAt: '2026-11-13T21:46:11.553Z',
-      resolvedAt: '2026-11-13T21:46:11.570Z',
+      bookingReference: '9TG6GF',
+      createdAt: '2026-11-14T10:37:03.452Z',
+      resolvedAt: '2026-11-14T10:37:03.460Z',
       declineReason: null,
-      refund: {
-        status: 'SUCCEEDED',
-        amount: {
-          amountMinor: 1450000,
-          currency: 'EGP',
-        },
-        resolvedAt: '2026-11-13T21:46:12.428Z',
-      },
+      refund: null,
     },
   },
   'GET /bookings/{reference}/tickets': {
@@ -127,11 +184,11 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
       {
         ticketNumber: '9990000000001',
         status: 'VALID',
-        bookingReference: 'F4CSK4',
-        passengerName: 'Demo Traveler',
+        bookingReference: '9TG6GF',
+        passengerName: 'Sara Hassan',
         cabin: 'ECONOMY',
         flight: {
-          flightNumber: 'MS8447',
+          flightNumber: 'MS4933',
           airline: {
             code: 'MS',
             name: 'EgyptAir',
@@ -146,11 +203,40 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
             name: 'Heathrow Airport',
             city: 'London',
           },
-          scheduledDepartureLocal: '2026-11-16T12:00+02:00',
-          scheduledArrivalLocal: '2026-11-16T15:00+00:00',
+          scheduledDepartureLocal: '2026-11-17T12:00+02:00',
+          scheduledArrivalLocal: '2026-11-17T15:00+00:00',
           status: 'SCHEDULED',
         },
-        issuedAt: '2026-11-13T21:46:11.579Z',
+        issuedAt: '2026-11-14T10:37:03.472Z',
+        voidedAt: null,
+      },
+      {
+        ticketNumber: '9990000000002',
+        status: 'VALID',
+        bookingReference: '9TG6GF',
+        passengerName: 'Ahmed Hassan',
+        cabin: 'ECONOMY',
+        flight: {
+          flightNumber: 'MS4933',
+          airline: {
+            code: 'MS',
+            name: 'EgyptAir',
+          },
+          origin: {
+            code: 'CAI',
+            name: 'Cairo International Airport',
+            city: 'Cairo',
+          },
+          destination: {
+            code: 'LHR',
+            name: 'Heathrow Airport',
+            city: 'London',
+          },
+          scheduledDepartureLocal: '2026-11-17T12:00+02:00',
+          scheduledArrivalLocal: '2026-11-17T15:00+00:00',
+          status: 'SCHEDULED',
+        },
+        issuedAt: '2026-11-14T10:37:03.472Z',
         voidedAt: null,
       },
     ],
@@ -158,7 +244,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   'GET /flights': {
     '200': [
       {
-        id: 'ee2698c8-25a1-4a22-8702-f2c36398152f',
+        id: '5aa85c0f-2e67-4f9e-8ef6-0f06b5d68596',
         flightNumber: 'MS777',
         airline: {
           code: 'MS',
@@ -176,10 +262,10 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
           city: 'London',
           timezone: 'Europe/London',
         },
-        scheduledDepartureUtc: '2026-11-16T06:00:00.000Z',
-        scheduledArrivalUtc: '2026-11-16T11:00:00.000Z',
-        scheduledDepartureLocal: '2026-11-16T08:00+02:00',
-        scheduledArrivalLocal: '2026-11-16T11:00+00:00',
+        scheduledDepartureUtc: '2026-11-17T06:00:00.000Z',
+        scheduledArrivalUtc: '2026-11-17T11:00:00.000Z',
+        scheduledDepartureLocal: '2026-11-17T08:00+02:00',
+        scheduledArrivalLocal: '2026-11-17T11:00+00:00',
         durationMinutes: 300,
         status: 'SCHEDULED',
         fares: {
@@ -207,7 +293,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   },
   'GET /flights/{id}': {
     '200': {
-      id: 'ee2698c8-25a1-4a22-8702-f2c36398152f',
+      id: '5aa85c0f-2e67-4f9e-8ef6-0f06b5d68596',
       flightNumber: 'MS777',
       airline: {
         code: 'MS',
@@ -225,10 +311,10 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
         city: 'London',
         timezone: 'Europe/London',
       },
-      scheduledDepartureUtc: '2026-11-16T06:00:00.000Z',
-      scheduledArrivalUtc: '2026-11-16T11:00:00.000Z',
-      scheduledDepartureLocal: '2026-11-16T08:00+02:00',
-      scheduledArrivalLocal: '2026-11-16T11:00+00:00',
+      scheduledDepartureUtc: '2026-11-17T06:00:00.000Z',
+      scheduledArrivalUtc: '2026-11-17T11:00:00.000Z',
+      scheduledDepartureLocal: '2026-11-17T08:00+02:00',
+      scheduledArrivalLocal: '2026-11-17T11:00+00:00',
       durationMinutes: 300,
       status: 'SCHEDULED',
       fares: {
@@ -253,28 +339,28 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
     '200': {
       items: [
         {
-          id: '72074299-b590-4163-985f-194237459c8c',
+          id: 'e345b914-a40a-4eba-b7d4-5d96bfe1f3e3',
           type: 'BookingCancelled',
-          title: 'Booking F4CSK4 cancelled',
-          body: 'Your booking F4CSK4 has been cancelled.',
-          link: '/bookings/F4CSK4',
+          title: 'Booking 9TG6GF cancelled',
+          body: 'Your booking 9TG6GF has been cancelled.',
+          link: '/bookings/9TG6GF',
           read: false,
           readAt: null,
-          createdAt: '2026-11-13T21:46:12.419Z',
+          createdAt: '2026-11-14T10:37:04.162Z',
         },
         {
-          id: 'b77dfa5f-6bee-4ecf-8359-dd37d5baeada',
+          id: '1e694deb-648e-4e56-9c37-9dc59613d4c1',
           type: 'TicketsIssued',
-          title: 'Tickets for F4CSK4 are ready',
-          body: 'Your tickets for booking F4CSK4 have been issued.',
-          link: '/bookings/F4CSK4',
+          title: 'Tickets for QVY7TP are ready',
+          body: 'Your tickets for booking QVY7TP have been issued.',
+          link: '/bookings/QVY7TP',
           read: false,
           readAt: null,
-          createdAt: '2026-11-13T21:46:11.583Z',
+          createdAt: '2026-11-14T10:37:03.650Z',
         },
       ],
-      unread: 3,
-      total: 3,
+      unread: 5,
+      total: 5,
       page: 1,
       pageSize: 20,
     },
@@ -297,8 +383,8 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
     '200': {
       items: [
         {
-          flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
-          flightNumber: 'MS8447',
+          flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+          flightNumber: 'MS4933',
           airline: {
             code: 'MS',
             name: 'EgyptAir',
@@ -315,10 +401,10 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
             city: 'London',
             timezone: 'Europe/London',
           },
-          departureLocal: '2026-11-16T12:00+02:00',
-          arrivalLocal: '2026-11-16T15:00+00:00',
-          departureUtc: '2026-11-16T10:00:00.000Z',
-          arrivalUtc: '2026-11-16T15:00:00.000Z',
+          departureLocal: '2026-11-17T12:00+02:00',
+          arrivalLocal: '2026-11-17T15:00+00:00',
+          departureUtc: '2026-11-17T10:00:00.000Z',
+          arrivalUtc: '2026-11-17T15:00:00.000Z',
           status: 'SCHEDULED',
           durationMinutes: 300,
           stops: 0,
@@ -328,19 +414,31 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
             currency: 'EGP',
           },
           total: {
-            amountMinor: 1450000,
+            amountMinor: 3987500,
             currency: 'EGP',
           },
           breakdown: [
             {
               passengerType: 'ADULT',
-              count: 1,
+              count: 2,
               unitPrice: {
                 amountMinor: 1450000,
                 currency: 'EGP',
               },
               amount: {
-                amountMinor: 1450000,
+                amountMinor: 2900000,
+                currency: 'EGP',
+              },
+            },
+            {
+              passengerType: 'CHILD',
+              count: 1,
+              unitPrice: {
+                amountMinor: 1087500,
+                currency: 'EGP',
+              },
+              amount: {
+                amountMinor: 1087500,
                 currency: 'EGP',
               },
             },
@@ -348,22 +446,16 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
         },
       ],
       page: 1,
-      pageSize: 5,
+      pageSize: 20,
       total: 1,
       hasNext: false,
-      sort: 'DURATION',
-      filters: {
-        departureWindow: {
-          from: '06:00',
-          to: '23:00',
-        },
-        airlines: ['MS'],
-      },
+      sort: 'PRICE',
+      filters: {},
     },
     '400': {
       code: 'SAME_AIRPORT',
       message: 'Origin and destination must be different airports.',
-      requestId: 'cc71ce79-1019-4e0d-addd-7befcf510306',
+      requestId: '81f9bbeb-3274-40a0-ac35-66fe559717a2',
       fieldErrors: {
         destination: 'Origin and destination must be different airports.',
       },
@@ -374,8 +466,8 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
       outbound: {
         items: [
           {
-            flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
-            flightNumber: 'MS8447',
+            flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+            flightNumber: 'MS4933',
             airline: {
               code: 'MS',
               name: 'EgyptAir',
@@ -392,10 +484,10 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
               city: 'London',
               timezone: 'Europe/London',
             },
-            departureLocal: '2026-11-16T12:00+02:00',
-            arrivalLocal: '2026-11-16T15:00+00:00',
-            departureUtc: '2026-11-16T10:00:00.000Z',
-            arrivalUtc: '2026-11-16T15:00:00.000Z',
+            departureLocal: '2026-11-17T12:00+02:00',
+            arrivalLocal: '2026-11-17T15:00+00:00',
+            departureUtc: '2026-11-17T10:00:00.000Z',
+            arrivalUtc: '2026-11-17T15:00:00.000Z',
             status: 'SCHEDULED',
             durationMinutes: 300,
             stops: 0,
@@ -432,10 +524,61 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
         filters: {},
       },
       inbound: {
-        items: [],
+        items: [
+          {
+            flightId: '1adea857-d49c-4019-8a6a-9f79a20212bb',
+            flightNumber: 'MS2351',
+            airline: {
+              code: 'MS',
+              name: 'EgyptAir',
+            },
+            origin: {
+              code: 'LHR',
+              name: 'Heathrow Airport',
+              city: 'London',
+              timezone: 'Europe/London',
+            },
+            destination: {
+              code: 'CAI',
+              name: 'Cairo International Airport',
+              city: 'Cairo',
+              timezone: 'Africa/Cairo',
+            },
+            departureLocal: '2026-11-20T09:00+00:00',
+            arrivalLocal: '2026-11-20T16:00+02:00',
+            departureUtc: '2026-11-20T09:00:00.000Z',
+            arrivalUtc: '2026-11-20T14:00:00.000Z',
+            status: 'SCHEDULED',
+            durationMinutes: 300,
+            stops: 0,
+            cabin: 'ECONOMY',
+            adultFare: {
+              amountMinor: 1300000,
+              currency: 'EGP',
+            },
+            total: {
+              amountMinor: 1300000,
+              currency: 'EGP',
+            },
+            breakdown: [
+              {
+                passengerType: 'ADULT',
+                count: 1,
+                unitPrice: {
+                  amountMinor: 1300000,
+                  currency: 'EGP',
+                },
+                amount: {
+                  amountMinor: 1300000,
+                  currency: 'EGP',
+                },
+              },
+            ],
+          },
+        ],
         page: 1,
         pageSize: 20,
-        total: 0,
+        total: 1,
         hasNext: false,
         sort: 'PRICE',
         filters: {},
@@ -445,12 +588,12 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   'GET /tickets/{number}': {
     '200': {
       ticketNumber: '9990000000001',
-      status: 'VOID',
-      bookingReference: 'F4CSK4',
-      passengerName: 'Demo Traveler',
+      status: 'VALID',
+      bookingReference: '9TG6GF',
+      passengerName: 'Sara Hassan',
       cabin: 'ECONOMY',
       flight: {
-        flightNumber: 'MS8447',
+        flightNumber: 'MS4933',
         airline: {
           code: 'MS',
           name: 'EgyptAir',
@@ -465,34 +608,34 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
           name: 'Heathrow Airport',
           city: 'London',
         },
-        scheduledDepartureLocal: '2026-11-16T12:00+02:00',
-        scheduledArrivalLocal: '2026-11-16T15:00+00:00',
+        scheduledDepartureLocal: '2026-11-17T12:00+02:00',
+        scheduledArrivalLocal: '2026-11-17T15:00+00:00',
         status: 'SCHEDULED',
       },
-      issuedAt: '2026-11-13T21:46:11.579Z',
-      voidedAt: '2026-11-13T21:46:12.401Z',
+      issuedAt: '2026-11-14T10:37:03.472Z',
+      voidedAt: null,
     },
   },
   'GET /tickets/{number}/print': {
     '200': {
       ticketNumber: '9990000000001',
-      status: 'VOID',
-      voidMarking: 'VOID',
-      passengerName: 'Demo Traveler',
-      bookingReference: 'F4CSK4',
+      status: 'VALID',
+      voidMarking: null,
+      passengerName: 'Sara Hassan',
+      bookingReference: '9TG6GF',
       airline: 'EgyptAir',
-      flightNumber: 'MS8447',
+      flightNumber: 'MS4933',
       from: 'CAI',
       to: 'LHR',
-      departureLocal: '2026-11-16T12:00+02:00',
-      arrivalLocal: '2026-11-16T15:00+00:00',
+      departureLocal: '2026-11-17T12:00+02:00',
+      arrivalLocal: '2026-11-17T15:00+00:00',
       cabin: 'ECONOMY',
     },
   },
   'GET /users/me': {
     '200': {
-      id: '1672531c-da30-4df1-a3aa-a742944460d7',
-      email: 'traveler.1794606370514@example.com',
+      id: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
+      email: 'traveler.1794652622665@example.com',
       name: 'Nour Hassan',
       role: 'TRAVELER',
     },
@@ -500,8 +643,8 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   'GET /users/me/saved-travelers': {
     '200': [
       {
-        id: '0ee1d433-9263-497d-b7e1-e81895dcf56a',
-        ownerId: '1672531c-da30-4df1-a3aa-a742944460d7',
+        id: 'd7bc312f-f25a-44ad-8ae4-ac168b152415',
+        ownerId: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
         name: 'Omar Hassan',
         dateOfBirth: '2015-06-01',
       },
@@ -515,27 +658,27 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   },
   'PATCH /users/me/saved-travelers/{id}': {
     '200': {
-      id: '0ee1d433-9263-497d-b7e1-e81895dcf56a',
-      ownerId: '1672531c-da30-4df1-a3aa-a742944460d7',
+      id: 'd7bc312f-f25a-44ad-8ae4-ac168b152415',
+      ownerId: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
       name: 'Omar M. Hassan',
       dateOfBirth: '2015-06-01',
     },
   },
   'POST /admin/flights': {
     '201': {
-      id: '92df7417-15fa-4057-b8ef-22c81789dc12',
+      id: '34013139-0210-42d8-b80a-387c7c1ff27b',
     },
   },
   'POST /admin/flights/recurring': {
     '201': {
       flights: [
         {
-          date: '2026-12-23',
-          id: '2e1ba156-ad81-4d73-8591-ebaa75e04cf8',
+          date: '2026-12-25',
+          id: '70e8613d-f9be-45cd-91e1-588ca49386e7',
         },
         {
-          date: '2026-12-25',
-          id: '7449ae73-1283-4231-9a72-e0790a920b74',
+          date: '2026-12-28',
+          id: 'ac0a9dc8-5630-4d9e-ac30-2e316facd102',
         },
       ],
     },
@@ -547,27 +690,125 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   },
   'POST /bookings': {
     '201': {
-      reference: 'H9LW27',
-      flightId: 'de69e563-a5bf-49da-b886-0b967f542f24',
+      reference: '9TG6GF',
+      flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
       cabin: 'ECONOMY',
       status: 'PENDING_PAYMENT',
       amount: {
-        amountMinor: 1450000,
+        amountMinor: 3987500,
+        currency: 'EGP',
+      },
+      expiresAt: '2026-11-14T10:52:03.341Z',
+      cancelReason: null,
+      passengers: [
+        {
+          firstName: 'Sara',
+          lastName: 'Hassan',
+          birthDate: '1990-05-01',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+        {
+          firstName: 'Ahmed',
+          lastName: 'Hassan',
+          birthDate: '1988-02-11',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+      ],
+      segments: [
+        {
+          flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+          cabin: 'ECONOMY',
+        },
+      ],
+      history: [
+        {
+          from: null,
+          to: 'PENDING_PAYMENT',
+          cause: 'CREATED',
+          at: '2026-11-14T10:37:03.336Z',
+        },
+      ],
+    },
+    '409': {
+      code: 'PRICE_CHANGED',
+      message: 'The fare changed since it was displayed.',
+      requestId: 'e77588c1-8464-408c-a68a-065db00dc372',
+      fieldErrors: {
+        currentTotal: '1450000',
         currency: 'EGP',
       },
     },
   },
   'POST /bookings/{reference}/cancel': {
     '200': {
+      reference: '9TG6GF',
+      flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+      cabin: 'ECONOMY',
       status: 'CANCELLED',
+      amount: {
+        amountMinor: 3987500,
+        currency: 'EGP',
+      },
+      expiresAt: null,
+      cancelReason: 'TRAVELER',
+      passengers: [
+        {
+          firstName: 'Sara',
+          lastName: 'Hassan',
+          birthDate: '1990-05-01',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+        {
+          firstName: 'Ahmed',
+          lastName: 'Hassan',
+          birthDate: '1988-02-11',
+          type: 'ADULT',
+          fare: {
+            amountMinor: 1450000,
+            currency: 'EGP',
+          },
+        },
+      ],
+      segments: [
+        {
+          flightId: '34013139-0210-42d8-b80a-387c7c1ff27b',
+          cabin: 'ECONOMY',
+        },
+      ],
+      history: [
+        {
+          from: null,
+          to: 'PENDING_PAYMENT',
+          cause: 'CREATED',
+          at: '2026-11-14T10:37:03.336Z',
+        },
+        {
+          from: 'PENDING_PAYMENT',
+          to: 'CONFIRMED',
+          cause: 'PAYMENT',
+          at: '2026-11-14T10:37:03.456Z',
+        },
+      ],
     },
   },
   'POST /bookings/{reference}/payments': {
     '201': {
-      id: '3479178e-0086-4d3e-8e59-1869d79cbcd3',
+      id: 'f0134cbb-872c-4164-950d-5f6c9ea66f37',
       status: 'SUCCEEDED',
       amount: {
-        amountMinor: 1450000,
+        amountMinor: 3987500,
         currency: 'EGP',
       },
       card: {
@@ -578,7 +819,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
     '400': {
       code: 'DECLINED',
       message: 'The gateway declined this payment.',
-      requestId: '1f5771b8-7f74-4ab0-b534-f7be08f7023c',
+      requestId: '7f9b8488-faca-42c0-b13c-3ef9bb143339',
       fieldErrors: {
         reason: 'insufficient_funds',
       },
@@ -586,33 +827,33 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
   },
   'POST /notifications/read-all': {
     '200': {
-      updated: 2,
+      updated: 4,
     },
   },
   'POST /users/admins': {
     '201': {
-      id: '6d5ad7af-f21a-4af6-a62a-174c0e18a4e3',
+      id: '2abf4400-e9e8-4cc3-bc47-51691f9dc938',
     },
   },
   'POST /users/me/saved-travelers': {
     '201': {
-      ownerId: '1672531c-da30-4df1-a3aa-a742944460d7',
+      ownerId: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
       name: 'Omar Hassan',
       dateOfBirth: '2015-06-01',
-      id: '0ee1d433-9263-497d-b7e1-e81895dcf56a',
+      id: 'd7bc312f-f25a-44ad-8ae4-ac168b152415',
     },
   },
   'POST /users/register': {
     '201': {
-      id: '1672531c-da30-4df1-a3aa-a742944460d7',
+      id: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
     },
   },
   'POST /users/sign-in': {
     '200': {
-      id: '553ea74f-947f-4c2c-80a2-b6aa3499f865',
-      email: 'traveler@example.com',
-      name: 'Demo Traveler',
-      role: 'TRAVELER',
+      id: 'a125bf99-b622-45e3-b0a7-cdc30268be85',
+      email: 'admin@example.com',
+      name: 'Administrator',
+      role: 'ADMIN',
     },
   },
   'PUT /admin/airports/{code}': {

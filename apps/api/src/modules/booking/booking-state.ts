@@ -74,7 +74,8 @@ export abstract class BookingState {
     throw new InvalidBookingTransition(this.name, 'EXPIRED');
   }
 
-  cancel(_ctx: CancelContext): BookingState {
+  cancel(ctx: CancelContext): BookingState {
+    void ctx; // the base state rejects the move whoever asks and whenever
     throw new InvalidBookingTransition(this.name, 'CANCELLED');
   }
 }

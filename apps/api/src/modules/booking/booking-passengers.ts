@@ -3,13 +3,18 @@ import { In } from 'typeorm';
 import type { Tx } from '../../shared/db';
 import { BookingPassengerEntity } from './booking-passenger.entity';
 import { BookingEntity } from './booking.entity';
+import { bookingIdsOnFlight } from './booking-segments';
 
 /** The manifest's source: every passenger on the paid bookings of a flight. */
 @Injectable()
 export class BookingPassengers {
   async confirmedFlight(tx: Tx, flightId: string) {
     const bookings = await tx.find(BookingEntity, {
-      where: { flightId, status: In(['CONFIRMED', 'TICKETED']) },
+      // Every paid booking with a leg on this flight, outbound or return.
+      where: {
+        id: In(await bookingIdsOnFlight(tx, flightId)),
+        status: In(['CONFIRMED', 'TICKETED']),
+      },
     });
     if (bookings.length === 0) return [];
     const passengers = await tx.find(BookingPassengerEntity, {
@@ -21,6 +26,8 @@ export class BookingPassengers {
       const booking = byBooking.get(passenger.bookingId)!;
       return {
         id: booking.id,
+        /** Ticketing's tickets name this passenger, so the manifest can match each one. */
+        passengerId: passenger.id,
         reference: booking.reference,
         passengerName: `${passenger.firstName} ${passenger.lastName}`.trim(),
         status: booking.status,

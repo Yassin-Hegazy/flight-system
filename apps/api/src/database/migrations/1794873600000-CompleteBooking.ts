@@ -10,7 +10,7 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  * foreign key from a table outside that list would make those statements fail. Booking writes
  * every row in one transaction (see CreateBooking), so the ids always agree.
  */
-export class CompleteBooking1794787200000 implements MigrationInterface {
+export class CompleteBooking1794873600000 implements MigrationInterface {
   async up(db: QueryRunner): Promise<void> {
     await db.query(
       'ALTER TABLE bookings DROP CONSTRAINT bookings_status_check, DROP CONSTRAINT bookings_payment_state',
@@ -76,17 +76,45 @@ export class CompleteBooking1794787200000 implements MigrationInterface {
       SELECT id, 0, "passengerName", '', 'ADULT', "amountMinor", currency FROM bookings`);
     await db.query(`INSERT INTO booking_history ("bookingId", "fromStatus", "toStatus", cause)
       SELECT id, NULL, 'PENDING_PAYMENT', 'CREATED' FROM bookings`);
+    // Paid bookings went through CONFIRMED; ticketed ones then through TICKETED.
     await db.query(`INSERT INTO booking_history ("bookingId", "fromStatus", "toStatus", cause)
-      SELECT id, 'PENDING_PAYMENT', status, CASE status WHEN 'CONFIRMED' THEN 'PAYMENT' ELSE 'TRAVELER' END
-      FROM bookings WHERE status <> 'PENDING_PAYMENT'`);
+      SELECT id, 'PENDING_PAYMENT', 'CONFIRMED', 'PAYMENT'
+      FROM bookings WHERE status IN ('CONFIRMED', 'TICKETED') OR "paymentId" IS NOT NULL`);
+    await db.query(`INSERT INTO booking_history ("bookingId", "fromStatus", "toStatus", cause)
+      SELECT b.id, 'CONFIRMED', 'TICKETED', 'TICKETING' FROM bookings b
+      WHERE b.status = 'TICKETED'
+        OR (b.status = 'CANCELLED' AND EXISTS (SELECT 1 FROM tickets t WHERE t."bookingId" = b.id))`);
+    await db.query(`INSERT INTO booking_history ("bookingId", "fromStatus", "toStatus", cause)
+      SELECT b.id,
+        CASE
+          WHEN EXISTS (SELECT 1 FROM tickets t WHERE t."bookingId" = b.id) THEN 'TICKETED'
+          WHEN b."paymentId" IS NOT NULL THEN 'CONFIRMED'
+          ELSE 'PENDING_PAYMENT'
+        END,
+        'CANCELLED', 'TRAVELER'
+      FROM bookings b WHERE b.status = 'CANCELLED'`);
+    // Tickets issued before this migration named the booking as their passenger and the flight
+    // as their segment; point them at the passenger and segment rows backfilled above.
+    await db.query(`UPDATE tickets t SET "passengerId" = p.id::text, "segmentId" = s.id::text
+      FROM booking_passengers p, booking_segments s
+      WHERE p."bookingId" = t."bookingId" AND s."bookingId" = t."bookingId"
+        AND t."passengerId" = t."bookingId"::text`);
   }
 
   async down(db: QueryRunner): Promise<void> {
     await db.query(`DO $$ BEGIN
-      IF EXISTS (SELECT 1 FROM bookings WHERE status IN ('TICKETED', 'EXPIRED')) THEN
-        RAISE EXCEPTION 'Cannot revert Booking while ticketed or expired bookings exist';
+      IF EXISTS (SELECT 1 FROM bookings WHERE status = 'EXPIRED') THEN
+        RAISE EXCEPTION 'Cannot revert Booking while expired bookings exist';
+      END IF;
+      -- The earlier schema holds one passenger on one flight per booking.
+      IF EXISTS (SELECT 1 FROM booking_passengers WHERE position > 0)
+        OR EXISTS (SELECT 1 FROM booking_segments WHERE position > 0) THEN
+        RAISE EXCEPTION 'Cannot revert Booking while bookings have several passengers or flights';
       END IF;
     END $$`);
+    await db.query(
+      `UPDATE tickets t SET "passengerId" = t."bookingId"::text, "segmentId" = t."flightId"::text`,
+    );
     await db.query(
       'DROP TABLE booking_idempotency, booking_history, booking_passengers, booking_segments',
     );
@@ -98,7 +126,7 @@ export class CompleteBooking1794787200000 implements MigrationInterface {
     await db.query(`ALTER TABLE bookings
       DROP COLUMN "expiresAt",
       DROP COLUMN "cancelReason",
-      ADD CONSTRAINT bookings_status_check CHECK ("status" IN ('PENDING_PAYMENT', 'CONFIRMED', 'CANCELLED')),
-      ADD CONSTRAINT bookings_payment_state CHECK ("status" = 'CANCELLED' OR ("status" = 'CONFIRMED') = ("paymentId" IS NOT NULL))`);
+      ADD CONSTRAINT bookings_status_check CHECK ("status" IN ('PENDING_PAYMENT', 'CONFIRMED', 'TICKETED', 'CANCELLED')),
+      ADD CONSTRAINT bookings_payment_state CHECK ("status" = 'CANCELLED' OR ("status" IN ('CONFIRMED', 'TICKETED')) = ("paymentId" IS NOT NULL))`);
   }
 }

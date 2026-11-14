@@ -1,3 +1,4 @@
+import type { PassengerKind } from './passenger-rules';
 import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import type { Cabin } from '../flight-catalog/index';
 
@@ -11,4 +12,6 @@ export class BookingSegmentEntity {
   @Column('uuid') flightId!: string;
   @Column({ type: 'varchar', length: 8 }) cabin!: Cabin;
   @Column({ type: 'uuid', unique: true }) holdId!: string;
+  /** This leg's fare per passenger type at booking time, in minor units (the fare snapshot). */
+  @Column('jsonb') unitFares!: Partial<Record<PassengerKind, number>>;
 }
