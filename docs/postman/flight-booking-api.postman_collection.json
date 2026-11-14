@@ -65,6 +65,9 @@
                   "pm.collectionVariables.set('demoFlightNumber', flightNumber());",
                   "pm.collectionVariables.set('demoDeparture', iso(3, 10));",
                   "pm.collectionVariables.set('demoArrival', iso(3, 15));",
+                  "pm.collectionVariables.set('returnFlightNumber', flightNumber());",
+                  "pm.collectionVariables.set('returnDeparture', iso(6, 9));",
+                  "pm.collectionVariables.set('returnArrival', iso(6, 14));",
                   "pm.collectionVariables.set('adminFlightNumber', flightNumber());",
                   "pm.collectionVariables.set('adminDeparture', iso(10, 8));",
                   "pm.collectionVariables.set('adminArrival', iso(10, 13));",
@@ -258,6 +261,41 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"flightNumber\": \"{{demoFlightNumber}}\",\n  \"airlineCode\": \"MS\",\n  \"originCode\": \"CAI\",\n  \"destinationCode\": \"LHR\",\n  \"scheduledDepartureUtc\": \"{{demoDeparture}}\",\n  \"scheduledArrivalUtc\": \"{{demoArrival}}\",\n  \"currency\": \"EGP\",\n  \"fares\": {\n    \"ECONOMY\": 1500000,\n    \"BUSINESS\": 4500000\n  },\n  \"capacity\": {\n    \"ECONOMY\": 150,\n    \"BUSINESS\": 20\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Create the return flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /admin/flights answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('returnFlightId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/flights",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flights"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightNumber\": \"{{returnFlightNumber}}\",\n  \"airlineCode\": \"MS\",\n  \"originCode\": \"LHR\",\n  \"destinationCode\": \"CAI\",\n  \"scheduledDepartureUtc\": \"{{returnDeparture}}\",\n  \"scheduledArrivalUtc\": \"{{returnArrival}}\",\n  \"currency\": \"EGP\",\n  \"fares\": {\n    \"ECONOMY\": 1300000,\n    \"BUSINESS\": 3900000\n  },\n  \"capacity\": {\n    \"ECONOMY\": 150,\n    \"BUSINESS\": 20\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -543,7 +581,8 @@
                 "exec": [
                   "pm.test('GET /search/flights answers 200', () => pm.response.to.have.status(200));",
                   "const found = pm.response.json().items.find((item) => item.flightId === pm.collectionVariables.get('flightId'));",
-                  "pm.test('the new flight is found and priced for the party', () => pm.expect(found).to.have.property('total'));"
+                  "pm.test('the new flight is found and priced for the party', () => pm.expect(found).to.have.property('total'));",
+                  "pm.collectionVariables.set('displayedTotal', found.total.amountMinor);"
                 ]
               }
             }
@@ -667,7 +706,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('GET /search/round-trip answers 200', () => pm.response.to.have.status(200));"
+                  "pm.test('GET /search/round-trip answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('the return flight is offered', () => pm.expect(pm.response.json().inbound.items.map((i) => i.flightId)).to.include(pm.collectionVariables.get('returnFlightId')));"
                 ]
               }
             }
@@ -1106,8 +1146,17 @@
           }
         },
         {
-          "name": "Reserve a seat",
+          "name": "Reserve seats for a family",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('bookingKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -1122,16 +1171,94 @@
           ],
           "request": {
             "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Holds the seats for 15 minutes and snapshots each passenger's fare. displayedTotal is the total the search showed; a different current total is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\",\n  \"passengers\": [\n    {\n      \"firstName\": \"Sara\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"1990-05-01\",\n      \"type\": \"ADULT\"\n    },\n    {\n      \"firstName\": \"Ahmed\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"1988-02-11\",\n      \"type\": \"ADULT\"\n    },\n    {\n      \"firstName\": \"Omar\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"2018-03-01\",\n      \"type\": \"CHILD\"\n    }\n  ],\n  \"displayedTotal\": {{displayedTotal}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Same Idempotency-Key returns the same booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings answers 201', () => pm.response.to.have.status(201));",
+                  "pm.test('no second booking', () => pm.expect(pm.response.json().reference).to.eql(pm.collectionVariables.get('reference')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{bookingKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\",\n  \"passengers\": [\n    {\n      \"firstName\": \"Sara\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"1990-05-01\",\n      \"type\": \"ADULT\"\n    },\n    {\n      \"firstName\": \"Ahmed\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"1988-02-11\",\n      \"type\": \"ADULT\"\n    },\n    {\n      \"firstName\": \"Omar\",\n      \"lastName\": \"Hassan\",\n      \"birthDate\": \"2018-03-01\",\n      \"type\": \"CHILD\"\n    }\n  ],\n  \"displayedTotal\": {{displayedTotal}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rejected: the price changed since it was shown",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings answers 409', () => pm.response.to.have.status(409));",
+                  "pm.test('PRICE_CHANGED with the current total', () => pm.expect(pm.response.json().code).to.eql('PRICE_CHANGED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bookings",
               "host": ["{{baseUrl}}"],
               "path": ["bookings"]
             },
-            "description": "Holds one seat for 15 minutes and snapshots the fare.",
+            "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\"\n}",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"cabin\": \"ECONOMY\",\n  \"displayedTotal\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1160,6 +1287,30 @@
               "raw": "{{baseUrl}}/bookings/{{reference}}",
               "host": ["{{baseUrl}}"],
               "path": ["bookings", "{{reference}}"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "List my bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings answers 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
             },
             "description": ""
           }
@@ -1323,6 +1474,80 @@
               }
             }
           }
+        },
+        {
+          "name": "Reserve a round trip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings answers 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('roundTripReference', json.reference);",
+                  "pm.test('one booking, two segments', () => pm.expect(pm.response.json().segments).to.have.length(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            },
+            "description": "Both legs are held in one transaction; without passengers, the signed-in traveler flies alone.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flightId\": \"{{flightId}}\",\n  \"returnFlightId\": \"{{returnFlightId}}\",\n  \"cabin\": \"ECONOMY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pay for the round trip",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POST /bookings/{{roundTripReference}}/payments answers 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{roundTripReference}}/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{roundTripReference}}", "payments"]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"tok_success\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -1400,6 +1625,31 @@
               "raw": "{{baseUrl}}/tickets/{{ticketNumber}}/print",
               "host": ["{{baseUrl}}"],
               "path": ["tickets", "{{ticketNumber}}", "print"]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Round trip: one ticket per passenger per leg",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GET /bookings/{{roundTripReference}}/tickets answers 200', () => pm.response.to.have.status(200));",
+                  "pm.test('two legs, two tickets', () => pm.expect(pm.response.json()).to.have.length(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/{{roundTripReference}}/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "{{roundTripReference}}", "tickets"]
             },
             "description": ""
           }

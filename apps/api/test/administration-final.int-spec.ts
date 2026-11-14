@@ -136,6 +136,39 @@ describe('Administration final stories', () => {
     ticketNumber = (manifest.body as { ticketNumber: string }[])[0].ticketNumber;
   });
 
+  it('US-AD-05-T04 every passenger of a family booking is on the manifest with their own ticket', async () => {
+    const id = await createFlight(new Date(Date.now() + 96 * 3_600_000), 'MS736');
+    const booked = await write('post', '/bookings', traveler)
+      .send({
+        flightId: id,
+        cabin: 'ECONOMY',
+        passengers: [
+          { firstName: 'Mona', lastName: 'Adel', birthDate: '1990-05-01', type: 'ADULT' },
+          { firstName: 'Karim', lastName: 'Adel', birthDate: '1988-02-11', type: 'ADULT' },
+          { firstName: 'Laila', lastName: 'Adel', birthDate: '2026-01-15', type: 'INFANT' },
+        ],
+      })
+      .expect(201);
+    const { reference } = booked.body as { reference: string };
+    await write('post', `/bookings/${reference}/payments`, traveler)
+      .set('idempotency-key', randomUUID())
+      .send({ token: 'tok_success' })
+      .expect(201);
+
+    const manifest = (await get(`/admin/flights/${id}/manifest`).expect(200)).body as {
+      passengerName: string;
+      ticketNumber: string | null;
+    }[];
+
+    expect(manifest.map(({ passengerName }) => passengerName).sort()).toEqual([
+      'Karim Adel',
+      'Laila Adel',
+      'Mona Adel',
+    ]);
+    expect(new Set(manifest.map(({ ticketNumber }) => ticketNumber)).size).toBe(3);
+    expect(manifest.every(({ ticketNumber }) => /^\d{13}$/.test(ticketNumber ?? ''))).toBe(true);
+  });
+
   it('US-AD-05-T02 load and manifest are for administrators only', async () => {
     for (const path of [`${flightPath()}/load`, `${flightPath()}/manifest`]) {
       await get(path, traveler).expect(403);

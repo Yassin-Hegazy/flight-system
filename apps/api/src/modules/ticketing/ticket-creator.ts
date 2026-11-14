@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Tx } from '../../shared/db';
 import { CLOCK, type Clock } from '../../shared/time';
-import type { TicketingBooking } from '../booking/index';
+import type { EligibleBooking } from '../booking/index';
 import { ETicket, type NewTicket, type Ticket } from './ticket';
 
 /** Hands out ticket numbers; a database sequence in production, a counter in unit tests. */
@@ -22,7 +22,7 @@ export class NotEligibleForTicketing extends Error {
 }
 
 /** Every (passenger, segment) pair becomes one ticket draft. */
-export function draftsFor(booking: TicketingBooking): TicketDraft[] {
+export function draftsFor(booking: EligibleBooking): TicketDraft[] {
   return booking.segments.flatMap((segment) =>
     booking.passengers.map((passenger) => ({
       bookingId: booking.id,
@@ -31,7 +31,8 @@ export function draftsFor(booking: TicketingBooking): TicketDraft[] {
       segmentId: segment.id,
       flightId: segment.flightId,
       cabin: segment.cabin,
-      fare: passenger.fare,
+      // The fare for this leg: on a round trip each leg's ticket carries that leg's price.
+      fare: segment.fares[passenger.id] ?? passenger.fare,
     })),
   );
 }
@@ -51,7 +52,7 @@ export abstract class TicketCreator {
    * is ticketed, it gets one ticket per passenger per flight, and every number comes from the
    * generator inside the issuing transaction.
    */
-  async forBooking(tx: Tx, booking: TicketingBooking): Promise<Ticket[]> {
+  async forBooking(tx: Tx, booking: EligibleBooking): Promise<Ticket[]> {
     if (booking.status !== 'CONFIRMED') throw new NotEligibleForTicketing(booking.status);
     const issuedAt = this.clock.now();
     const tickets: Ticket[] = [];

@@ -127,6 +127,7 @@ const ROUTES: RouteSpec[] = [
     travelerOnly: true,
     body: () => ({ flightId: '00000000-0000-4000-8000-000000000000', cabin: 'ECONOMY' }),
   },
+  { method: 'get', path: '/bookings', access: 'signedIn', travelerOnly: true },
   { method: 'get', path: '/bookings/:reference', access: 'owner', travelerOnly: true },
   {
     method: 'post',
