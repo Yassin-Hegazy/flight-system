@@ -1,11 +1,13 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
+  CABINS,
   CATALOG_API,
   type Cabin,
   type CatalogApi,
   type NewFlight,
 } from '../modules/flight-catalog/index';
+import { INVENTORY_API, type InventoryApi } from '../modules/inventory/index';
 import { USERS_API, type UsersApi } from '../modules/users-access/index';
 import { money } from '../shared/money';
 import { seedAdmin, type AdminSeed, type SeedOutcome } from './seed-admin';
@@ -250,11 +252,21 @@ export async function seedDemoFlights(
   now = new Date(),
 ): Promise<FlightSeedResult> {
   const catalog = app.get<CatalogApi>(CATALOG_API);
+  const inventory = app.get<InventoryApi>(INVENTORY_API);
   const dataSource = app.get(DataSource);
   const result: FlightSeedResult = { created: 0, existing: 0, rejected: [] };
 
   for (const flight of buildDemoFlights(now)) {
-    const outcome = await dataSource.transaction((tx) => catalog.createFlight(tx, flight));
+    // The flight and its seats commit together: a flight nobody can book is no use to a demo.
+    const outcome = await dataSource.transaction(async (tx) => {
+      const created = await catalog.createFlight(tx, flight);
+      if (!created.ok) return created;
+      for (const cabin of CABINS) {
+        const seats = await inventory.setCapacity(tx, created.value, cabin, DEMO_SEATS[cabin]);
+        if (!seats.ok) throw new Error(`Inventory refused seats for ${flight.flightNumber}`);
+      }
+      return created;
+    });
     if (outcome.ok) result.created += 1;
     else if (outcome.error === 'DUPLICATE_FLIGHT') result.existing += 1;
     else {
