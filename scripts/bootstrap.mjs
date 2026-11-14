@@ -7,7 +7,8 @@
  *   pnpm dev
  *
  * It creates the .env files if they are missing, starts PostgreSQL in Docker, applies the
- * migrations and seeds an administrator, a demo traveler and two weeks of flights. Every step is
+ * migrations and seeds an administrator, a demo traveler and two weeks of flights across a world
+ * network of real airports (SEED_WORLD=false for the small demo schedule only). Every step is
  * safe to run again.
  *
  *   --skip-docker   PostgreSQL is already running; use the DATABASE_URL in apps/api/.env
