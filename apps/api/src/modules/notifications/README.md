@@ -13,7 +13,7 @@
 - `PREFERENCES_API` and the `PreferencesApi` interface (`preferences`, `setEmailPreference`) with the `NotificationPreference` type: the email preference routes below.
 - `DEPARTURE_REMINDERS_API` and the `DepartureRemindersApi` interface (`sendDueReminders`): what the scheduled job calls, and what tests call to run the reminders at a chosen moment.
 
-**Other modules never call Notifications. They publish domain events and Notifications listens** (Observer pattern). Notifications imports no other domain module, so it cannot create a dependency cycle.
+**Other modules never call Notifications. They publish domain events and Notifications listens** (Observer pattern). No module that publishes an event imports Notifications, so the events cannot create a dependency cycle.
 
 ### How to publish an event (Booking, Ticketing, Administration owners)
 
@@ -59,17 +59,17 @@ All routes need a signed-in user and only ever touch the caller's own notificati
 | `GET /notifications/preferences`       | US-NT-07 | `{ preferences: [{ type, email }] }`, every type, email off until the user opts in |
 | `PUT /notifications/preferences/:type` | US-NT-07 | 204. Body `{ "email": true \| false }`. An unknown type is a 404                   |
 
-### Integration points (what other modules still need to provide)
+### Integration points
 
-Notifications imports nothing from other domain modules. Where it needs something back, it defines a **port** (an interface plus an injection token, exported from `index.ts`) with a do-nothing default, so the feature stays quiet until the owning module wires a real one. Each is a one-line change in `notifications.module.ts`: replace the default `useClass` with an adapter over the other module's API.
+Where Notifications needs data another module owns, it defines a **port** (an interface plus an injection token, exported from `index.ts`) and answers it with an **Adapter** over that module's public API, wired in `notifications.module.ts`.
 
-| Port               | Provided by                        | Used for                                                 | Until it exists       |
-| ------------------ | ---------------------------------- | -------------------------------------------------------- | --------------------- |
-| domain events      | Booking, Ticketing, Administration | every notification above                                 | inboxes stay empty    |
-| `DEPARTURE_SOURCE` | Booking                            | the reminder job: bookings with their flight's departure | no reminders are sent |
-| `EMAIL_DIRECTORY`  | Users and Access                   | email: the address for a user ID                         | no email is sent      |
+| Port               | Answered by                                                                                     | Used for                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| domain events      | Booking, Ticketing, Administration publish them                                                 | every notification above                                 |
+| `DEPARTURE_SOURCE` | `BookedDeparturesAdapter`: the Catalog's `departingBetween` and Booking's `BOOKINGS_ON_FLIGHTS` | the reminder job: bookings with their flight's departure |
+| `EMAIL_DIRECTORY`  | `UsersEmailDirectoryAdapter`: Users and Access `emailOf`                                        | email: the address for a user ID                         |
 
-- `DepartureSource.ticketedDeparturesBetween(from, to)` returns bookings (any status) whose flight departs in that range, as `UpcomingDeparture` objects carrying the booking and flight status. Notifications decides whom to remind.
+- `DepartureSource.ticketedDeparturesBetween(from, to)` returns one entry per booking per leg (any status) whose flight departs in that range, as `UpcomingDeparture` objects carrying the booking and flight status. Notifications decides whom to remind.
 - `EmailDirectory.emailOf(userId)` returns the user's address, or `null`.
 
 ## Design
@@ -81,21 +81,21 @@ Notifications imports nothing from other domain modules. Where it needs somethin
 - **Separate use cases** (`notifications.service.ts`, `notification-preferences.service.ts`): `NotificationsService` is the inbox only; `NotificationPreferencesService` is the email preferences only. Each implements its own small interface (`NotificationsApi`, `PreferencesApi`), so a caller depends only on what it uses.
 - **Adapter** (`notification-channel.ts`): the interface every way out of the app sits behind. `EmailChannel` is the only channel today; another is one more `NotificationChannel`. Delivery is started without waiting and its failures are logged and dropped, so a broken or slow channel never delays or undoes a booking or status change.
 - **Adapter for mail** (`mail.ts`): how an email leaves. `LocalMailCatcher` keeps the latest 100 messages in memory and sends nothing; a real SMTP transport would be another `MailTransport`.
-- **Ports** (`departure-source.ts`, `email-directory.ts`): dependency inversion. Notifications owns the interface and other modules implement it, so Notifications never imports them.
+- **Ports and Adapters** (`departure-source.ts`, `email-directory.ts`, `booked-departures.adapter.ts`, `users-email-directory.adapter.ts`): Notifications owns each interface (the Target); an Adapter translates the owning module's API (the Adaptee) into it, so the reminder and email code never sees Booking, the Catalog or Users and Access.
 - **Scheduled job** (`departure-reminder.job.ts`): runs every 10 minutes through `@nestjs/schedule`. The reminder rule lives in `departure-reminder.service.ts`.
 - **Repository** (`notifications.repository.ts`, `preferences.repository.ts`): the `Pg...` classes are the only files with SQL. The unique `(eventId, userId)` key makes a repeated event, or a repeated reminder, a no-op.
 - **Guards** (`notifications.controller.ts`): routes use `secure()` from Users and Access, so ownership is enforced on the server.
 
 ## Reminders and email
 
-- **Reminder** (US-NT-06): a booking whose status is `TICKETED` and whose flight is not `CANCELLED` is reminded when the flight is 23 to 24 hours away (both ends inclusive). Its reminder ID is `reminder:<bookingId>`, so each booking is reminded once however often, or however many times at once, the job runs (NFR-REL-02).
+- **Reminder** (US-NT-06): a booking whose status is `TICKETED` and whose flight is not `CANCELLED` is reminded when the flight is 23 to 24 hours away (both ends inclusive). Its reminder ID is `reminder:<bookingId>:<flightNumber>:<departure date>`, so each leg of a booking is reminded once however often, or however many times at once, the job runs (NFR-REL-02), and the return leg of a round trip gets its own reminder.
 - **Email** (US-NT-07): off by default. A traveler opts in per notification type. The email carries exactly the in-app title and text. If the address is unknown or the transport fails, the in-app notification is unaffected.
 
 ## Scope
 
 All seven stories are built: US-NT-01 to US-NT-07, with the gateway Adapter (milestone 1 NFR 5).
 
-What works end to end today is everything that only needs this module and the database. Reminders and email stay quiet in a running app until Booking provides `DEPARTURE_SOURCE` and Users and Access provides `EMAIL_DIRECTORY`; both are covered by tests that supply stand-ins for them. NFR-USAB-01 (a keyboard-accessible inbox, checked with axe) needs the web inbox, which is not built yet.
+Everything works end to end in a running app, reminders and email included (`test/notifications-wiring.int-spec.ts` runs them with the real modules behind the ports). NFR-USAB-01 (a keyboard-accessible inbox, checked with axe) needs the web inbox, which is not built yet.
 
 ## Module rules
 

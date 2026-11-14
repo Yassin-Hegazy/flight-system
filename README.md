@@ -58,17 +58,17 @@ the 15 hand-written routes only.
 Every module below is implemented, merged and covered by unit and integration tests (537 unit
 tests, 401 integration tests against a real PostgreSQL).
 
-| Module                                                          | What works                                                                                                                                                                             |
-| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Users and Access](apps/api/src/modules/users-access/README.md) | Register, sign in and out with an HttpOnly session cookie, profile, password change, saved travelers, roles (traveler, administrator), ownership checks, CSRF header check.            |
-| [Flight Catalog](apps/api/src/modules/flight-catalog/README.md) | Flights, airports, airlines, schedules stored in UTC and shown in airport-local time, fares in integer minor units, flight status rules, party pricing.                                |
-| [Search](apps/api/src/modules/search/README.md)                 | One-way and round-trip search by the origin's local date, four sort orders, filters by price, departure window and airline, paging, only flights with enough seats.                    |
-| [Inventory](apps/api/src/modules/inventory/README.md)           | Cabin capacity, real-time availability, transactional seat holds that never oversell, hold expiry, commit on payment, release exactly once.                                            |
-| [Booking](apps/api/src/modules/booking/README.md)               | Multi-passenger and round-trip bookings at the displayed price, idempotency keys, a 15-minute payment window, the booking lifecycle (State), cancellation with the 24-hour rule.       |
-| [Payments](apps/api/src/modules/payments/README.md)             | Simulated card payments through a gateway Adapter, idempotent charges, declines and retries, receipts, refunds on cancellation, recovery of interrupted payments.                      |
-| [Ticketing](apps/api/src/modules/ticketing/README.md)           | E-tickets issued after payment, one per passenger per flight (Factory Method), 13-digit ticket numbers, printable e-ticket, voiding on cancellation, a repair job for missed issues.   |
-| [Notifications](apps/api/src/modules/notifications/README.md)   | In-app notifications from domain events (confirmed, ticketed, expired, cancelled, flight delayed or cancelled), inbox, mark read, email preferences.                                   |
-| [Administration](apps/api/src/modules/administration/README.md) | Create flights and recurring series, capacity, fares, flight status (delay, cancel, with knock-on cancellations and refunds), airports, a second administrator, manifest, audit trail. |
+| Module                                                          | What works                                                                                                                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Users and Access](apps/api/src/modules/users-access/README.md) | Register, sign in and out with an HttpOnly session cookie, profile, password change, saved travelers, roles (traveler, administrator), ownership checks, CSRF header check.                                              |
+| [Flight Catalog](apps/api/src/modules/flight-catalog/README.md) | Flights, airports, airlines, schedules stored in UTC and shown in airport-local time, fares in integer minor units, flight status rules, party pricing.                                                                  |
+| [Search](apps/api/src/modules/search/README.md)                 | One-way and round-trip search by the origin's local date, four sort orders, filters by price, departure window and airline, paging, only flights with enough seats.                                                      |
+| [Inventory](apps/api/src/modules/inventory/README.md)           | Cabin capacity, real-time availability, transactional seat holds that never oversell, hold expiry, commit on payment, release exactly once.                                                                              |
+| [Booking](apps/api/src/modules/booking/README.md)               | Multi-passenger and round-trip bookings at the displayed price, idempotency keys, a 15-minute payment window, the booking lifecycle (State), cancellation with the 24-hour rule.                                         |
+| [Payments](apps/api/src/modules/payments/README.md)             | Simulated card payments through a gateway Adapter, idempotent charges, declines and retries, receipts, refunds on cancellation, recovery of interrupted payments.                                                        |
+| [Ticketing](apps/api/src/modules/ticketing/README.md)           | E-tickets issued after payment, one per passenger per flight (Factory Method), 13-digit ticket numbers, printable e-ticket, voiding on cancellation, a repair job for missed issues.                                     |
+| [Notifications](apps/api/src/modules/notifications/README.md)   | In-app notifications from domain events (confirmed, ticketed, expired, cancelled, flight delayed or cancelled), departure reminders the day before each leg, email for the types a traveler opts into, inbox, mark read. |
+| [Administration](apps/api/src/modules/administration/README.md) | Create flights and recurring series, capacity, fares, flight status (delay, cancel, with knock-on cancellations and refunds), airports, a second administrator, manifest, audit trail.                                   |
 
 ## API demonstration
 
@@ -113,7 +113,7 @@ flowchart LR
   search --> catalog & inventory
   payments --> booking & users
   ticketing --> booking & catalog & users
-  notifications --> users
+  notifications --> booking & catalog & users
 ```
 
 _Arrows are compile-time imports through `index.ts`. Domain events flow the other way without
@@ -142,14 +142,14 @@ Payments observe._
 Every pattern below is from the lecture (Topics 5 and 6: creational, structural and behavioural),
 and each table names the lecture's roles and the class that plays them. Click a file to open it.
 
-| Pattern                                     | Kind        | Module           | Where to look                                                                                                                                            |
-| ------------------------------------------- | ----------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Factory Method](#factory-method-ticketing) | Creational  | Ticketing        | [`ticket-creator.ts`](apps/api/src/modules/ticketing/ticket-creator.ts), [`ticket.ts`](apps/api/src/modules/ticketing/ticket.ts)                         |
-| [Adapter](#adapter-payments)                | Structural  | Payments         | [`gateway/`](apps/api/src/modules/payments/gateway/)                                                                                                     |
-| [Decorator](#decorator-users-and-access)    | Structural  | Users and Access | [`access.ts`](apps/api/src/modules/users-access/access.ts)                                                                                               |
-| [Command](#command-administration)          | Behavioural | Administration   | [`admin-command.ts`](apps/api/src/modules/administration/admin-command.ts), [`command-bus.ts`](apps/api/src/modules/administration/command-bus.ts)       |
-| [Strategy](#strategy-search)                | Behavioural | Search           | [`sorting/`](apps/api/src/modules/search/sorting/)                                                                                                       |
-| [Observer](#observer-domain-events)         | Behavioural | Cross-module     | [`shared/events.ts`](apps/api/src/shared/events.ts), [`notification-event.handler.ts`](apps/api/src/modules/notifications/notification-event.handler.ts) |
+| Pattern                                        | Kind        | Module                  | Where to look                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Factory Method](#factory-method-ticketing)    | Creational  | Ticketing               | [`ticket-creator.ts`](apps/api/src/modules/ticketing/ticket-creator.ts), [`ticket.ts`](apps/api/src/modules/ticketing/ticket.ts)                                                                                                                                   |
+| [Adapter](#adapter-payments-and-notifications) | Structural  | Payments, Notifications | [`gateway/`](apps/api/src/modules/payments/gateway/), [`booked-departures.adapter.ts`](apps/api/src/modules/notifications/booked-departures.adapter.ts), [`users-email-directory.adapter.ts`](apps/api/src/modules/notifications/users-email-directory.adapter.ts) |
+| [Decorator](#decorator-users-and-access)       | Structural  | Users and Access        | [`access.ts`](apps/api/src/modules/users-access/access.ts)                                                                                                                                                                                                         |
+| [Command](#command-administration)             | Behavioural | Administration          | [`admin-command.ts`](apps/api/src/modules/administration/admin-command.ts), [`command-bus.ts`](apps/api/src/modules/administration/command-bus.ts)                                                                                                                 |
+| [Strategy](#strategy-search)                   | Behavioural | Search                  | [`sorting/`](apps/api/src/modules/search/sorting/)                                                                                                                                                                                                                 |
+| [Observer](#observer-domain-events)            | Behavioural | Cross-module            | [`shared/events.ts`](apps/api/src/shared/events.ts), [`notification-event.handler.ts`](apps/api/src/modules/notifications/notification-event.handler.ts)                                                                                                           |
 
 ### Factory Method (Ticketing)
 
@@ -169,7 +169,7 @@ which kind of ticket it makes.
 new creator, with no change to `IssueTickets`. Built in
 [#19](https://github.com/Yassin-Hegazy/flight-system/pull/19).
 
-### Adapter (Payments)
+### Adapter (Payments and Notifications)
 
 Payments talks to a payment provider whose interface is not ours. The Adapter was built across two
 pull requests: [#13](https://github.com/Yassin-Hegazy/flight-system/pull/13) introduced the
@@ -186,6 +186,19 @@ the Adaptee, so every lecture role is its own class.
 
 A real provider (Stripe, Paymob) would be one new adapter and one line in
 [`payments.module.ts`](apps/api/src/modules/payments/payments.module.ts).
+
+Notifications uses the same pattern to read data other modules own without its reminder and
+email code knowing them. It defines the interface it wants (the Target), and an Adapter
+translates the owning module's API (the Adaptee) into it:
+
+| Target                                                                      | Adapter                                                                                             | Adaptee                                                            |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`DepartureSource`](apps/api/src/modules/notifications/departure-source.ts) | [`BookedDeparturesAdapter`](apps/api/src/modules/notifications/booked-departures.adapter.ts)        | the Catalog's `departingBetween` and Booking's `BookingsOnFlights` |
+| [`EmailDirectory`](apps/api/src/modules/notifications/email-directory.ts)   | [`UsersEmailDirectoryAdapter`](apps/api/src/modules/notifications/users-email-directory.adapter.ts) | Users and Access `emailOf`                                         |
+
+The clients are the reminder job's
+[`DepartureReminderService`](apps/api/src/modules/notifications/departure-reminder.service.ts) and
+the email channel.
 
 ### Decorator (Users and Access)
 
@@ -249,8 +262,8 @@ Modules learn what happened elsewhere without depending on the module where it h
 | Observer         | A handler for an event type in [`shared/events.ts`](apps/api/src/shared/events.ts)                                                                                                                                                                                                                                                              |
 | ConcreteObserver | [`NotificationEventHandler`](apps/api/src/modules/notifications/notification-event.handler.ts), [`IssueTickets`](apps/api/src/modules/ticketing/issue-tickets.ts) (`BookingConfirmed`), [`VoidTickets`](apps/api/src/modules/ticketing/void-tickets.ts) and [`RefundPayments`](apps/api/src/modules/payments/refund-payments.ts) (cancellation) |
 
-Notifications imports no domain module at all, so adding a notification never touches the module
-that caused it. Built in [#9](https://github.com/Yassin-Hegazy/flight-system/pull/9).
+Publishers never import Notifications, so adding a notification never touches the module that
+caused it. Built in [#9](https://github.com/Yassin-Hegazy/flight-system/pull/9).
 
 ### Also in the code
 
