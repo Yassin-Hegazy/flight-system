@@ -128,7 +128,8 @@ const ROUTES: RouteSpec[] = [
     body: () => ({ flightId: '00000000-0000-4000-8000-000000000000', cabin: 'ECONOMY' }),
   },
   { method: 'get', path: '/bookings', access: 'signedIn', travelerOnly: true },
-  { method: 'get', path: '/bookings/:reference', access: 'owner', travelerOnly: true },
+  // US-USR-01 AC-3: administrators may read any booking, never change it here.
+  { method: 'get', path: '/bookings/:reference', access: 'owner' },
   {
     method: 'post',
     path: '/bookings/:reference/payments',

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiHeader,
   ApiOperation,
@@ -31,7 +41,10 @@ import {
   type RequestContext,
   signedIn,
   UserRole,
+  WithAuth,
+  WithOwnership,
   WithRole,
+  SignedInGuard,
 } from '../users-access/index';
 import { BookingQueries } from './booking-queries';
 import { CancelBookings } from './cancel-bookings';
@@ -111,6 +124,7 @@ function validKey(raw: string | undefined): string | undefined {
 }
 
 @ApiTags('Booking')
+@UseGuards(SignedInGuard)
 @Controller('bookings')
 export class BookingController {
   constructor(
@@ -179,14 +193,18 @@ export class BookingController {
   @ApiOkResponse({
     description: 'The booking with its segments, passengers and every status change.',
   })
-  @ApiSession(403, 404)
+  @ApiSession(404)
   read(@Ctx() ctx: RequestContext, @Param('reference') reference: string) {
-    const action = new Action(async () => {
-      const booking = await this.queries.getOwned(reference, signedIn(ctx).id);
+    const action = new Action(async (_ctx, { ref }: { ref: string }) => {
+      const booking = await this.queries.get(ref);
       if (!booking) throw AppError.notFound('NOT_FOUND', 'Not found.');
       return booking;
     });
-    return new WithRole(action, UserRole.Traveler).execute(ctx, undefined);
+    // The owner, or an administrator reading (US-USR-01 AC-3); cancelling stays owner-only.
+    const ownerOf = (ref: string) => this.queries.ownerOf(ref);
+    return new WithAuth(new WithOwnership(action, ownerOf, { adminMayRead: true })).execute(ctx, {
+      ref: reference,
+    });
   }
 
   @Post(':reference/cancel')

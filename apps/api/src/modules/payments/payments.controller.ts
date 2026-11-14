@@ -2,12 +2,13 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   Header,
+  Headers,
   Inject,
   Param,
   Post,
   Res,
+  UseGuards,
   ValidationPipe,
 } from '@nestjs/common';
 import {
@@ -31,6 +32,7 @@ import {
   signedIn,
   UserRole,
   WithRole,
+  SignedInGuard,
 } from '../users-access/index';
 import { BOOKING_PAYMENTS, type BookingPayments } from '../booking/index';
 import { PaymentsRepository } from './payments.repository';
@@ -61,6 +63,7 @@ const PAYMENT_ERRORS = {
 };
 
 @ApiTags('Payments')
+@UseGuards(SignedInGuard)
 @Controller('bookings')
 export class PaymentsController {
   constructor(

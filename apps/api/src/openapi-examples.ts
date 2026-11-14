@@ -660,7 +660,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
     '200': {
       id: 'd7bc312f-f25a-44ad-8ae4-ac168b152415',
       ownerId: '4fff8e42-350d-4e97-ba83-00e9370cb78c',
-      name: 'Omar M. Hassan',
+      name: 'Omar Mahmoud Hassan',
       dateOfBirth: '2015-06-01',
     },
   },

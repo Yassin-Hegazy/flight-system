@@ -3,11 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CLOCK, systemClock } from '../../shared/time';
 import { DepartureReminderJob } from './departure-reminder.job';
 import { DepartureReminderService } from './departure-reminder.service';
-import { BookingModule } from '../booking/index';
-import { FlightCatalogModule } from '../flight-catalog/index';
 import { UsersAccessModule } from '../users-access/index';
-import { BookedDeparturesAdapter } from './booked-departures.adapter';
 import { DEPARTURE_SOURCE } from './departure-source';
+import { DepartureTracker } from './departure-tracker';
+import { TrackedDepartureEntity } from './tracked-departure.entity';
+import { TrackedDepartures } from './tracked-departures';
 import { EMAIL_DIRECTORY } from './email-directory';
 import { UsersEmailDirectoryAdapter } from './users-email-directory.adapter';
 import { EmailChannel } from './email.channel';
@@ -30,10 +30,8 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
 
 @Module({
   imports: [
-    BookingModule,
-    FlightCatalogModule,
     UsersAccessModule,
-    TypeOrmModule.forFeature([NotificationEntity, NotificationPrefEntity]),
+    TypeOrmModule.forFeature([NotificationEntity, NotificationPrefEntity, TrackedDepartureEntity]),
   ],
   controllers: [NotificationsController],
   providers: [
@@ -66,10 +64,11 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
     { provide: DEPARTURE_REMINDERS_API, useExisting: DepartureReminderService },
     { provide: CLOCK, useValue: systemClock },
 
-    // The two ports, each answered by an Adapter over the module that owns the data:
-    //   DEPARTURE_SOURCE: the Catalog's departures and Booking's bookings on them (reminders).
-    //   EMAIL_DIRECTORY:  Users and Access looks up a user's email address (email).
-    { provide: DEPARTURE_SOURCE, useClass: BookedDeparturesAdapter },
+    // Reminders read this module's own record of ticketed legs, kept from events by the tracker,
+    // so Notifications calls into no domain module.
+    DepartureTracker,
+    { provide: DEPARTURE_SOURCE, useClass: TrackedDepartures },
+    // Email addresses belong to Users and Access, which every module already uses for its guards.
     { provide: EMAIL_DIRECTORY, useClass: UsersEmailDirectoryAdapter },
   ],
   exports: [NOTIFICATIONS_API],

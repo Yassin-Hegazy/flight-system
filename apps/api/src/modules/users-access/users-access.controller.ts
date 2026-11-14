@@ -11,6 +11,7 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -25,9 +26,11 @@ import { AppError, validationError } from '../../shared/errors';
 import type { Result } from '../../shared/result';
 import {
   Action,
+  AdminGuard,
   Ctx,
   type Principal,
   type RequestContext,
+  SignedInGuard,
   signedIn,
   WithAuth,
   WithOwnership,
@@ -87,6 +90,7 @@ export class UsersAccessController {
   }
 
   /** Only an administrator creates another administrator (US-USR-04 AC-3). */
+  @UseGuards(AdminGuard)
   @Post('admins')
   @ApiOperation({ summary: 'Create another administrator (administrators only)' })
   @ApiCreatedResponse({ description: "The new administrator's ID." })
@@ -141,6 +145,7 @@ export class UsersAccessController {
     response.clearCookie(SESSION_COOKIE, COOKIE_OPTIONS);
   }
 
+  @UseGuards(SignedInGuard)
   @Get('me')
   @ApiOperation({ summary: 'Read who is signed in' })
   @ApiOkResponse({ description: 'Your ID, email, name and role.' })
@@ -151,6 +156,7 @@ export class UsersAccessController {
     ).execute(ctx, undefined);
   }
 
+  @UseGuards(SignedInGuard)
   @Patch('me')
   @ApiOperation({ summary: 'Update your name, phone or email' })
   @ApiNoContentResponse({ description: 'Saved.' })
@@ -174,6 +180,7 @@ export class UsersAccessController {
     ).execute(ctx, undefined);
   }
 
+  @UseGuards(SignedInGuard)
   @Patch('me/password')
   @ApiOperation({ summary: 'Change your password' })
   @ApiNoContentResponse({ description: 'Changed.' })
@@ -205,6 +212,7 @@ export class UsersAccessController {
   // answers exactly like one that does not exist (US-USR-01 AC-1, US-USR-06 AC-3).
   private readonly travelerOwner = (ref: string) => this.users.savedTravelerOwner(ref);
 
+  @UseGuards(SignedInGuard)
   @Get('me/saved-travelers')
   @ApiOperation({ summary: 'List your saved travelers' })
   @ApiOkResponse({ description: 'Your saved travelers.' })
@@ -215,6 +223,7 @@ export class UsersAccessController {
     ).execute(ctx, undefined);
   }
 
+  @UseGuards(SignedInGuard)
   @Post('me/saved-travelers')
   @ApiOperation({ summary: 'Save a traveler to reuse when booking' })
   @ApiCreatedResponse({ description: 'The saved traveler.' })
@@ -235,6 +244,7 @@ export class UsersAccessController {
     ).execute(ctx, undefined);
   }
 
+  @UseGuards(SignedInGuard)
   @Patch('me/saved-travelers/:id')
   @ApiOperation({ summary: 'Edit one of your saved travelers' })
   @ApiOkResponse({ description: 'The saved traveler as edited.' })
@@ -256,6 +266,7 @@ export class UsersAccessController {
     ).execute(ctx, { ref: id });
   }
 
+  @UseGuards(SignedInGuard)
   @Delete('me/saved-travelers/:id')
   @ApiOperation({ summary: 'Delete one of your saved travelers' })
   @ApiNoContentResponse({ description: 'Deleted.' })

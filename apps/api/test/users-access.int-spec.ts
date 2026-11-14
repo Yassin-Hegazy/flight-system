@@ -144,13 +144,13 @@ describe('Users and Access over HTTP', () => {
         await http()
           .post('/users/me/saved-travelers')
           .set('cookie', cookie)
-          .send({ name: `Traveler ${i}`, dateOfBirth: '1990-01-01' })
+          .send({ name: `Traveler ${String.fromCharCode(64 + i)}`, dateOfBirth: '1990-01-01' })
           .expect(201);
       }
       const eleventh = await http()
         .post('/users/me/saved-travelers')
         .set('cookie', cookie)
-        .send({ name: 'Traveler 11', dateOfBirth: '1990-01-01' })
+        .send({ name: 'Traveler Eleven', dateOfBirth: '1990-01-01' })
         .expect(409);
       expect(eleventh.body.code).toBe('SAVED_TRAVELER_LIMIT');
     });
@@ -231,6 +231,18 @@ describe('Users and Access over HTTP', () => {
         .post('/users/admins')
         .send({ email: newEmail(), password: PASSWORD, name: 'Nope' })
         .expect(401);
+    });
+
+    it('US-USR-03-T08 who you are is checked before what you sent: an empty body still gets 401 or 403', async () => {
+      const { cookie } = await signedInTraveler();
+      for (const path of ['/admin/flights', '/users/admins']) {
+        await http().post(path).send({}).expect(401);
+        await http().post(path).set('cookie', cookie).send({}).expect(403);
+      }
+      for (const path of ['/bookings', '/users/me/saved-travelers']) {
+        await http().post(path).send({}).expect(401);
+      }
+      await http().patch('/users/me/password').send({}).expect(401);
     });
 
     it('US-USR-03-T03 a role sent by the client is ignored; the role comes from the session', async () => {
@@ -317,6 +329,25 @@ describe('Users and Access over HTTP', () => {
           .send({ name: 'Someone', dateOfBirth })
           .expect(400);
         expect(response.body.fieldErrors).toHaveProperty('dateOfBirth');
+      }
+    });
+
+    it('US-USR-06-T05 a saved traveler is named like a booking passenger: first and last name, in letters', async () => {
+      const { cookie } = await signedInTraveler();
+      for (const name of ['Omar', 'Omar123 Hassan', 'R2 D2', 'Omar <b>Hassan</b>']) {
+        const response = await http()
+          .post('/users/me/saved-travelers')
+          .set('cookie', cookie)
+          .send({ name, dateOfBirth: '2000-01-01' })
+          .expect(400);
+        expect(response.body.fieldErrors).toHaveProperty('name');
+      }
+      for (const name of ['Omar Hassan', "Mary-Jane O'Neil", 'Abdel Rahman El Sayed', 'نور حسن']) {
+        await http()
+          .post('/users/me/saved-travelers')
+          .set('cookie', cookie)
+          .send({ name, dateOfBirth: '2000-01-01' })
+          .expect(201);
       }
     });
 

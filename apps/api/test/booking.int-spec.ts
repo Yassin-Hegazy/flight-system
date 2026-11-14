@@ -781,6 +781,15 @@ describe('Booking over HTTP', () => {
 
   // ------------------------------------------------------------------ NFR-SEC-02 and the manifest
 
+  it("US-USR-01-T11 an administrator reads any traveler's booking, and cannot cancel it here", async () => {
+    const booking = await created({ passengers: [adult()] });
+
+    const read = await get(`/bookings/${booking.reference}`, admin).expect(200);
+    expect((read.body as { reference: string }).reference).toBe(booking.reference);
+    await cancel(booking.reference, admin).expect(403);
+    expect((await view(booking.reference)).status).toBe('PENDING_PAYMENT');
+  });
+
   it('NFR-SEC-02-T02 a non-owner can neither read, pay for nor cancel a booking', async () => {
     const booking = await created({ passengers: [adult()] });
     await get(`/bookings/${booking.reference}`, other).expect(404);

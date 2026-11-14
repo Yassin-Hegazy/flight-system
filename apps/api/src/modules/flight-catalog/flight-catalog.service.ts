@@ -72,11 +72,6 @@ export class FlightCatalogService implements CatalogApi {
     return this.describe(flights, routeAirports);
   }
 
-  async departingBetween(from: Date, to: Date): Promise<FlightInfo[]> {
-    const flights = await this.repository.findAllFlightsDeparting({ start: from, end: to });
-    return this.describe(flights, []);
-  }
-
   async searchAirports(query: string): Promise<AirportSuggestion[]> {
     const normalized = query.trim();
     if (normalized.length < MIN_AIRPORT_QUERY) return [];

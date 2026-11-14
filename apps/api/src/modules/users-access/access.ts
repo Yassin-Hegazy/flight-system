@@ -1,4 +1,9 @@
-import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
+import {
+  type CanActivate,
+  createParamDecorator,
+  type ExecutionContext,
+  Injectable,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { AppError } from '../../shared/errors';
 import { type Principal, UserRole } from './users-access.domain';
@@ -112,3 +117,32 @@ export const Ctx = createParamDecorator(
     principal: context.switchToHttp().getRequest<RequestWithPrincipal>().principal ?? null,
   }),
 );
+
+/**
+ * The coarse check, as a Nest guard (S1 section 7.2: guards for the coarse check, decorators for
+ * the precise one). Nest runs guards before the validation pipe, so who you are is settled before
+ * what you sent is looked at: an anonymous caller gets 401, never a list of the route's fields
+ * (S1 section 6.2, US-USR-03 AC-2). The decorators around each use case still decide ownership.
+ */
+@Injectable()
+export class SignedInGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    signedIn({ principal: principalOf(context) });
+    return true;
+  }
+}
+
+/** Signed in and an administrator, before anything else runs (US-USR-03 AC-1). */
+@Injectable()
+export class AdminGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    if (signedIn({ principal: principalOf(context) }).role !== UserRole.Admin) {
+      throw AppError.forbidden();
+    }
+    return true;
+  }
+}
+
+function principalOf(context: ExecutionContext): Principal | null {
+  return context.switchToHttp().getRequest<RequestWithPrincipal>().principal ?? null;
+}

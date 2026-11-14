@@ -52,15 +52,6 @@ export class PgCatalogRepository implements CatalogRepository {
     return rows.map(toFlight);
   }
 
-  async findAllFlightsDeparting(range: { start: Date; end: Date }): Promise<Flight[]> {
-    const rows = await this.db
-      .createQueryBuilder(FlightEntity, 'flight')
-      .where('flight.scheduledDepartureUtc BETWEEN :start AND :end', range)
-      .orderBy('flight.scheduledDepartureUtc', 'ASC')
-      .getMany();
-    return rows.map(toFlight);
-  }
-
   /**
    * Inserts a new flight. A duplicate is reported as a result; PostgreSQL has then aborted the
    * transaction, so the caller must roll back.

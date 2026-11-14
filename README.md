@@ -113,7 +113,7 @@ flowchart LR
   search --> catalog & inventory
   payments --> booking & users
   ticketing --> booking & catalog & users
-  notifications --> booking & catalog & users
+  notifications --> users
 ```
 
 _Arrows are compile-time imports through `index.ts`. Domain events flow the other way without
@@ -123,6 +123,8 @@ Payments observe._
 - **One public door per module.** A module's `index.ts` exports an interface and an injection
   token; everything else is private. [dependency-cruiser](.dependency-cruiser.cjs) fails CI on any
   import that bypasses it, on cycles, and on `shared/` importing a module ([rules](#module-rules)).
+  Notifications, as its pack says, calls into no domain module at all: a rule
+  (`notifications-only-listens`) fails CI if it does.
 - **Data ownership.** Each module owns its tables and registers only its own entities. Another
   module's data is referenced by a plain ID, never a TypeORM relation.
 - **Events instead of calls back.** A module that must react to another publishes or observes a
@@ -142,14 +144,14 @@ Payments observe._
 Every pattern below is from the lecture (Topics 5 and 6: creational, structural and behavioural),
 and each table names the lecture's roles and the class that plays them. Click a file to open it.
 
-| Pattern                                        | Kind        | Module                  | Where to look                                                                                                                                                                                                                                                      |
-| ---------------------------------------------- | ----------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [Factory Method](#factory-method-ticketing)    | Creational  | Ticketing               | [`ticket-creator.ts`](apps/api/src/modules/ticketing/ticket-creator.ts), [`ticket.ts`](apps/api/src/modules/ticketing/ticket.ts)                                                                                                                                   |
-| [Adapter](#adapter-payments-and-notifications) | Structural  | Payments, Notifications | [`gateway/`](apps/api/src/modules/payments/gateway/), [`booked-departures.adapter.ts`](apps/api/src/modules/notifications/booked-departures.adapter.ts), [`users-email-directory.adapter.ts`](apps/api/src/modules/notifications/users-email-directory.adapter.ts) |
-| [Decorator](#decorator-users-and-access)       | Structural  | Users and Access        | [`access.ts`](apps/api/src/modules/users-access/access.ts)                                                                                                                                                                                                         |
-| [Command](#command-administration)             | Behavioural | Administration          | [`admin-command.ts`](apps/api/src/modules/administration/admin-command.ts), [`command-bus.ts`](apps/api/src/modules/administration/command-bus.ts)                                                                                                                 |
-| [Strategy](#strategy-search)                   | Behavioural | Search                  | [`sorting/`](apps/api/src/modules/search/sorting/)                                                                                                                                                                                                                 |
-| [Observer](#observer-domain-events)            | Behavioural | Cross-module            | [`shared/events.ts`](apps/api/src/shared/events.ts), [`notification-event.handler.ts`](apps/api/src/modules/notifications/notification-event.handler.ts)                                                                                                           |
+| Pattern                                        | Kind        | Module                  | Where to look                                                                                                                                                   |
+| ---------------------------------------------- | ----------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Factory Method](#factory-method-ticketing)    | Creational  | Ticketing               | [`ticket-creator.ts`](apps/api/src/modules/ticketing/ticket-creator.ts), [`ticket.ts`](apps/api/src/modules/ticketing/ticket.ts)                                |
+| [Adapter](#adapter-payments-and-notifications) | Structural  | Payments, Notifications | [`gateway/`](apps/api/src/modules/payments/gateway/), [`users-email-directory.adapter.ts`](apps/api/src/modules/notifications/users-email-directory.adapter.ts) |
+| [Decorator](#decorator-users-and-access)       | Structural  | Users and Access        | [`access.ts`](apps/api/src/modules/users-access/access.ts)                                                                                                      |
+| [Command](#command-administration)             | Behavioural | Administration          | [`admin-command.ts`](apps/api/src/modules/administration/admin-command.ts), [`command-bus.ts`](apps/api/src/modules/administration/command-bus.ts)              |
+| [Strategy](#strategy-search)                   | Behavioural | Search                  | [`sorting/`](apps/api/src/modules/search/sorting/)                                                                                                              |
+| [Observer](#observer-domain-events)            | Behavioural | Cross-module            | [`shared/events.ts`](apps/api/src/shared/events.ts), [`notification-event.handler.ts`](apps/api/src/modules/notifications/notification-event.handler.ts)        |
 
 ### Factory Method (Ticketing)
 
@@ -187,18 +189,11 @@ the Adaptee, so every lecture role is its own class.
 A real provider (Stripe, Paymob) would be one new adapter and one line in
 [`payments.module.ts`](apps/api/src/modules/payments/payments.module.ts).
 
-Notifications uses the same pattern to read data other modules own without its reminder and
-email code knowing them. It defines the interface it wants (the Target), and an Adapter
-translates the owning module's API (the Adaptee) into it:
-
-| Target                                                                      | Adapter                                                                                             | Adaptee                                                            |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [`DepartureSource`](apps/api/src/modules/notifications/departure-source.ts) | [`BookedDeparturesAdapter`](apps/api/src/modules/notifications/booked-departures.adapter.ts)        | the Catalog's `departingBetween` and Booking's `BookingsOnFlights` |
-| [`EmailDirectory`](apps/api/src/modules/notifications/email-directory.ts)   | [`UsersEmailDirectoryAdapter`](apps/api/src/modules/notifications/users-email-directory.adapter.ts) | Users and Access `emailOf`                                         |
-
-The clients are the reminder job's
-[`DepartureReminderService`](apps/api/src/modules/notifications/departure-reminder.service.ts) and
-the email channel.
+Notifications uses the same pattern for the one thing it needs from another module, an email
+address. It defines the interface it wants (the Target),
+[`EmailDirectory`](apps/api/src/modules/notifications/email-directory.ts), and
+[`UsersEmailDirectoryAdapter`](apps/api/src/modules/notifications/users-email-directory.adapter.ts)
+translates Users and Access (the Adaptee) into it for the email channel (the Client).
 
 ### Decorator (Users and Access)
 
@@ -215,6 +210,11 @@ inside it, and stack in any order.
 ```ts
 const createFlight = new WithAuth(new WithRole(createFlightCommand, UserRole.Admin));
 ```
+
+Before any decorator runs, a Nest guard makes the coarse check
+([`SignedInGuard`, `AdminGuard`](apps/api/src/modules/users-access/access.ts)), so an anonymous
+caller gets 401 and a traveler 403 before the request body is even validated. The decorators then
+make the precise check, such as ownership.
 
 Built in [#1](https://github.com/Yassin-Hegazy/flight-system/pull/1) and aligned with the lecture in
 [#4](https://github.com/Yassin-Hegazy/flight-system/pull/4).
@@ -255,12 +255,12 @@ A new sort order is one class and one line in
 
 Modules learn what happened elsewhere without depending on the module where it happened.
 
-| Lecture role     | Here                                                                                                                                                                                                                                                                                                                                            |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Subject          | The application's event emitter, reached through [`publishDomainEvent`](apps/api/src/shared/events.ts)                                                                                                                                                                                                                                          |
-| ConcreteSubject  | The publishers: Booking, Payments, Ticketing and Administration (through `CommandBus`)                                                                                                                                                                                                                                                          |
-| Observer         | A handler for an event type in [`shared/events.ts`](apps/api/src/shared/events.ts)                                                                                                                                                                                                                                                              |
-| ConcreteObserver | [`NotificationEventHandler`](apps/api/src/modules/notifications/notification-event.handler.ts), [`IssueTickets`](apps/api/src/modules/ticketing/issue-tickets.ts) (`BookingConfirmed`), [`VoidTickets`](apps/api/src/modules/ticketing/void-tickets.ts) and [`RefundPayments`](apps/api/src/modules/payments/refund-payments.ts) (cancellation) |
+| Lecture role     | Here                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Subject          | The application's event emitter, reached through [`publishDomainEvent`](apps/api/src/shared/events.ts)                                                                                                                                                                                                                                                                                                                                     |
+| ConcreteSubject  | The publishers: Booking, Payments, Ticketing and Administration (through `CommandBus`)                                                                                                                                                                                                                                                                                                                                                     |
+| Observer         | A handler for an event type in [`shared/events.ts`](apps/api/src/shared/events.ts)                                                                                                                                                                                                                                                                                                                                                         |
+| ConcreteObserver | [`NotificationEventHandler`](apps/api/src/modules/notifications/notification-event.handler.ts), [`DepartureTracker`](apps/api/src/modules/notifications/departure-tracker.ts) (reminders), [`IssueTickets`](apps/api/src/modules/ticketing/issue-tickets.ts) (`BookingConfirmed`), [`VoidTickets`](apps/api/src/modules/ticketing/void-tickets.ts) and [`RefundPayments`](apps/api/src/modules/payments/refund-payments.ts) (cancellation) |
 
 Publishers never import Notifications, so adding a notification never touches the module that
 caused it. Built in [#9](https://github.com/Yassin-Hegazy/flight-system/pull/9).

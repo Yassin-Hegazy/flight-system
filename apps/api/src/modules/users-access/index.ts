@@ -5,7 +5,9 @@ export { USERS_API } from './users-api';
 export type { UsersApi } from './users-api';
 export {
   Action,
+  AdminGuard,
   Ctx,
+  SignedInGuard,
   signedIn,
   UseCaseDecorator,
   WithAuth,

@@ -9,8 +9,3 @@ export {
 export { BOOKING_EXPIRY, type BookingExpiry } from './expire-bookings';
 export { FLIGHT_BOOKING_CANCELLATION, type FlightBookingCancellation } from './cancel-bookings';
 export { BookingPassengers } from './booking-passengers';
-export {
-  BOOKINGS_ON_FLIGHTS,
-  type BookingsOnFlights,
-  type FlightBooking,
-} from './bookings-on-flights';
