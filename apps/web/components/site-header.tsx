@@ -24,6 +24,9 @@ export function Brand() {
       <span className="text-[30px] leading-none font-extrabold text-navy sm:text-[34px]">
         aeron.
       </span>
+      <span className="ml-7 hidden text-[10px] leading-none font-bold text-navy-soft min-[1400px]:inline">
+        FLY MORE. WORRY LESS.
+      </span>
     </span>
   );
 }
@@ -90,7 +93,9 @@ export function SiteHeader() {
         </button>
       </div>
 
-      <div aria-hidden="true" className="h-px bg-mist" />
+      <div aria-hidden="true" className="relative h-px bg-mist">
+        <span className="absolute top-[-1px] left-[58%] hidden h-[3px] w-[216px] rounded-sm bg-pink lg:block" />
+      </div>
 
       {open && (
         <nav

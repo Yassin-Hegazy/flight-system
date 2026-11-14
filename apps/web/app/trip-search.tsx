@@ -34,6 +34,16 @@ export function TripSearch() {
   const [party, setParty] = useState<Party>({ adults: 1, children: 0, infants: 0 });
   const [cabin, setCabin] = useState<Cabin>('ECONOMY');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // The airport inputs keep their own text; swapping remounts them with each other's value.
+  const [route, setRoute] = useState({ origin: '', destination: '', swaps: 0 });
+  const swap = () => {
+    const value = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+    setRoute(({ swaps }) => ({
+      origin: value('rail-destination'),
+      destination: value('rail-origin'),
+      swaps: swaps + 1,
+    }));
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,20 +105,34 @@ export function TripSearch() {
             className="rounded-t-[14px] lg:rounded-l-[14px] lg:rounded-tr-none"
           >
             {(control) => (
-              <AirportInput
-                {...control}
-                name="origin"
-                defaultValue=""
-                className={`${CONTROL} uppercase placeholder:normal-case`}
-              />
+              <>
+                <AirportInput
+                  key={route.swaps}
+                  {...control}
+                  name="origin"
+                  defaultValue={route.origin}
+                  className={`${CONTROL} uppercase placeholder:normal-case`}
+                />
+                <button
+                  type="button"
+                  onClick={swap}
+                  aria-label="Swap origin and destination"
+                  className="absolute right-4 bottom-[-18px] z-30 grid size-9 cursor-pointer place-items-center rounded-full bg-pink text-[19px] leading-none font-extrabold text-navy transition-transform hover:rotate-180 focus-visible:outline-navy lg:top-1/2 lg:right-[-18px] lg:bottom-auto lg:-translate-y-1/2"
+                >
+                  <span aria-hidden="true" className="rotate-90 lg:rotate-0">
+                    ↔
+                  </span>
+                </button>
+              </>
             )}
           </Cell>
           <Cell id="rail-destination" label="To" error={errors.destination}>
             {(control) => (
               <AirportInput
+                key={route.swaps}
                 {...control}
                 name="destination"
-                defaultValue=""
+                defaultValue={route.destination}
                 className={`${CONTROL} uppercase placeholder:normal-case`}
               />
             )}

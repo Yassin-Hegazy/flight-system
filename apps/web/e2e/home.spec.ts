@@ -110,6 +110,15 @@ test('US-FS-01-T21 a search with nothing filled in stays on the page and says wh
   await expect(from).toBeFocused();
 });
 
+test('US-FS-01-T22 the swap button exchanges origin and destination', async ({ page }) => {
+  await rail(page).getByLabel('From').fill('CAI');
+  await rail(page).getByLabel('To', { exact: true }).fill('LHR');
+  await page.getByRole('button', { name: 'Swap origin and destination' }).click();
+
+  await expect(rail(page).getByLabel('From')).toHaveValue('LHR');
+  await expect(rail(page).getByLabel('To', { exact: true })).toHaveValue('CAI');
+});
+
 test('US-FS-06-T16 typing in From on the landing page offers matching airports', async ({
   page,
 }) => {

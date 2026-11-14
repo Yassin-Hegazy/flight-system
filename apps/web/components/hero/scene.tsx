@@ -11,6 +11,10 @@ const MODEL = '/aeron/reference-sculpture.glb';
 const TEAL = '#dbf2fc';
 /** World units visible top to bottom; the sculpture is about 3 units tall. */
 const VIEW_HEIGHT = 3.5;
+/** The sway: radians either side of the front view, and radians per second (one loop in ~14 s). */
+const ORBIT_YAW = 0.32;
+const ORBIT_PITCH = 0.12;
+const ORBIT_SPEED = 0.45;
 
 export interface SceneProps {
   /** false pauses rendering (hero off screen, tab in the background). */
@@ -84,9 +88,11 @@ function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
     if (active) time.current += dt;
     const t = time.current;
     const ease = 1 - Math.exp(-dt * 3);
-    // Small angles only: the back of the model is inferred, so it is never turned toward the viewer.
-    const yaw = Math.sin(t * 0.22) * 0.012 + pointer.current.x * 0.018;
-    const pitch = Math.sin(t * 0.18) * 0.006 - pointer.current.y * 0.012;
+    // The facing direction traces a slow ellipse, wider than it is tall. It stays well short of a
+    // full turn because the back of the model is inferred, not sculpted.
+    const angle = t * ORBIT_SPEED;
+    const yaw = Math.sin(angle) * ORBIT_YAW + pointer.current.x * 0.05;
+    const pitch = Math.cos(angle) * ORBIT_PITCH - pointer.current.y * 0.03;
     group.current.rotation.y += (yaw - group.current.rotation.y) * ease;
     group.current.rotation.x += (pitch - group.current.rotation.x) * ease;
     group.current.position.y = Math.sin(t * 0.45) * 0.008;

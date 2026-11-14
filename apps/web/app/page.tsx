@@ -7,9 +7,9 @@ const CONTAINER = 'mx-auto w-full max-w-[1440px] px-5 md:px-10 xl:px-[72px]';
 
 // Routes the demo schedule flies from Cairo. The cards only fill in the search; fares come from it.
 const DESTINATIONS = [
-  { kicker: 'CITY BREAK', city: 'London', code: 'LHR', tone: 'pink' },
-  { kicker: 'WINTER SUN', city: 'Dubai', code: 'DXB', tone: 'navy' },
-  { kicker: 'RED SEA', city: 'Hurghada', code: 'HRG', tone: 'ice' },
+  { kicker: '01 / CITY BREAKS', city: 'London', code: 'LHR', tone: 'pink' },
+  { kicker: '02 / WINTER SUN', city: 'Dubai', code: 'DXB', tone: 'navy' },
+  { kicker: '03 / QUICK ESCAPES', city: 'Hurghada', code: 'HRG', tone: 'ice' },
 ] as const;
 
 const TONES = {
@@ -127,12 +127,17 @@ export default function Home() {
                   )}
                 >
                   <span className={cn('text-xs leading-none font-bold', t.meta)}>{kicker}</span>
-                  <span className={cn('mt-[33px] text-[39px] leading-none font-extrabold', t.text)}>
+                  <span
+                    className={cn(
+                      'mt-[33px] text-[39px] leading-none font-extrabold uppercase',
+                      t.text,
+                    )}
+                  >
                     {city}
                   </span>
                   <span className={cn('mt-[30px] text-[13px] leading-none font-semibold', t.meta)}>
                     CAI <span aria-hidden="true">→</span>
-                    <span className="sr-only">to</span> {code}
+                    <span className="sr-only">to</span> {code} / FROM CAIRO
                   </span>
                   <span aria-hidden="true" className={cn('mt-auto h-px w-full', t.rule)} />
                   <span className="mt-[22px] flex items-center justify-between gap-4">
@@ -214,7 +219,7 @@ export default function Home() {
       <div className={`${CONTAINER} pb-11 xl:px-16`}>
         <section
           aria-labelledby="promo-title"
-          className="relative mt-14 overflow-hidden rounded-[28px] bg-pink px-6 pt-7 pb-8 lg:mt-[58px] lg:min-h-[244px] lg:px-[26px]"
+          className="relative mt-14 overflow-hidden rounded-[28px] bg-pink px-6 pt-7 pb-8 lg:mt-[58px] lg:min-h-[244px] lg:overflow-visible lg:px-[26px]"
         >
           <div
             aria-hidden="true"
