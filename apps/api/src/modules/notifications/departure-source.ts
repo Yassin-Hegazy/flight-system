@@ -1,6 +1,5 @@
 /**
- * A booking with a departure coming up, as the reminder job needs to see it. Notifications cannot
- * query Booking, so Booking describes what it knows in this shape instead.
+ * A booking's leg with a departure coming up, as the reminder job needs to see it.
  */
 export interface UpcomingDeparture {
   bookingId: string;
@@ -19,9 +18,9 @@ export interface UpcomingDeparture {
 }
 
 /**
- * What Notifications needs from the Booking module to send departure reminders (a port: the
- * interface belongs to Notifications and Booking provides the implementation, so Notifications
- * imports nothing from Booking).
+ * What the reminder job needs to send departure reminders (a port, and the Adapter pattern's
+ * Target): it belongs to Notifications, and BookedDeparturesAdapter answers it from the Catalog and
+ * Booking, so the reminder rule never sees either.
  */
 export interface DepartureSource {
   /**
@@ -31,12 +30,5 @@ export interface DepartureSource {
   ticketedDeparturesBetween(from: Date, to: Date): Promise<UpcomingDeparture[]>;
 }
 
-/** Injection token. The Booking owner replaces the default provider in notifications.module.ts. */
+/** Injection token, provided by BookedDeparturesAdapter over the Catalog and Booking. */
 export const DEPARTURE_SOURCE = Symbol('DEPARTURE_SOURCE');
-
-/** The default until Booking provides a real source: there is nothing to remind anyone about. */
-export class NoDepartureSource implements DepartureSource {
-  ticketedDeparturesBetween(): Promise<UpcomingDeparture[]> {
-    return Promise.resolve([]);
-  }
-}

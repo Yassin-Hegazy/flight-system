@@ -240,3 +240,15 @@ describe('US-USR-02 / US-USR-07 / US-USR-06 account use cases', () => {
     expect(await service.currentUser(signedIn.value)).toBeNull();
   });
 });
+
+describe('US-NT-07 the address Notifications emails (service)', () => {
+  it('US-NT-07-T07 emailOf gives the account address, and null for an unknown or malformed ID', async () => {
+    const { service } = usersService();
+    const registered = await service.register(ALICE);
+    if (!registered.ok) throw new Error(registered.error);
+
+    expect(await service.emailOf(registered.value)).toBe('alice@example.com');
+    expect(await service.emailOf('00000000-0000-4000-8000-000000000000')).toBeNull();
+    expect(await service.emailOf('not-a-uuid')).toBeNull();
+  });
+});

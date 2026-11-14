@@ -7,12 +7,5 @@ export interface EmailDirectory {
   emailOf(userId: string): Promise<string | null>;
 }
 
-/** Injection token. Users and Access replaces the default provider in notifications.module.ts. */
+/** Injection token, provided by UsersEmailDirectoryAdapter over Users and Access. */
 export const EMAIL_DIRECTORY = Symbol('EMAIL_DIRECTORY');
-
-/** The default until a real directory is provided: no address is known, so no email is sent. */
-export class NoEmailDirectory implements EmailDirectory {
-  emailOf(): Promise<string | null> {
-    return Promise.resolve(null);
-  }
-}

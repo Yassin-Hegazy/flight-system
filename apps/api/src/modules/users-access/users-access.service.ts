@@ -22,6 +22,8 @@ import type {
 } from './users-api';
 import { type UserRecord, USERS_REPOSITORY, type UsersRepository } from './users.repository';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
 const MAX_SAVED_TRAVELERS = 10;
 
@@ -98,6 +100,11 @@ export class UsersAccessService implements UsersApi {
       expiresAt: new Date(now.getTime() + SESSION_IDLE_MS),
     });
     return { id: user.id, email: user.email, name: user.name, role: user.role };
+  }
+
+  async emailOf(userId: string): Promise<string | null> {
+    if (!UUID.test(userId)) return null;
+    return (await this.repository.findUserById(userId))?.email ?? null;
   }
 
   /** A new email needs the current password and must not belong to another account (US-USR-02). */

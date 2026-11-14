@@ -3,8 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CLOCK, systemClock } from '../../shared/time';
 import { DepartureReminderJob } from './departure-reminder.job';
 import { DepartureReminderService } from './departure-reminder.service';
-import { DEPARTURE_SOURCE, NoDepartureSource } from './departure-source';
-import { EMAIL_DIRECTORY, NoEmailDirectory } from './email-directory';
+import { BookingModule } from '../booking/index';
+import { FlightCatalogModule } from '../flight-catalog/index';
+import { UsersAccessModule } from '../users-access/index';
+import { BookedDeparturesAdapter } from './booked-departures.adapter';
+import { DEPARTURE_SOURCE } from './departure-source';
+import { EMAIL_DIRECTORY } from './email-directory';
+import { UsersEmailDirectoryAdapter } from './users-email-directory.adapter';
 import { EmailChannel } from './email.channel';
 import { LocalMailCatcher } from './local-mail-catcher';
 import { MAIL_TRANSPORT } from './mail';
@@ -24,7 +29,12 @@ import { PgPreferencesRepository } from './pg-preferences.repository';
 import { PREFERENCES_REPOSITORY } from './preferences.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([NotificationEntity, NotificationPrefEntity])],
+  imports: [
+    BookingModule,
+    FlightCatalogModule,
+    UsersAccessModule,
+    TypeOrmModule.forFeature([NotificationEntity, NotificationPrefEntity]),
+  ],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,
@@ -56,12 +66,11 @@ import { PREFERENCES_REPOSITORY } from './preferences.repository';
     { provide: DEPARTURE_REMINDERS_API, useExisting: DepartureReminderService },
     { provide: CLOCK, useValue: systemClock },
 
-    // Integration points owned by other modules. Each default below does nothing until the owning
-    // module provides the real thing: replace the `useClass` with an adapter over that module's API.
-    //   DEPARTURE_SOURCE: Booking lists bookings by departure time (for reminders).
-    //   EMAIL_DIRECTORY:  Users and Access looks up a user's email address (for email).
-    { provide: DEPARTURE_SOURCE, useClass: NoDepartureSource },
-    { provide: EMAIL_DIRECTORY, useClass: NoEmailDirectory },
+    // The two ports, each answered by an Adapter over the module that owns the data:
+    //   DEPARTURE_SOURCE: the Catalog's departures and Booking's bookings on them (reminders).
+    //   EMAIL_DIRECTORY:  Users and Access looks up a user's email address (email).
+    { provide: DEPARTURE_SOURCE, useClass: BookedDeparturesAdapter },
+    { provide: EMAIL_DIRECTORY, useClass: UsersEmailDirectoryAdapter },
   ],
   exports: [NOTIFICATIONS_API],
 })

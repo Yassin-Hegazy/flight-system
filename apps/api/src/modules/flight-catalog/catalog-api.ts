@@ -67,6 +67,8 @@ export interface CatalogApi {
   getFlightForUpdate(tx: Tx, id: string): Promise<FlightInfo | null>;
   getFlight(id: string, tx?: Tx): Promise<FlightInfo | null>;
   findFlights(route: Route, localDate: string): Promise<FlightInfo[]>;
+  /** Every flight departing from `from` to `to`, both inclusive, on any route: for reminders. */
+  departingBetween(from: Date, to: Date): Promise<FlightInfo[]>;
   searchAirports(query: string): Promise<AirportSuggestion[]>;
   /** The known airports among these codes, with their time zones, in one query. Unknown codes are left out. */
   getAirports(codes: readonly string[]): Promise<AirportInfo[]>;
