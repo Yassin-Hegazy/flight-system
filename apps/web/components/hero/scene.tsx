@@ -69,8 +69,7 @@ const FRAGMENT = /* glsl */ `
       + texture2D(artwork, top).rgb * weight.y;
     // Deepen the colours a touch: the artwork is glass and chrome, not frosted.
     float grey = dot(colour, vec3(0.2126, 0.7152, 0.0722));
-    colour = mix(vec3(grey), colour, 1.18);
-    colour = (colour - 0.5) * 1.08 + 0.5;
+    colour = mix(vec3(grey), colour, 1.15);
     // A gentle light from the upper left, and a thin bright edge like light catching glass.
     vec3 normal = normalize(vViewNormal);
     float lit = dot(normal, normalize(vec3(-0.4, 0.6, 0.7))) * 0.5 + 0.5;
