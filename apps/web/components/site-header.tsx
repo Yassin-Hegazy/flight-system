@@ -3,11 +3,22 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { listNotifications } from '@/lib/account-api';
 import { useMe, useSignOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 // Only screens that exist are linked; account and trips links join as their screens are built.
-const LINKS = [
+interface NavLink {
+  href: string;
+  label: string;
+  /** The accessible name, when the visible label is not enough. */
+  name?: string;
+  /** A count shown beside the label. */
+  badge?: number;
+}
+
+const LINKS: NavLink[] = [
   { href: '/', label: 'EXPLORE' },
   { href: '/search', label: 'FLIGHTS' },
   { href: '/#destinations', label: 'DESTINATIONS' },
@@ -38,6 +49,28 @@ export function SiteHeader() {
   const menuButton = useRef<HTMLButtonElement>(null);
   const me = useMe();
   const signOut = useSignOut();
+  // The inbox page reads the same first page, so marking things read there updates this count.
+  const inbox = useQuery({
+    queryKey: ['notifications', 1],
+    queryFn: () => listNotifications(1),
+    enabled: Boolean(me),
+    retry: false,
+  });
+  const unread = inbox.data?.unread ?? 0;
+  const links: NavLink[] = me
+    ? [
+        LINKS[0],
+        LINKS[1],
+        { href: '/bookings', label: 'MY TRIPS' },
+        {
+          href: '/account/notifications',
+          label: 'INBOX',
+          name: unread ? `Inbox, ${unread} unread` : 'Inbox',
+          badge: unread,
+        },
+        { href: '/account', label: me.name, name: `Account, ${me.name}` },
+      ]
+    : LINKS;
 
   useEffect(() => {
     if (!open) return;
@@ -61,31 +94,28 @@ export function SiteHeader() {
 
         <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-[7px] rounded-full bg-navy px-3 py-[11px]">
-            {LINKS.map(({ href, label }) => (
+            {links.map(({ href, label, name, badge }) => (
               <li key={href}>
                 <Link
                   href={href}
+                  aria-label={name}
                   aria-current={current(href)}
-                  className="flex h-11 items-center rounded-full px-5 text-xs font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
+                  className="flex h-11 max-w-[170px] items-center gap-2 rounded-full px-5 text-xs font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
                 >
-                  {label}
+                  <span className="truncate">{label}</span>
+                  {badge ? (
+                    <span
+                      data-testid="unread-badge"
+                      className="grid h-5 min-w-5 place-items-center rounded-full bg-pink px-1.5 text-[11px] leading-none text-navy"
+                    >
+                      {badge}
+                    </span>
+                  ) : null}
                 </Link>
               </li>
             ))}
             {me ? (
               <>
-                <li>
-                  <Link
-                    href="/bookings"
-                    aria-current={current('/bookings')}
-                    className="flex h-11 items-center rounded-full px-5 text-xs font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
-                  >
-                    MY TRIPS
-                  </Link>
-                </li>
-                <li className="max-w-[140px] truncate px-3 text-xs font-bold text-white">
-                  {me.name}
-                </li>
                 <li>
                   <button
                     type="button"
@@ -133,29 +163,32 @@ export function SiteHeader() {
           className="absolute inset-x-5 top-[80px] rounded-3xl bg-navy p-3 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] md:inset-x-10 lg:hidden"
         >
           <ul className="flex flex-col gap-1">
-            {[
-              ...LINKS,
-              ...(me
-                ? [{ href: '/bookings', label: 'MY TRIPS' }]
-                : [{ href: '/sign-in', label: 'SIGN IN' }]),
-            ].map(({ href, label }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  aria-current={current(href)}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    'flex h-12 items-center rounded-2xl px-4 text-sm font-bold text-teal hover:bg-white/5',
-                    'aria-[current=page]:bg-pink aria-[current=page]:text-navy',
-                  )}
-                >
-                  {label}
-                </Link>
-              </li>
-            ))}
+            {[...links, ...(me ? [] : [{ href: '/sign-in', label: 'SIGN IN' } as NavLink])].map(
+              ({ href, label, name, badge }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    aria-label={name}
+                    aria-current={current(href)}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      'flex h-12 items-center rounded-2xl px-4 text-sm font-bold text-teal hover:bg-white/5',
+                      'aria-[current=page]:bg-pink aria-[current=page]:text-navy',
+                    )}
+                  >
+                    {label}
+                    {badge ? (
+                      <span className="ml-2 rounded-full bg-pink px-2 text-xs text-navy">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                </li>
+              ),
+            )}
             {me && (
               <li className="flex items-center justify-between gap-3 px-4 pt-2">
-                <span className="truncate text-sm font-bold text-white">{me.name}</span>
+                <span className="truncate text-sm font-bold text-mist">Signed in</span>
                 <button
                   type="button"
                   onClick={() => {
