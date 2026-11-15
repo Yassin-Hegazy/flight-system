@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { dayOf, describeLine, formatDuration, formatMoney, timeOf } from '@/lib/format';
 import { type ResultPage, type SearchResult, SORT_OPTIONS } from '@/lib/search-api';
 import { INPUT_CLASS } from './field';
@@ -169,6 +170,13 @@ function ResultCard({ result }: { result: SearchResult }) {
         <p className="text-xs text-muted-foreground">
           Total for all passengers · {formatMoney(result.adultFare)} per adult
         </p>
+        <Link
+          href={`/flights/${result.flightId}`}
+          aria-label={`View flight ${result.flightNumber}`}
+          className="order-last mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-pink px-6 text-xs font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+        >
+          VIEW FLIGHT <span aria-hidden="true">↗</span>
+        </Link>
         <ul className="text-xs text-muted-foreground" aria-label="Price breakdown">
           {result.breakdown.map((line) => (
             <li key={line.passengerType}>

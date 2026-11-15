@@ -1,6 +1,6 @@
 'use client';
 
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -15,6 +15,9 @@ const VIEW_HEIGHT = 3.5;
 const ORBIT_YAW = 0.32;
 const ORBIT_PITCH = 0.12;
 const ORBIT_SPEED = 0.45;
+/** How far the mouse can turn it, in radians, at the edge of the artwork. */
+const STEER_YAW = 0.42;
+const STEER_PITCH = 0.26;
 
 export interface SceneProps {
   /** false pauses rendering (hero off screen, tab in the background). */
@@ -41,7 +44,9 @@ function prepare(model: THREE.Object3D) {
 function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
   const [model, setModel] = useState<THREE.Object3D | null>(null);
   const group = useRef<THREE.Group>(null);
-  const pointer = useRef({ x: 0, y: 0 });
+  const canvas = useThree((state) => state.gl.domElement);
+  // Pointer position over the artwork, -1..1 from its centre; `over` is false anywhere else.
+  const pointer = useRef({ x: 0, y: 0, over: false });
   const time = useRef(0);
 
   useEffect(() => {
@@ -57,25 +62,27 @@ function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
     };
   }, [onReady, onUnavailable]);
 
-  // The sculpture leans a little toward the pointer; touch does not move it.
+  // While the mouse is over the artwork it steers the sculpture; touch does not.
   useEffect(() => {
     const move = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
-      pointer.current = {
-        x: (event.clientX / window.innerWidth) * 2 - 1,
-        y: (event.clientY / window.innerHeight) * 2 - 1,
-      };
+      const box = canvas.getBoundingClientRect();
+      const x = ((event.clientX - box.left) / box.width) * 2 - 1;
+      const y = ((event.clientY - box.top) / box.height) * 2 - 1;
+      pointer.current = { x, y, over: Math.abs(x) <= 1 && Math.abs(y) <= 1 };
     };
-    const reset = () => {
-      pointer.current = { x: 0, y: 0 };
+    const leave = () => {
+      pointer.current.over = false;
     };
     window.addEventListener('pointermove', move, { passive: true });
-    window.addEventListener('blur', reset);
+    window.addEventListener('blur', leave);
+    document.documentElement.addEventListener('pointerleave', leave);
     return () => {
       window.removeEventListener('pointermove', move);
-      window.removeEventListener('blur', reset);
+      window.removeEventListener('blur', leave);
+      document.documentElement.removeEventListener('pointerleave', leave);
     };
-  }, []);
+  }, [canvas]);
 
   useFrame((state, delta) => {
     const zoom = state.size.height / VIEW_HEIGHT;
@@ -87,12 +94,13 @@ function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
     const dt = Math.min(delta, 0.04);
     if (active) time.current += dt;
     const t = time.current;
-    const ease = 1 - Math.exp(-dt * 3);
-    // The facing direction traces a slow ellipse, wider than it is tall. It stays well short of a
-    // full turn because the back of the model is inferred, not sculpted.
+    const ease = 1 - Math.exp(-dt * 4);
+    // Hovered, the sculpture faces the mouse. Left alone, its facing direction traces a slow
+    // ellipse. Both stay well short of a full turn: the back of the model is inferred, not sculpted.
+    const { x, y, over } = pointer.current;
     const angle = t * ORBIT_SPEED;
-    const yaw = Math.sin(angle) * ORBIT_YAW + pointer.current.x * 0.05;
-    const pitch = Math.cos(angle) * ORBIT_PITCH - pointer.current.y * 0.03;
+    const yaw = over ? x * STEER_YAW : Math.sin(angle) * ORBIT_YAW;
+    const pitch = over ? y * STEER_PITCH : Math.cos(angle) * ORBIT_PITCH;
     group.current.rotation.y += (yaw - group.current.rotation.y) * ease;
     group.current.rotation.x += (pitch - group.current.rotation.x) * ease;
     group.current.position.y = Math.sin(t * 0.45) * 0.008;
