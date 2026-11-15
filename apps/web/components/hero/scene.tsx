@@ -55,7 +55,9 @@ const FRAGMENT = /* glsl */ `
     // is favoured a little, so the artwork is seen as it was made across most of that face.
     vec3 point = vPoint - CENTRE;
     vec3 facing = abs(normalize(point)) * vec3(1.0, 1.0, 1.3);
-    vec3 weight = pow(facing, vec3(8.0));
+    // A high power keeps each painting to itself and makes the hand-over between two of them
+    // narrow: wide overlaps average two different pictures, which greys the colours out.
+    vec3 weight = pow(facing, vec3(26.0));
     weight /= weight.x + weight.y + weight.z;
     // The back shows the artwork turned half a turn, so the two faces are not mirror images.
     vec2 origin = CENTRE.xy / WIDTH + 0.5;
@@ -65,11 +67,15 @@ const FRAGMENT = /* glsl */ `
     vec3 colour = texture2D(artwork, front).rgb * weight.z
       + texture2D(artwork, side).rgb * weight.x
       + texture2D(artwork, top).rgb * weight.y;
-    // A soft light from the upper left and a bright rim, so turning it reads as a solid object.
+    // Deepen the colours a touch: the artwork is glass and chrome, not frosted.
+    float grey = dot(colour, vec3(0.2126, 0.7152, 0.0722));
+    colour = mix(vec3(grey), colour, 1.18);
+    colour = (colour - 0.5) * 1.08 + 0.5;
+    // A gentle light from the upper left, and a thin bright edge like light catching glass.
     vec3 normal = normalize(vViewNormal);
     float lit = dot(normal, normalize(vec3(-0.4, 0.6, 0.7))) * 0.5 + 0.5;
-    float rim = pow(1.0 - abs(dot(normal, normalize(-vViewPoint))), 3.0);
-    colour = colour * mix(0.82, 1.06, lit) + glow * rim * 0.55;
+    float rim = pow(1.0 - abs(dot(normal, normalize(-vViewPoint))), 6.0);
+    colour = clamp(colour * mix(0.95, 1.06, lit), 0.0, 1.0) + glow * rim * 0.22;
     gl_FragColor = vec4(colour, 1.0);
     #include <colorspace_fragment>
   }
@@ -81,6 +87,8 @@ async function loadSculpture(): Promise<THREE.Mesh> {
     new THREE.TextureLoader().loadAsync(ARTWORK),
   ]);
   artwork.colorSpace = THREE.SRGBColorSpace;
+  // Keeps the artwork sharp where the surface turns away from the viewer.
+  artwork.anisotropy = 8;
   const mesh = gltf.scene.getObjectByProperty('isMesh', true) as THREE.Mesh;
   mesh.geometry.computeVertexNormals();
   mesh.material = new THREE.ShaderMaterial({
