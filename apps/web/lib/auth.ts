@@ -10,6 +10,8 @@ export interface Me {
   email: string;
   name: string;
   role: 'TRAVELER' | 'ADMIN';
+  /** Sent by GET /users/me only; null when no number is saved. */
+  phone?: string | null;
 }
 
 export interface RegisterInput {

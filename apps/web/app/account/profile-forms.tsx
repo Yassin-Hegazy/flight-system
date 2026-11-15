@@ -29,7 +29,7 @@ export function ProfileForm() {
     const text = (name: string) => formText(data, name).trim();
     const patch: ProfilePatch = {};
     if (text('name') !== me.name) patch.name = text('name');
-    if (text('phone')) patch.phone = text('phone');
+    if (text('phone') && text('phone') !== (me.phone ?? '')) patch.phone = text('phone');
     if (text('email') !== me.email) {
       patch.email = text('email');
       patch.currentPassword = formText(data, 'currentPassword');
@@ -39,7 +39,7 @@ export function ProfileForm() {
 
   return (
     <form
-      key={`${me.name}|${me.email}`}
+      key={`${me.name}|${me.email}|${me.phone ?? ''}`}
       onSubmit={submit}
       noValidate
       aria-label="Personal information"
@@ -80,14 +80,16 @@ export function ProfileForm() {
           />
         )}
       </Field>
-      <Field
-        id="pf-phone"
-        label="Phone (optional)"
-        error={errors.phone}
-        hint="The number on file is not shown. Fill this in only to change it."
-      >
+      <Field id="pf-phone" label="Phone (optional)" error={errors.phone}>
         {(control) => (
-          <input {...control} name="phone" type="tel" autoComplete="tel" className={INPUT_CLASS} />
+          <input
+            {...control}
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            defaultValue={me.phone ?? ''}
+            className={INPUT_CLASS}
+          />
         )}
       </Field>
       <Field

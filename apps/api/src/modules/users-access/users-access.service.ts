@@ -107,6 +107,12 @@ export class UsersAccessService implements UsersApi {
     return (await this.repository.findUserById(userId))?.email ?? null;
   }
 
+  /** The phone number on the account, for the profile form; null when none is saved. */
+  async phoneOf(userId: string): Promise<string | null> {
+    if (!UUID.test(userId)) return null;
+    return (await this.repository.findUserById(userId))?.phone ?? null;
+  }
+
   /** A new email needs the current password and must not belong to another account (US-USR-02). */
   async updateProfile(userId: string, input: ProfileInput): Promise<Result<void, ProfileError>> {
     const user = await this.requireUser(userId);

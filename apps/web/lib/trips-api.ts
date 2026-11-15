@@ -85,8 +85,11 @@ export const CANCELLABLE = new Set(['PENDING_PAYMENT', 'CONFIRMED', 'TICKETED'])
 
 const path = (reference: string) => `/bookings/${encodeURIComponent(reference)}`;
 
-export const listBookings = () =>
-  api<{ upcoming: BookingSummary[]; past: BookingSummary[] }>('/bookings');
+/** Expired bookings (held, never paid) are left out unless asked for. */
+export const listBookings = (includeExpired = false) =>
+  api<{ upcoming: BookingSummary[]; past: BookingSummary[] }>(
+    includeExpired ? '/bookings?includeExpired=true' : '/bookings',
+  );
 export const getBookingDetail = (reference: string) => api<BookingDetail>(path(reference));
 export const cancelBooking = (reference: string) =>
   api<BookingDetail>(`${path(reference)}/cancel`, { method: 'POST' });

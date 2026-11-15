@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useState } from 'react';
 import { FormAlert } from '@/components/auth-card';
 import { PINK_LINK, StatusPill } from '@/components/page-parts';
 import { errorMessage } from '@/lib/api';
@@ -11,27 +12,44 @@ import { type BookingSummary, listBookings, statusLabel } from '@/lib/trips-api'
 
 /** My bookings, split into upcoming and past as the API splits them (US-BK-06). */
 export function BookingsList() {
-  const bookings = useQuery({ queryKey: ['bookings'], queryFn: listBookings, retry: false });
+  const [includeExpired, setIncludeExpired] = useState(false);
+  const bookings = useQuery({
+    queryKey: ['bookings', includeExpired],
+    queryFn: () => listBookings(includeExpired),
+    // Keep the list on screen while the other one loads, so ticking the box does not flash.
+    placeholderData: (previous) => previous,
+    retry: false,
+  });
   const signedOut = useSignInRedirect(bookings.error);
 
   if (bookings.isPending || signedOut) return <p role="status">Loading your trips…</p>;
   if (bookings.isError) return <FormAlert message={errorMessage(bookings.error)} />;
   const { upcoming, past } = bookings.data;
 
-  if (upcoming.length + past.length === 0) {
-    return (
-      <div className="flex flex-col items-start gap-5 rounded-[22px] bg-card p-7">
-        <p className="text-lg font-bold">You have no trips yet.</p>
-        <Link href="/search" className={PINK_LINK}>
-          Search flights <span aria-hidden="true">↗</span>
-        </Link>
-      </div>
-    );
-  }
   return (
     <>
-      <Group title="Upcoming" items={upcoming} empty="Nothing coming up." />
-      <Group title="Past" items={past} empty="No past trips." />
+      <label className="flex items-center gap-3 self-start text-sm font-bold">
+        <input
+          type="checkbox"
+          checked={includeExpired}
+          onChange={(event) => setIncludeExpired(event.target.checked)}
+          className="size-4 accent-navy"
+        />
+        Show expired bookings
+      </label>
+      {upcoming.length + past.length === 0 ? (
+        <div className="flex flex-col items-start gap-5 rounded-[22px] bg-card p-7">
+          <p className="text-lg font-bold">You have no trips yet.</p>
+          <Link href="/search" className={PINK_LINK}>
+            Search flights <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+      ) : (
+        <>
+          <Group title="Upcoming" items={upcoming} empty="Nothing coming up." />
+          <Group title="Past" items={past} empty="No past trips." />
+        </>
+      )}
     </>
   );
 }

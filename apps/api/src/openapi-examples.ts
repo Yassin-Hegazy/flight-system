@@ -638,6 +638,7 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
       email: 'traveler.1794652622665@example.com',
       name: 'Nour Hassan',
       role: 'TRAVELER',
+      phone: '+20 100 000 0000',
     },
   },
   'GET /users/me/saved-travelers': {
