@@ -53,7 +53,7 @@ export function SiteHeader() {
   const current = (href: string) => (href === pathname ? ('page' as const) : undefined);
 
   return (
-    <header className="relative z-30 mx-auto w-full max-w-[1440px] px-5 md:px-10 xl:px-[72px]">
+    <header className="relative z-30 print:hidden mx-auto w-full max-w-[1440px] px-5 md:px-10 xl:px-[72px]">
       <div className="flex h-[88px] items-center justify-between gap-6 xl:h-[106px]">
         <Link href="/" aria-label="aeron home" className="rounded-lg">
           <Brand />
@@ -74,7 +74,16 @@ export function SiteHeader() {
             ))}
             {me ? (
               <>
-                <li className="max-w-[160px] truncate px-3 text-xs font-bold text-white">
+                <li>
+                  <Link
+                    href="/bookings"
+                    aria-current={current('/bookings')}
+                    className="flex h-11 items-center rounded-full px-5 text-xs font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
+                  >
+                    MY TRIPS
+                  </Link>
+                </li>
+                <li className="max-w-[140px] truncate px-3 text-xs font-bold text-white">
                   {me.name}
                 </li>
                 <li>
@@ -124,23 +133,26 @@ export function SiteHeader() {
           className="absolute inset-x-5 top-[80px] rounded-3xl bg-navy p-3 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] md:inset-x-10 lg:hidden"
         >
           <ul className="flex flex-col gap-1">
-            {[...LINKS, ...(me ? [] : [{ href: '/sign-in', label: 'SIGN IN' }])].map(
-              ({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    aria-current={current(href)}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      'flex h-12 items-center rounded-2xl px-4 text-sm font-bold text-teal hover:bg-white/5',
-                      'aria-[current=page]:bg-pink aria-[current=page]:text-navy',
-                    )}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ),
-            )}
+            {[
+              ...LINKS,
+              ...(me
+                ? [{ href: '/bookings', label: 'MY TRIPS' }]
+                : [{ href: '/sign-in', label: 'SIGN IN' }]),
+            ].map(({ href, label }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  aria-current={current(href)}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    'flex h-12 items-center rounded-2xl px-4 text-sm font-bold text-teal hover:bg-white/5',
+                    'aria-[current=page]:bg-pink aria-[current=page]:text-navy',
+                  )}
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
             {me && (
               <li className="flex items-center justify-between gap-3 px-4 pt-2">
                 <span className="truncate text-sm font-bold text-white">{me.name}</span>
