@@ -70,7 +70,7 @@ test('US-FL-01-T21 an unknown flight says so and offers the way back to search',
   await stubFlight(page, null);
   await page.goto('/flights/f-1');
 
-  await expect(page.getByRole('alert')).toContainText('Flight not found.');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('Flight not found.');
   await expect(page.getByRole('link', { name: 'Back to search' })).toBeVisible();
 });
 

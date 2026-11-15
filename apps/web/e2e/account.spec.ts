@@ -86,7 +86,9 @@ test('US-USR-05-T21 a wrong password says so and keeps the traveler on the form'
   await page.getByLabel('Password').fill('wrong');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
-  await expect(page.getByRole('alert')).toHaveText('Email or password is incorrect.');
+  await expect(page.getByRole('main').getByRole('alert')).toHaveText(
+    'Email or password is incorrect.',
+  );
   await expect(page).toHaveURL(/\/sign-in/);
 });
 
@@ -142,7 +144,9 @@ test('US-USR-04-T22 an email that is already registered is reported above the fo
   await page.getByLabel('Password').fill('Correct-Horse-2026');
   await page.getByRole('button', { name: 'Create account' }).click();
 
-  await expect(page.getByRole('alert')).toHaveText('An account with this email already exists.');
+  await expect(page.getByRole('main').getByRole('alert')).toHaveText(
+    'An account with this email already exists.',
+  );
 });
 
 test('NFR-USAB-01-T06 the sign-in and register pages have no detectable accessibility violations', async ({

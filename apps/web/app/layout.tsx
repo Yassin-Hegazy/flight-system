@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
@@ -17,7 +18,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <Providers>
-          <SiteHeader />
+          {/* The header marks the current page from the URL, which on dynamic routes is only known
+              at request time; the fallback keeps its height so the page does not jump. */}
+          <Suspense fallback={<div className="h-[89px] xl:h-[107px]" />}>
+            <SiteHeader />
+          </Suspense>
           {children}
           <SiteFooter />
         </Providers>
