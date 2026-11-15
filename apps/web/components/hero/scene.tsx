@@ -4,20 +4,19 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 
-const STUDIO = '/aeron/chrome-studio.hdr';
-const MODEL = '/aeron/reference-sculpture.glb';
+// A closed 3D body built from the artwork by scripts/build-sculpture.py.
+const MODEL = '/aeron/aeron-sculpture.glb';
+const ARTWORK = '/aeron/hero-chrome.png';
 const TEAL = '#dbf2fc';
-/** World units visible top to bottom; the sculpture is about 3 units tall. */
-const VIEW_HEIGHT = 3.5;
-/** The sway: radians either side of the front view, and radians per second (one loop in ~14 s). */
-const ORBIT_YAW = 0.32;
-const ORBIT_PITCH = 0.12;
-const ORBIT_SPEED = 0.45;
-/** How far the mouse can turn it, in radians, at the edge of the artwork. */
-const STEER_YAW = 0.62;
-const STEER_PITCH = 0.42;
+/** World units visible top to bottom; the sculpture is about 3.3 units across. */
+const VIEW_HEIGHT = 3.8;
+/** Left alone it turns steadily, one full turn in about 26 s, nodding slightly. */
+const SPIN_SPEED = 0.24;
+const NOD = 0.14;
+/** How far the mouse can turn it from where it was, in radians, at the edge of the artwork. */
+const STEER_YAW = 1.5;
+const STEER_PITCH = 0.85;
 /** Hovered, it also grows a little and leans toward the mouse, in world units. */
 const HOVER_SCALE = 1.04;
 const HOVER_SHIFT = 0.06;
@@ -29,38 +28,112 @@ export interface SceneProps {
   onUnavailable: () => void;
 }
 
-/** The model's front carries the baked artwork; only its inferred back is lit by the studio. */
-function prepare(model: THREE.Object3D) {
-  model.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    const materials: THREE.Material[] = Array.isArray(mesh.material)
-      ? mesh.material
-      : [mesh.material];
-    for (const material of materials) {
-      if (material instanceof THREE.MeshBasicMaterial) material.toneMapped = false;
-      if (material instanceof THREE.MeshStandardMaterial) material.envMapIntensity = 0.8;
-    }
+// The artwork is painted onto the body from three directions (front and back, the sides, top and
+// bottom) and blended by which way the body faces there, so there is artwork all the way round.
+const VERTEX = /* glsl */ `
+  varying vec3 vPoint;
+  varying vec3 vViewNormal;
+  varying vec3 vViewPoint;
+  void main() {
+    vPoint = position;
+    vec4 viewPoint = modelViewMatrix * vec4(position, 1.0);
+    vViewPoint = viewPoint.xyz;
+    vViewNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * viewPoint;
+  }
+`;
+const FRAGMENT = /* glsl */ `
+  uniform sampler2D artwork;
+  uniform vec3 glow;
+  varying vec3 vPoint;
+  varying vec3 vViewNormal;
+  varying vec3 vViewPoint;
+  const float WIDTH = 3.5;                    // the artwork spans 3.5 world units
+  const vec3 RADII = vec3(1.66, 1.67, 1.3);   // half-sizes of the body
+  const float SIDE = 1.2;                     // the body is shallower than wide: stretch depth to fit
+  void main() {
+    // Which projection to use follows the body's overall roundness, not each small fold, so the
+    // whole front shows the artwork as it was made and the others take over toward the rim.
+    vec3 facing = normalize(vPoint / (RADII * RADII));
+    vec3 weight = pow(abs(facing), vec3(7.0));
+    weight /= weight.x + weight.y + weight.z;
+    // The back shows the artwork turned half a turn, so the two faces are not mirror images.
+    vec2 front = (vPoint.z < 0.0 ? -vPoint.xy : vPoint.xy) / WIDTH + 0.5;
+    vec2 side = vec2(vPoint.z * SIDE, vPoint.y) / WIDTH + 0.5;
+    vec2 top = vec2(vPoint.x, vPoint.z * SIDE) / WIDTH + 0.5;
+    vec3 colour = texture2D(artwork, front).rgb * weight.z
+      + texture2D(artwork, side).rgb * weight.x
+      + texture2D(artwork, top).rgb * weight.y;
+    // A soft light from the upper left and a bright rim, so turning it reads as a solid object.
+    vec3 normal = normalize(vViewNormal);
+    float lit = dot(normal, normalize(vec3(-0.4, 0.6, 0.7))) * 0.5 + 0.5;
+    float rim = pow(1.0 - abs(dot(normal, normalize(-vViewPoint))), 3.0);
+    colour = colour * mix(0.82, 1.06, lit) + glow * rim * 0.55;
+    gl_FragColor = vec4(colour, 1.0);
+    #include <colorspace_fragment>
+  }
+`;
+
+async function loadSculpture(): Promise<THREE.Mesh> {
+  const [gltf, artwork] = await Promise.all([
+    new GLTFLoader().loadAsync(MODEL),
+    new THREE.TextureLoader().loadAsync(ARTWORK),
+  ]);
+  artwork.colorSpace = THREE.SRGBColorSpace;
+  const mesh = gltf.scene.getObjectByProperty('isMesh', true) as THREE.Mesh;
+  mesh.geometry.computeVertexNormals();
+  mesh.material = new THREE.ShaderMaterial({
+    vertexShader: VERTEX,
+    fragmentShader: FRAGMENT,
+    uniforms: { artwork: { value: artwork }, glow: { value: new THREE.Color('#bfe9fb') } },
   });
+  return mesh;
 }
 
 /** Bends the pointer position so the first bit of movement away from the centre already turns it. */
-const response = (v: number) => Math.sign(v) * Math.abs(v) ** 0.6;
+const response = (v: number) => Math.sign(v) * Math.abs(v) ** 0.7;
+
+interface Motion {
+  /** Where the idle spin has got to. */
+  spin: number;
+  /** The angle the sculpture was at when the mouse took over; null while it spins by itself. */
+  held: number | null;
+  time: number;
+}
+
+/** The yaw and pitch to head for this frame. `dt` is 0 while the scene is paused. */
+function aim(
+  now: Motion,
+  pointer: { x: number; y: number; over: boolean },
+  currentYaw: number,
+  dt: number,
+): [number, number] {
+  now.time += dt;
+  if (pointer.over) {
+    // The mouse turns it from wherever the spin had brought it, up to a quarter turn each way.
+    now.held ??= currentYaw;
+    return [now.held + response(pointer.x) * STEER_YAW, response(pointer.y) * STEER_PITCH];
+  }
+  // Let go, it carries on spinning from where the mouse left it.
+  if (now.held !== null) now.spin = currentYaw;
+  now.held = null;
+  now.spin += dt * SPIN_SPEED;
+  return [now.spin, Math.sin(now.time * 0.4) * NOD];
+}
 
 function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
-  const [model, setModel] = useState<THREE.Object3D | null>(null);
+  const [model, setModel] = useState<THREE.Mesh | null>(null);
   const group = useRef<THREE.Group>(null);
   const canvas = useThree((state) => state.gl.domElement);
   // Pointer position over the artwork, -1..1 from its centre; `over` is false anywhere else.
   const pointer = useRef({ x: 0, y: 0, over: false });
-  const time = useRef(0);
+  const motion = useRef<Motion>({ spin: 0, held: null, time: 0 });
 
   useEffect(() => {
     let cancelled = false;
-    new GLTFLoader().loadAsync(MODEL).then((gltf) => {
+    loadSculpture().then((mesh) => {
       if (cancelled) return;
-      prepare(gltf.scene);
-      setModel(gltf.scene);
+      setModel(mesh);
       onReady();
     }, onUnavailable);
     return () => {
@@ -96,26 +169,18 @@ function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
       state.camera.zoom = zoom;
       state.camera.updateProjectionMatrix();
     }
-    if (!group.current) return;
-    const dt = Math.min(delta, 0.04);
-    if (active) time.current += dt;
-    const t = time.current;
-    // Hovered, the sculpture faces the mouse. Left alone, its facing direction traces a slow
-    // ellipse. Both stay short of a side view: the back of the model is inferred, not sculpted.
-    const { x, y, over } = pointer.current;
-    // Quick to follow the mouse, slow to drift back.
-    const ease = 1 - Math.exp(-dt * (over ? 9 : 3));
-    const angle = t * ORBIT_SPEED;
-    const yaw = over ? response(x) * STEER_YAW : Math.sin(angle) * ORBIT_YAW;
-    const pitch = over ? response(y) * STEER_PITCH : Math.cos(angle) * ORBIT_PITCH;
-    const scale = over ? HOVER_SCALE : 1;
     const body = group.current;
+    if (!body) return;
+    const dt = Math.min(delta, 0.04);
+    const { x, y, over } = pointer.current;
+    const [yaw, pitch] = aim(motion.current, pointer.current, body.rotation.y, active ? dt : 0);
+    // Quick to follow the mouse, gentle otherwise.
+    const ease = 1 - Math.exp(-dt * (over ? 9 : 4));
     body.rotation.y += (yaw - body.rotation.y) * ease;
     body.rotation.x += (pitch - body.rotation.x) * ease;
     body.position.x += ((over ? x * HOVER_SHIFT : 0) - body.position.x) * ease;
-    body.position.y +=
-      ((over ? -y * HOVER_SHIFT : Math.sin(t * 0.45) * 0.008) - body.position.y) * ease;
-    body.scale.setScalar(body.scale.x + (scale - body.scale.x) * ease);
+    body.position.y += ((over ? -y * HOVER_SHIFT : 0) - body.position.y) * ease;
+    body.scale.setScalar(body.scale.x + ((over ? HOVER_SCALE : 1) - body.scale.x) * ease);
   });
 
   return <group ref={group}>{model && <primitive object={model} dispose={null} />}</group>;
@@ -135,12 +200,6 @@ export default function Scene(props: SceneProps) {
       onCreated={({ gl, scene }) => {
         scene.background = new THREE.Color(TEAL);
         gl.domElement.addEventListener('webglcontextlost', onUnavailable);
-        void new HDRLoader().loadAsync(STUDIO).then((hdr) => {
-          const generator = new THREE.PMREMGenerator(gl);
-          scene.environment = generator.fromEquirectangular(hdr).texture;
-          generator.dispose();
-          hdr.dispose();
-        });
       }}
     >
       <Sculpture {...props} />
