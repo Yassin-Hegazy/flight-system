@@ -107,6 +107,21 @@ describe('Users and Access over HTTP', () => {
       await register(newEmail(), '1234567890').expect(201);
     });
 
+    it('US-USR-02-T07 who-am-I includes the phone on file, null until one is saved', async () => {
+      const { cookie } = await signedInTraveler();
+      const before = await http().get('/users/me').set('cookie', cookie).expect(200);
+      expect(before.body).toMatchObject({ role: 'TRAVELER', phone: null });
+
+      await http()
+        .patch('/users/me')
+        .set('cookie', cookie)
+        .send({ phone: '+20 100 000 0000' })
+        .expect(204);
+
+      const after = await http().get('/users/me').set('cookie', cookie).expect(200);
+      expect(after.body.phone).toBe('+20 100 000 0000');
+    });
+
     it('US-USR-02-T01 profile errors are a 400 with one message per field', async () => {
       const { cookie } = await signedInTraveler();
 

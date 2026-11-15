@@ -184,6 +184,16 @@ describe('US-USR-02 / US-USR-07 / US-USR-06 account use cases', () => {
     });
   });
 
+  it('US-USR-02-T06 phoneOf gives the number on file, and null when there is none or no such user', async () => {
+    const { service, userId } = await registered();
+    expect(await service.phoneOf(userId)).toBeNull();
+
+    await service.updateProfile(userId, { phone: ' +20 100 000 0000 ' });
+
+    expect(await service.phoneOf(userId)).toBe('+20 100 000 0000');
+    expect(await service.phoneOf('not-a-user')).toBeNull();
+  });
+
   it('US-USR-07-T03 a password change needs the current password and a strong new one', async () => {
     const { service, userId } = await registered();
     expect(await service.changePassword(userId, 'wrong', 'a new long password')).toEqual({

@@ -200,6 +200,37 @@ test('US-BK-06-T20 my bookings lists upcoming and past trips with their status a
   await expect(page).toHaveURL(/\/bookings\/S28N6D$/);
 });
 
+test('US-BK-06-T22 expired bookings are hidden until the traveler asks to see them', async ({
+  page,
+}) => {
+  await stub(page);
+  await page.route('**/api/bookings?includeExpired=true', (route) =>
+    route.fulfill({
+      json: {
+        upcoming: [],
+        past: [
+          {
+            reference: 'EXP001',
+            route: { origin: 'CAI', destination: 'JED' },
+            departureLocal: '2026-12-01T07:00+02:00',
+            status: 'EXPIRED',
+            total: money(900_000),
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto('/bookings');
+  await expect(page.getByRole('region', { name: 'Past' })).toContainText('OLD123');
+  await expect(page.getByText('EXP001')).toHaveCount(0);
+
+  await page.getByLabel('Show expired bookings').check();
+
+  const past = page.getByRole('region', { name: 'Past' });
+  await expect(past).toContainText('EXP001');
+  await expect(past).toContainText('Expired');
+});
+
 test('US-BK-06-T21 my bookings asks a signed-out traveler to sign in', async ({ page }) => {
   await stub(page, { signedIn: false });
   await page.goto('/bookings');
