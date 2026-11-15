@@ -19,6 +19,10 @@ interface ResultsSectionProps {
   pageParam: string;
   onChange: (updates: Record<string, string | null>) => void;
   onClearFilters: () => void;
+  /** adults, children, infants and cabin as a query string, carried to the flight and booking pages. */
+  party: string;
+  /** Round trip only: this list's chosen flight, and how to choose one. One-way lists book directly. */
+  selection?: { selectedId: string | null; onSelect: (flightId: string) => void };
 }
 
 /**
@@ -27,7 +31,8 @@ interface ResultsSectionProps {
  * again through the URL.
  */
 export function ResultsSection(props: ResultsSectionProps) {
-  const { id, title, page, sortParam, pageParam, onChange, onClearFilters } = props;
+  const { id, title, page, sortParam, pageParam, onChange, onClearFilters, party, selection } =
+    props;
   const headingId = `${id}-heading`;
   const filtered = Object.keys(page.filters).length > 0;
 
@@ -67,7 +72,7 @@ export function ResultsSection(props: ResultsSectionProps) {
         <ol className="flex flex-col gap-3" aria-label={`${title} results`}>
           {page.items.map((result) => (
             <li key={result.flightId}>
-              <ResultCard result={result} />
+              <ResultCard result={result} party={party} selection={selection} />
             </li>
           ))}
         </ol>
@@ -125,7 +130,18 @@ function EmptyState({
 
 const CABIN_LABEL = { ECONOMY: 'Economy', BUSINESS: 'Business' } as const;
 
-function ResultCard({ result }: { result: SearchResult }) {
+const ACTION =
+  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-5 text-xs font-bold ' +
+  'focus-visible:outline-navy';
+
+interface ResultCardProps {
+  result: SearchResult;
+  party: string;
+  selection?: ResultsSectionProps['selection'];
+}
+
+function ResultCard({ result, party, selection }: ResultCardProps) {
+  const chosen = selection?.selectedId === result.flightId;
   return (
     <article
       aria-label={`${result.flightNumber}, ${result.airline.name}`}
@@ -170,13 +186,34 @@ function ResultCard({ result }: { result: SearchResult }) {
         <p className="text-xs text-muted-foreground">
           Total for all passengers · {formatMoney(result.adultFare)} per adult
         </p>
-        <Link
-          href={`/flights/${result.flightId}`}
-          aria-label={`View flight ${result.flightNumber}`}
-          className="order-last mt-2 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-pink px-6 text-xs font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
-        >
-          VIEW FLIGHT <span aria-hidden="true">↗</span>
-        </Link>
+        <div className="order-last mt-2 flex flex-wrap gap-2 sm:justify-end">
+          <Link
+            href={`/flights/${result.flightId}?${party}`}
+            aria-label={`View flight ${result.flightNumber}`}
+            className={`${ACTION} border border-navy/25 hover:border-navy`}
+          >
+            DETAILS
+          </Link>
+          {selection ? (
+            <button
+              type="button"
+              aria-pressed={chosen}
+              aria-label={`Select ${result.flightNumber}`}
+              onClick={() => selection.onSelect(result.flightId)}
+              className={`${ACTION} ${chosen ? 'bg-navy text-white' : 'bg-pink text-navy hover:brightness-105'}`}
+            >
+              {chosen ? 'SELECTED ✓' : 'SELECT'}
+            </button>
+          ) : (
+            <Link
+              href={`/book?flightId=${result.flightId}&${party}`}
+              aria-label={`Book ${result.flightNumber}`}
+              className={`${ACTION} bg-pink text-navy hover:brightness-105`}
+            >
+              BOOK <span aria-hidden="true">↗</span>
+            </Link>
+          )}
+        </div>
         <ul className="text-xs text-muted-foreground" aria-label="Price breakdown">
           {result.breakdown.map((line) => (
             <li key={line.passengerType}>
