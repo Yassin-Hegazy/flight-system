@@ -320,6 +320,49 @@ test('US-PAY-02-T20 a declined card is reported and the traveler can pay again w
   );
 });
 
+test('US-BK-01-T23 a one-way result books that flight for the party that was searched', async ({
+  page,
+}) => {
+  await stub(page);
+  await page.goto('/search?origin=CAI&destination=LHR&date=2026-12-10&adults=1&children=1');
+  await page.getByRole('link', { name: 'Book MS777' }).click();
+
+  await expect(page).toHaveURL(/\/book\?flightId=f-1&adults=1&children=1&infants=0&cabin=ECONOMY$/);
+  await expect(page.getByRole('group', { name: 'Passenger 2, child' })).toBeVisible();
+});
+
+test('US-BK-01-T24 a round trip is booked as the chosen outbound and return together', async ({
+  page,
+}) => {
+  await stub(page);
+  const list = (items: object[]) => ({
+    items,
+    page: 1,
+    pageSize: 20,
+    total: items.length,
+    hasNext: false,
+    sort: 'PRICE',
+    filters: {},
+  });
+  await page.route('**/api/search/round-trip?**', (route) =>
+    route.fulfill({
+      json: {
+        outbound: list([QUOTE]),
+        inbound: list([{ ...QUOTE, flightId: 'f-2', flightNumber: 'MS778' }]),
+      },
+    }),
+  );
+  await page.goto('/search?origin=CAI&destination=LHR&date=2026-12-10&returnDate=2026-12-17');
+  await expect(page.getByText('Select an outbound and a return flight')).toBeVisible();
+  await page.getByRole('button', { name: 'Select MS777' }).click();
+  await page.getByRole('button', { name: 'Select MS778' }).click();
+
+  await expect(page.getByRole('link', { name: 'Continue to booking' })).toHaveAttribute(
+    'href',
+    '/book?flightId=f-1&returnFlightId=f-2&adults=1&children=0&infants=0&cabin=ECONOMY',
+  );
+});
+
 test('NFR-USAB-01-T07 the passengers and payment pages have no detectable accessibility violations', async ({
   page,
 }) => {

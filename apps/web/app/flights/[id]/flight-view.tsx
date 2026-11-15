@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Plane } from 'lucide-react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { errorMessage } from '@/lib/api';
 import { type Flight, getFlight, STATUS_LABEL } from '@/lib/flights-api';
 import { dayOf, formatDuration, formatMoney, timeOf } from '@/lib/format';
@@ -38,7 +38,11 @@ export function FlightView() {
   return <Ticket flight={flight.data} />;
 }
 
+const BOOKABLE = new Set(['SCHEDULED', 'DELAYED']);
+
 function Ticket({ flight }: { flight: Flight }) {
+  // The party and cabin chosen in the search, if the traveler came from there.
+  const party = useSearchParams().toString();
   const delayed = flight.estimatedDepartureLocal !== undefined;
   const cancelled = flight.status === 'CANCELLED';
   const departure = flight.estimatedDepartureLocal ?? flight.scheduledDepartureLocal;
@@ -134,7 +138,15 @@ function Ticket({ flight }: { flight: Flight }) {
         </p>
       )}
 
-      <div>
+      <div className="flex flex-wrap gap-3">
+        {BOOKABLE.has(flight.status) && (
+          <Link
+            href={`/book?flightId=${flight.id}${party ? `&${party}` : ''}`}
+            className="inline-flex h-[52px] items-center gap-2 rounded-full bg-pink px-8 text-[15px] font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+          >
+            Continue to booking <span aria-hidden="true">↗</span>
+          </Link>
+        )}
         <Link
           href={`/search?origin=${flight.origin.code}&destination=${flight.destination.code}&date=${flight.scheduledDepartureLocal.slice(0, 10)}`}
           className={BACK}

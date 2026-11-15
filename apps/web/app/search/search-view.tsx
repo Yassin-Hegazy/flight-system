@@ -1,7 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import {
   type ApiErrorBody,
   runSearch,
@@ -75,7 +77,14 @@ export function SearchView() {
           Searching…
         </p>
       )}
-      {search.data && <Results outcome={search.data} update={update} />}
+      {search.data && (
+        <Results
+          key={`results-${query}`}
+          outcome={search.data}
+          update={update}
+          party={partyOf(params)}
+        />
+      )}
     </div>
   );
 }
@@ -107,7 +116,28 @@ function ErrorBanner({
   );
 }
 
-function Results({ outcome, update }: { outcome: SearchOutcome; update: Update }) {
+/** The party and cabin of this search, with the API's defaults filled in. */
+function partyOf(params: URLSearchParams): string {
+  return new URLSearchParams({
+    adults: params.get('adults') ?? '1',
+    children: params.get('children') ?? '0',
+    infants: params.get('infants') ?? '0',
+    cabin: params.get('cabin') ?? 'ECONOMY',
+  }).toString();
+}
+
+interface ResultsProps {
+  outcome: SearchOutcome;
+  update: Update;
+  party: string;
+}
+
+function Results({ outcome, update, party }: ResultsProps) {
+  // A round trip is booked as a pair: one flight chosen from each list.
+  const [picked, setPicked] = useState<{ outbound: string | null; inbound: string | null }>({
+    outbound: null,
+    inbound: null,
+  });
   const clearFilters = () =>
     update(Object.fromEntries([...FILTER_PARAMS, ...PAGE_PARAMS].map((name) => [name, null])));
 
@@ -121,6 +151,7 @@ function Results({ outcome, update }: { outcome: SearchOutcome; update: Update }
         pageParam="page"
         onChange={update}
         onClearFilters={clearFilters}
+        party={party}
       />
     );
   }
@@ -134,6 +165,11 @@ function Results({ outcome, update }: { outcome: SearchOutcome; update: Update }
         pageParam="outboundPage"
         onChange={update}
         onClearFilters={clearFilters}
+        party={party}
+        selection={{
+          selectedId: picked.outbound,
+          onSelect: (outbound) => setPicked((current) => ({ ...current, outbound })),
+        }}
       />
       <ResultsSection
         id="inbound"
@@ -143,7 +179,26 @@ function Results({ outcome, update }: { outcome: SearchOutcome; update: Update }
         pageParam="inboundPage"
         onChange={update}
         onClearFilters={clearFilters}
+        party={party}
+        selection={{
+          selectedId: picked.inbound,
+          onSelect: (inbound) => setPicked((current) => ({ ...current, inbound })),
+        }}
       />
+      <div className="flex flex-wrap items-center gap-4 rounded-[18px] bg-navy p-5 text-white lg:col-span-2">
+        {picked.outbound && picked.inbound ? (
+          <Link
+            href={`/book?flightId=${picked.outbound}&returnFlightId=${picked.inbound}&${party}`}
+            className="inline-flex h-[52px] items-center gap-2 rounded-full bg-pink px-8 text-[15px] font-bold text-navy hover:brightness-105 focus-visible:outline-teal"
+          >
+            Continue to booking <span aria-hidden="true">↗</span>
+          </Link>
+        ) : (
+          <p role="status" className="text-sm font-bold text-teal">
+            Select an outbound and a return flight to book them together.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
