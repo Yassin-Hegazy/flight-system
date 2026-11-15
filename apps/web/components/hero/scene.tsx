@@ -57,7 +57,7 @@ const FRAGMENT = /* glsl */ `
     vec3 facing = abs(normalize(point)) * vec3(1.0, 1.0, 1.3);
     // A high power keeps each painting to itself and makes the hand-over between two of them
     // narrow: wide overlaps average two different pictures, which greys the colours out.
-    vec3 weight = pow(facing, vec3(26.0));
+    vec3 weight = pow(facing, vec3(15.0));
     weight /= weight.x + weight.y + weight.z;
     // The back shows the artwork turned half a turn, so the two faces are not mirror images.
     vec2 origin = CENTRE.xy / WIDTH + 0.5;
