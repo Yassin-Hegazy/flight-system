@@ -148,11 +148,15 @@ export class UsersAccessController {
   @UseGuards(SignedInGuard)
   @Get('me')
   @ApiOperation({ summary: 'Read who is signed in' })
-  @ApiOkResponse({ description: 'Your ID, email, name and role.' })
+  @ApiOkResponse({ description: 'Your ID, email, name, role and phone (null when none is saved).' })
   @ApiSession()
-  me(@Ctx() ctx: RequestContext): Promise<Principal> {
+  me(@Ctx() ctx: RequestContext): Promise<Principal & { phone: string | null }> {
     return new WithAuth(
-      new Action((caller: RequestContext) => Promise.resolve(signedIn(caller))),
+      new Action(async (caller: RequestContext) => {
+        const principal = signedIn(caller);
+        // The session knows who you are; the phone is read from the account each time.
+        return { ...principal, phone: await this.users.phoneOf(principal.id) };
+      }),
     ).execute(ctx, undefined);
   }
 

@@ -12,7 +12,13 @@ const invalid = (fieldErrors: Record<string, string>) =>
 
 async function stub(page: Page, signedIn = true) {
   const state = {
-    me: { id: 'u-1', email: 'sara@example.com', name: 'Sara Hassan', role: 'TRAVELER' },
+    me: {
+      id: 'u-1',
+      email: 'sara@example.com',
+      name: 'Sara Hassan',
+      role: 'TRAVELER',
+      phone: '+20 111 222 3333' as string | null,
+    },
     travelers: [{ id: 't-1', ownerId: 'u-1', name: 'Omar Hassan', dateOfBirth: '2015-06-01' }],
     profilePatches: [] as Record<string, string>[],
     passwordPatches: [] as Record<string, string>[],
@@ -41,6 +47,7 @@ async function stub(page: Page, signedIn = true) {
       ...state.me,
       name: body.name ?? state.me.name,
       email: body.email ?? state.me.email,
+      phone: body.phone ?? state.me.phone,
     };
     return route.fulfill({ status: 204 });
   });
@@ -98,6 +105,20 @@ test('US-USR-02-T20 the profile shows who is signed in and saves a new name and 
   await expect(saved(page)).toHaveText('Profile saved.');
   // Only what changed is sent; the unchanged email is left out, so no password is asked for.
   expect(state.profilePatches).toEqual([{ name: 'Sara M. Hassan', phone: '+20 100 000 0000' }]);
+});
+
+test('US-USR-02-T23 the profile shows the phone on file and sends it only when it changes', async ({
+  page,
+}) => {
+  const state = await stub(page);
+  await page.goto('/account');
+  await expect(profile(page).getByLabel('Phone')).toHaveValue('+20 111 222 3333');
+
+  await profile(page).getByLabel('Full name').fill('Sara M. Hassan');
+  await profile(page).getByRole('button', { name: 'Save profile' }).click();
+  await expect(saved(page)).toHaveText('Profile saved.');
+
+  expect(state.profilePatches).toEqual([{ name: 'Sara M. Hassan' }]);
 });
 
 test('US-USR-02-T21 changing the email needs the current password, reported next to that field', async ({

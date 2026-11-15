@@ -42,6 +42,8 @@ export interface UsersApi {
   currentUser(token: string | undefined): Promise<Principal | null>;
   /** The account's email address, or null when there is no such account: for outgoing email. */
   emailOf(userId: string): Promise<string | null>;
+  /** The account's phone number, or null when none is saved: for the profile form. */
+  phoneOf(userId: string): Promise<string | null>;
   updateProfile(userId: string, input: ProfileInput): Promise<Result<void, ProfileError>>;
   /** Signs out every other session of the user; the one given in keepSession stays (US-USR-07). */
   changePassword(
