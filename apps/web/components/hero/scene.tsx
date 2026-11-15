@@ -5,12 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-// A closed 3D body built from the artwork by scripts/build-sculpture.py.
+// A warped ball built from the artwork by scripts/build-sculpture.py.
 const MODEL = '/aeron/aeron-sculpture.glb';
 const ARTWORK = '/aeron/hero-chrome.png';
 const TEAL = '#dbf2fc';
-/** World units visible top to bottom; the sculpture is about 3.3 units across. */
-const VIEW_HEIGHT = 3.8;
+/** World units visible top to bottom; the ball is about 3.4 units across. */
+const VIEW_HEIGHT = 4.1;
 /** Left alone it turns steadily, one full turn in about 26 s, nodding slightly. */
 const SPIN_SPEED = 0.24;
 const NOD = 0.14;
@@ -48,19 +48,20 @@ const FRAGMENT = /* glsl */ `
   varying vec3 vPoint;
   varying vec3 vViewNormal;
   varying vec3 vViewPoint;
-  const float WIDTH = 3.5;                    // the artwork spans 3.5 world units
-  const vec3 RADII = vec3(1.66, 1.67, 1.3);   // half-sizes of the body
-  const float SIDE = 1.2;                     // the body is shallower than wide: stretch depth to fit
+  const float WIDTH = 3.5;                          // the artwork spans 3.5 world units
+  const vec3 CENTRE = vec3(0.092, -0.025, 0.0);     // where the ball sits in the artwork
   void main() {
-    // Which projection to use follows the body's overall roundness, not each small fold, so the
-    // whole front shows the artwork as it was made and the others take over toward the rim.
-    vec3 facing = normalize(vPoint / (RADII * RADII));
-    vec3 weight = pow(abs(facing), vec3(7.0));
+    // Which projection to use follows the ball's own roundness, not each small fold. The front
+    // is favoured a little, so the artwork is seen as it was made across most of that face.
+    vec3 point = vPoint - CENTRE;
+    vec3 facing = abs(normalize(point)) * vec3(1.0, 1.0, 1.3);
+    vec3 weight = pow(facing, vec3(8.0));
     weight /= weight.x + weight.y + weight.z;
     // The back shows the artwork turned half a turn, so the two faces are not mirror images.
-    vec2 front = (vPoint.z < 0.0 ? -vPoint.xy : vPoint.xy) / WIDTH + 0.5;
-    vec2 side = vec2(vPoint.z * SIDE, vPoint.y) / WIDTH + 0.5;
-    vec2 top = vec2(vPoint.x, vPoint.z * SIDE) / WIDTH + 0.5;
+    vec2 origin = CENTRE.xy / WIDTH + 0.5;
+    vec2 front = origin + (point.z < 0.0 ? -point.xy : point.xy) / WIDTH;
+    vec2 side = origin + vec2(point.z, point.y) / WIDTH;
+    vec2 top = origin + vec2(point.x, point.z) / WIDTH;
     vec3 colour = texture2D(artwork, front).rgb * weight.z
       + texture2D(artwork, side).rgb * weight.x
       + texture2D(artwork, top).rgb * weight.y;
