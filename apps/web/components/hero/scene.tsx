@@ -16,8 +16,11 @@ const ORBIT_YAW = 0.32;
 const ORBIT_PITCH = 0.12;
 const ORBIT_SPEED = 0.45;
 /** How far the mouse can turn it, in radians, at the edge of the artwork. */
-const STEER_YAW = 0.42;
-const STEER_PITCH = 0.26;
+const STEER_YAW = 0.62;
+const STEER_PITCH = 0.42;
+/** Hovered, it also grows a little and leans toward the mouse, in world units. */
+const HOVER_SCALE = 1.04;
+const HOVER_SHIFT = 0.06;
 
 export interface SceneProps {
   /** false pauses rendering (hero off screen, tab in the background). */
@@ -40,6 +43,9 @@ function prepare(model: THREE.Object3D) {
     }
   });
 }
+
+/** Bends the pointer position so the first bit of movement away from the centre already turns it. */
+const response = (v: number) => Math.sign(v) * Math.abs(v) ** 0.6;
 
 function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
   const [model, setModel] = useState<THREE.Object3D | null>(null);
@@ -94,16 +100,22 @@ function Sculpture({ active, onReady, onUnavailable }: SceneProps) {
     const dt = Math.min(delta, 0.04);
     if (active) time.current += dt;
     const t = time.current;
-    const ease = 1 - Math.exp(-dt * 4);
     // Hovered, the sculpture faces the mouse. Left alone, its facing direction traces a slow
-    // ellipse. Both stay well short of a full turn: the back of the model is inferred, not sculpted.
+    // ellipse. Both stay short of a side view: the back of the model is inferred, not sculpted.
     const { x, y, over } = pointer.current;
+    // Quick to follow the mouse, slow to drift back.
+    const ease = 1 - Math.exp(-dt * (over ? 9 : 3));
     const angle = t * ORBIT_SPEED;
-    const yaw = over ? x * STEER_YAW : Math.sin(angle) * ORBIT_YAW;
-    const pitch = over ? y * STEER_PITCH : Math.cos(angle) * ORBIT_PITCH;
-    group.current.rotation.y += (yaw - group.current.rotation.y) * ease;
-    group.current.rotation.x += (pitch - group.current.rotation.x) * ease;
-    group.current.position.y = Math.sin(t * 0.45) * 0.008;
+    const yaw = over ? response(x) * STEER_YAW : Math.sin(angle) * ORBIT_YAW;
+    const pitch = over ? response(y) * STEER_PITCH : Math.cos(angle) * ORBIT_PITCH;
+    const scale = over ? HOVER_SCALE : 1;
+    const body = group.current;
+    body.rotation.y += (yaw - body.rotation.y) * ease;
+    body.rotation.x += (pitch - body.rotation.x) * ease;
+    body.position.x += ((over ? x * HOVER_SHIFT : 0) - body.position.x) * ease;
+    body.position.y +=
+      ((over ? -y * HOVER_SHIFT : Math.sin(t * 0.45) * 0.008) - body.position.y) * ease;
+    body.scale.setScalar(body.scale.x + (scale - body.scale.x) * ease);
   });
 
   return <group ref={group}>{model && <primitive object={model} dispose={null} />}</group>;
