@@ -85,8 +85,8 @@ function Checkout({ booking }: { booking: Booking }) {
         {heading(paid ? 'Booking confirmed' : 'Booking closed')}
         <Summary booking={booking} payment={payment} paid={paid} />
         <div>
-          <Link href="/search" className={LINK}>
-            Search more flights
+          <Link href={`/bookings/${booking.reference}`} className={LINK}>
+            View booking and tickets
           </Link>
         </div>
       </>

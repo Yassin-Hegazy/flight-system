@@ -75,3 +75,17 @@ export function describeLine(line: PriceLine): string {
   const [one, many] = PASSENGER_LABEL[line.passengerType];
   return `${line.count} ${line.count === 1 ? one : many} × ${formatMoney(line.unitPrice)}`;
 }
+
+/** An instant such as a payment or status change: "2026-11-15T10:40:35Z" → "15 Nov 2026, 10:40 UTC". */
+export function formatInstant(instant: string): string {
+  const text = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
+  }).format(new Date(instant));
+  return `${text} UTC`;
+}

@@ -1,6 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { api, ApiError } from './api';
 
 export interface Me {
@@ -67,3 +69,14 @@ export function useSignOut() {
 
 export const isUnauthenticated = (error: unknown) =>
   error instanceof ApiError && error.status === 401;
+
+/** Sends the traveler to sign in, and back to this page after, when a call answered 401. */
+export function useSignInRedirect(error: unknown): boolean {
+  const router = useRouter();
+  const pathname = usePathname();
+  const signedOut = isUnauthenticated(error);
+  useEffect(() => {
+    if (signedOut) router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
+  }, [signedOut, pathname, router]);
+  return signedOut;
+}
