@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listNotifications } from '@/lib/account-api';
-import { useMe, useSignOut } from '@/lib/auth';
+import { type Me, useMe, useSignOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 // Only screens that exist are linked; account and trips links join as their screens are built.
@@ -43,6 +43,23 @@ export function Brand() {
   );
 }
 
+/** The signed-in links: an administrator also gets the admin area. */
+function signedInLinks(me: Me, unread: number): NavLink[] {
+  return [
+    LINKS[0],
+    LINKS[1],
+    { href: '/bookings', label: 'MY TRIPS' },
+    {
+      href: '/account/notifications',
+      label: 'INBOX',
+      name: unread ? `Inbox, ${unread} unread` : 'Inbox',
+      badge: unread,
+    },
+    ...(me.role === 'ADMIN' ? [{ href: '/admin/admins', label: 'ADMIN' }] : []),
+    { href: '/account', label: me.name, name: `Account, ${me.name}` },
+  ];
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -57,20 +74,7 @@ export function SiteHeader() {
     retry: false,
   });
   const unread = inbox.data?.unread ?? 0;
-  const links: NavLink[] = me
-    ? [
-        LINKS[0],
-        LINKS[1],
-        { href: '/bookings', label: 'MY TRIPS' },
-        {
-          href: '/account/notifications',
-          label: 'INBOX',
-          name: unread ? `Inbox, ${unread} unread` : 'Inbox',
-          badge: unread,
-        },
-        { href: '/account', label: me.name, name: `Account, ${me.name}` },
-      ]
-    : LINKS;
+  const links = me ? signedInLinks(me, unread) : LINKS;
 
   useEffect(() => {
     if (!open) return;
