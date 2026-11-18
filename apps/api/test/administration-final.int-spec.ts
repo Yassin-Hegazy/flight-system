@@ -482,4 +482,59 @@ describe('Administration final stories', () => {
       .expect(201);
     expect((accepted.body as { flights: unknown[] }).flights).toHaveLength(13);
   });
+
+  it('US-AD-05-T07 pages through every flight, filtered by route, number, status and departure window', async () => {
+    const all = (await get('/admin/flights').expect(200)).body as {
+      items: { id: string }[];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    expect(all).toMatchObject({ page: 1, pageSize: 20 });
+    expect(all.total).toBeGreaterThanOrEqual(all.items.length);
+
+    const departure = Date.now() + 48 * 3_600_000;
+    const window = new URLSearchParams({
+      origin: 'CAI',
+      destination: 'LHR',
+      flightNumber: 'ms730',
+      departingFrom: new Date(departure - 2 * 3_600_000).toISOString(),
+      departingBefore: new Date(departure + 2 * 3_600_000).toISOString(),
+    });
+    const found = (await get(`/admin/flights?${window}`).expect(200)).body as {
+      items: { id: string; flightNumber: string; origin: { code: string }; status: string }[];
+    };
+    expect(found.items.map(({ id }) => id)).toContain(flightId);
+    expect(found.items.every(({ origin }) => origin.code === 'CAI')).toBe(true);
+
+    const cancelled = (await get('/admin/flights?status=CANCELLED').expect(200)).body as {
+      items: { status: string }[];
+    };
+    expect(cancelled.items.every(({ status }) => status === 'CANCELLED')).toBe(true);
+
+    await get('/admin/flights?origin=Cairo').expect(400);
+    await get('/admin/flights?status=LANDED').expect(400);
+    await get('/admin/flights?departingFrom=tomorrow').expect(400);
+    await get('/admin/flights?page=0').expect(400);
+  });
+
+  it('US-AD-06-T10 lists airports by code, a page at a time, and searches them', async () => {
+    const all = (await get('/admin/airports').expect(200)).body as {
+      items: { code: string }[];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    expect(all).toMatchObject({ page: 1, pageSize: 20 });
+    const codes = all.items.map(({ code }) => code);
+    expect(codes).toEqual([...codes].sort());
+
+    const cairo = (await get('/admin/airports?q=cai').expect(200)).body as {
+      items: Record<string, string>[];
+    };
+    expect(cairo.items).toContainEqual(
+      expect.objectContaining({ code: 'CAI', timezone: 'Africa/Cairo' }),
+    );
+    await get(`/admin/airports?q=${'x'.repeat(61)}`).expect(400);
+  });
 });

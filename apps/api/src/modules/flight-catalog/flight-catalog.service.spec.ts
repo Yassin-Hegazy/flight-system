@@ -341,3 +341,100 @@ describe('NFR-PERF-01 search loads reference data in a fixed number of queries',
     expect(findFares).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('US-AD-05 Administrators read the flight list (Catalog service)', () => {
+  function threeFlights() {
+    const catalog = catalogWithReferenceData();
+    catalog.repository.addAirport({
+      code: 'DXB',
+      name: 'Dubai International',
+      city: 'Dubai',
+      country: 'United Arab Emirates',
+      timezone: 'Asia/Dubai',
+    });
+    const late = catalog.repository.addFlight(
+      scheduled(
+        cairoToLondon({
+          flightNumber: 'MS779',
+          scheduledDepartureUtc: new Date('2026-12-12T07:00:00Z'),
+          scheduledArrivalUtc: new Date('2026-12-12T12:00:00Z'),
+        }),
+      ),
+    );
+    const early = catalog.repository.addFlight(scheduled(cairoToLondon()));
+    const dubai = catalog.repository.addFlight(
+      scheduled(
+        cairoToLondon({
+          flightNumber: 'MS910',
+          destinationCode: 'DXB',
+          scheduledDepartureUtc: new Date('2026-12-11T07:00:00Z'),
+          scheduledArrivalUtc: new Date('2026-12-11T10:30:00Z'),
+        }),
+      ),
+    );
+    return { ...catalog, early, dubai, late };
+  }
+
+  it('US-AD-05-T05 lists every flight by departure time, a page at a time, with the total', async () => {
+    const { service, early, dubai, late } = threeFlights();
+
+    const first = await service.listFlights({}, { page: 1, pageSize: 2 });
+    expect(first.total).toBe(3);
+    expect(first.items.map((flight) => flight.id)).toEqual([early, dubai]);
+    expect(first.items[1].destination.city).toBe('Dubai');
+
+    const second = await service.listFlights({}, { page: 2, pageSize: 2 });
+    expect(second.items.map((flight) => flight.id)).toEqual([late]);
+  });
+
+  it('US-AD-05-T06 filters by route, flight number, status and a departure window', async () => {
+    const { service, early, dubai, late } = threeFlights();
+    await service.changeStatus(TX, late, FlightStatus.Delayed, new Date('2026-12-12T09:00:00Z'));
+    const ids = async (filter: Parameters<typeof service.listFlights>[0]) =>
+      (await service.listFlights(filter, { page: 1, pageSize: 20 })).items.map(({ id }) => id);
+
+    expect(await ids({ destination: 'DXB' })).toEqual([dubai]);
+    expect(await ids({ origin: 'CAI', destination: 'LHR' })).toEqual([early, late]);
+    expect(await ids({ flightNumber: 'ms779' })).toEqual([late]);
+    expect(await ids({ status: FlightStatus.Delayed })).toEqual([late]);
+    expect(
+      await ids({
+        departingFrom: new Date('2026-12-11T00:00:00Z'),
+        departingBefore: new Date('2026-12-12T00:00:00Z'),
+      }),
+    ).toEqual([dubai]);
+  });
+});
+
+describe('US-AD-06 Administrators read the airport list (Catalog service)', () => {
+  it('US-AD-06-T09 lists airports by code, a page at a time, and narrows by code, city or name', async () => {
+    const { repository, service } = catalogWithReferenceData();
+    repository.addAirport({
+      code: 'ALY',
+      name: 'El Nouzha',
+      city: 'Alexandria',
+      country: 'Egypt',
+      timezone: 'Africa/Cairo',
+    });
+
+    const first = await service.listAirports(undefined, { page: 1, pageSize: 2 });
+    expect(first.total).toBe(3);
+    expect(first.items.map(({ code }) => code)).toEqual(['ALY', 'CAI']);
+    expect(first.items[0]).toEqual({
+      code: 'ALY',
+      name: 'El Nouzha',
+      city: 'Alexandria',
+      country: 'Egypt',
+      timezone: 'Africa/Cairo',
+    });
+    const second = await service.listAirports(undefined, { page: 2, pageSize: 2 });
+    expect(second.items.map(({ code }) => code)).toEqual(['LHR']);
+
+    const codes = async (query: string) =>
+      (await service.listAirports(query, { page: 1, pageSize: 20 })).items.map(({ code }) => code);
+    expect(await codes('lhr')).toEqual(['LHR']);
+    expect(await codes('london')).toEqual(['LHR']);
+    expect(await codes('nouzha')).toEqual(['ALY']);
+    expect(await codes('50%')).toEqual([]);
+  });
+});
