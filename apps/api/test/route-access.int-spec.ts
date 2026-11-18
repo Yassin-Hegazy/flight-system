@@ -89,6 +89,8 @@ const ROUTES: RouteSpec[] = [
   },
   { method: 'delete', path: '/admin/airports/:code', access: 'admin' },
   { method: 'get', path: '/admin/audit', access: 'admin' },
+  { method: 'get', path: '/admin/flights', access: 'admin' },
+  { method: 'get', path: '/admin/airports', access: 'admin' },
   {
     method: 'post',
     path: '/admin/flights/recurring',

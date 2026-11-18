@@ -17,6 +17,22 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
       timezone: 'Africa/Cairo',
     },
   },
+  'GET /admin/airports': {
+    '200': {
+      items: [
+        {
+          code: 'CAI',
+          name: 'Cairo International Airport',
+          city: 'Cairo',
+          country: 'Egypt',
+          timezone: 'Africa/Cairo',
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    },
+  },
   'GET /admin/audit': {
     '200': [
       {
@@ -53,6 +69,87 @@ export const OPENAPI_EXAMPLES: Record<string, Record<string, unknown>> = {
         createdAt: '2026-11-14T10:37:03.938Z',
       },
     ],
+  },
+  'GET /admin/flights': {
+    '200': {
+      items: [
+        {
+          id: '9799e235-ec20-4bb5-83bf-eaf911e7b365',
+          flightNumber: 'MS777',
+          airline: {
+            code: 'MS',
+            name: 'EgyptAir',
+          },
+          origin: {
+            code: 'CAI',
+            name: 'Cairo International Airport',
+            city: 'Cairo',
+            timezone: 'Africa/Cairo',
+          },
+          destination: {
+            code: 'LHR',
+            name: 'Heathrow Airport',
+            city: 'London',
+            timezone: 'Europe/London',
+          },
+          scheduledDepartureUtc: '2026-11-19T06:00:00.000Z',
+          scheduledArrivalUtc: '2026-11-19T11:00:00.000Z',
+          scheduledDepartureLocal: '2026-11-19T08:00+02:00',
+          scheduledArrivalLocal: '2026-11-19T11:00+00:00',
+          durationMinutes: 300,
+          status: 'SCHEDULED',
+          fares: {
+            ECONOMY: {
+              amountMinor: 1500000,
+              currency: 'EGP',
+            },
+            BUSINESS: {
+              amountMinor: 6000000,
+              currency: 'EGP',
+            },
+          },
+        },
+        {
+          id: 'adb5cd9c-0d66-4361-8d11-0b4e2385b75c',
+          flightNumber: 'MS2142',
+          airline: {
+            code: 'MS',
+            name: 'EgyptAir',
+          },
+          origin: {
+            code: 'CAI',
+            name: 'Cairo International Airport',
+            city: 'Cairo',
+            timezone: 'Africa/Cairo',
+          },
+          destination: {
+            code: 'LHR',
+            name: 'Heathrow Airport',
+            city: 'London',
+            timezone: 'Europe/London',
+          },
+          scheduledDepartureUtc: '2026-11-19T06:50:00.000Z',
+          scheduledArrivalUtc: '2026-11-19T11:45:00.000Z',
+          scheduledDepartureLocal: '2026-11-19T08:50+02:00',
+          scheduledArrivalLocal: '2026-11-19T11:45+00:00',
+          durationMinutes: 295,
+          status: 'SCHEDULED',
+          fares: {
+            ECONOMY: {
+              amountMinor: 1385000,
+              currency: 'EGP',
+            },
+            BUSINESS: {
+              amountMinor: 5540000,
+              currency: 'EGP',
+            },
+          },
+        },
+      ],
+      total: 28,
+      page: 1,
+      pageSize: 20,
+    },
   },
   'GET /admin/flights/{id}/load': {
     '200': [

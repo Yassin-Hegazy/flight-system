@@ -230,6 +230,8 @@ export class CatalogStub implements CatalogApi {
   }
 
   searchAirports = unused('searchAirports') as () => Promise<AirportSuggestion[]>;
+  listFlights = unused('listFlights');
+  listAirports = unused('listAirports');
   getFlight = unused('getFlight');
   getFlightForUpdate = unused('getFlightForUpdate');
   createFlight = unused('createFlight');

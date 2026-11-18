@@ -4,16 +4,16 @@ All routes require an administrator session. Use `POST /users/sign-in` in Swagge
 `http://localhost:3001/docs`. A traveler receives 403 and an unauthenticated caller receives 401
 for valid requests to these routes.
 
-| Story    | Routes                                                                              |
-| -------- | ----------------------------------------------------------------------------------- |
-| US-AD-01 | `POST /admin/flights`                                                               |
-| US-AD-02 | `PATCH /admin/flights/{id}/status`                                                  |
-| US-AD-03 | `PUT /admin/flights/{id}/capacity/{cabin}`, `PUT /admin/flights/{id}/fares/{cabin}` |
-| US-AD-04 | `POST /admin/flights/{id}/cancel`                                                   |
-| US-AD-05 | `GET /admin/flights/{id}/load`, `GET /admin/flights/{id}/manifest`                  |
-| US-AD-06 | `GET`, `PUT`, and `DELETE /admin/airports/{code}`                                   |
-| US-AD-07 | `GET /admin/audit?flightId={id}&page=1`                                             |
-| US-AD-08 | `POST /admin/flights/recurring`                                                     |
+| Story    | Routes                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------- |
+| US-AD-01 | `POST /admin/flights`                                                                    |
+| US-AD-02 | `PATCH /admin/flights/{id}/status`                                                       |
+| US-AD-03 | `PUT /admin/flights/{id}/capacity/{cabin}`, `PUT /admin/flights/{id}/fares/{cabin}`      |
+| US-AD-04 | `POST /admin/flights/{id}/cancel`                                                        |
+| US-AD-05 | `GET /admin/flights`, `GET /admin/flights/{id}/load`, `GET /admin/flights/{id}/manifest` |
+| US-AD-06 | `GET /admin/airports`; `GET`, `PUT`, and `DELETE /admin/airports/{code}`                 |
+| US-AD-07 | `GET /admin/audit?flightId={id}&page=1`                                                  |
+| US-AD-08 | `POST /admin/flights/recurring`                                                          |
 
 ## Swagger walkthrough
 

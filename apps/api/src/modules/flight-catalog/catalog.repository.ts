@@ -3,6 +3,7 @@ import type { Result } from '../../shared/result';
 import type { Flight } from './flight';
 import type { Money } from '../../shared/money';
 import type { Cabin, Route } from './value-objects';
+import type { FlightListFilter } from './catalog-api';
 
 export interface AirportRecord {
   code: string;
@@ -33,11 +34,23 @@ export interface CatalogRepository {
   /** Loads a flight and locks its row until the transaction ends. */
   findFlightForUpdate(tx: Tx, id: string): Promise<Flight | null>;
   findFlightsDeparting(route: Route, range: { start: Date; end: Date }): Promise<Flight[]>;
+  /** One page of flights by scheduled departure, and how many match in all. Codes are upper case. */
+  pageFlights(
+    filter: FlightListFilter,
+    skip: number,
+    take: number,
+  ): Promise<{ flights: Flight[]; total: number }>;
   insertFlight(tx: Tx, flight: Flight): Promise<Result<string, 'DUPLICATE_FLIGHT'>>;
   updateFlight(tx: Tx, flight: Flight): Promise<void>;
 
   findAirports(codes: readonly string[], tx?: Tx): Promise<AirportRecord[]>;
   searchAirports(query: string, limit: number): Promise<AirportRecord[]>;
+  /** One page of airports by code; a query matches a code prefix, or text in the city or name. */
+  pageAirports(
+    query: string | undefined,
+    skip: number,
+    take: number,
+  ): Promise<{ airports: AirportRecord[]; total: number }>;
   lockAirport(tx: Tx, code: string): Promise<AirportRecord | null>;
   deleteAirport(
     tx: Tx,

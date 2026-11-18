@@ -6,19 +6,29 @@ import {
   ArrayUnique,
   IsArray,
   IsDefined,
+  IsEnum,
+  IsISO8601,
   IsInt,
   IsObject,
+  IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
+  MaxLength,
   Max,
   Min,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { POSTGRES_INTEGER_MAX } from '../../shared/db';
-import { FlightTemplateBody, MAX_CABIN_CAPACITY } from './administration.dto';
+import { FlightStatus } from '../flight-catalog/index';
+import {
+  FlightTemplateBody,
+  INSTANT_MESSAGE,
+  MAX_CABIN_CAPACITY,
+  UTC_INSTANT,
+} from './administration.dto';
 
 export class CapacityBody {
   @ApiProperty({ example: 180 })
@@ -67,6 +77,65 @@ export class AuditQuery {
   @ValidateIf((_query, value: unknown) => value !== undefined)
   @IsUUID()
   flightId?: string;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  page = 1;
+}
+
+/** One page of a list: 20 rows, counted from page 1. */
+export const ADMIN_PAGE_SIZE = 20;
+
+export class AdminFlightsQuery {
+  @ApiPropertyOptional({ example: 'CAI', description: 'Departing from this IATA airport.' })
+  @IsOptional()
+  @Matches(/^[A-Za-z]{3}$/, { message: '$property must be a three-letter IATA code' })
+  origin?: string;
+
+  @ApiPropertyOptional({ example: 'LHR', description: 'Arriving at this IATA airport.' })
+  @IsOptional()
+  @Matches(/^[A-Za-z]{3}$/, { message: '$property must be a three-letter IATA code' })
+  destination?: string;
+
+  @ApiPropertyOptional({ example: 'MS777' })
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9]{2}\d{1,4}$/, { message: '$property must look like MS777' })
+  flightNumber?: string;
+
+  @ApiPropertyOptional({ enum: FlightStatus })
+  @IsOptional()
+  @IsEnum(FlightStatus)
+  status?: FlightStatus;
+
+  @ApiPropertyOptional({ example: '2027-03-01T00:00:00Z', description: 'Departing at or after.' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
+  departingFrom?: string;
+
+  @ApiPropertyOptional({ example: '2027-03-02T00:00:00Z', description: 'Departing before.' })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  @Matches(UTC_INSTANT, { message: INSTANT_MESSAGE })
+  departingBefore?: string;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  page = 1;
+}
+
+export class AdminAirportsQuery {
+  @ApiPropertyOptional({ example: 'cairo', description: 'Code prefix, or text in city or name.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  q?: string;
 
   @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
   @Type(() => Number)

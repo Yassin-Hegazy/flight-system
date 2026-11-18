@@ -13,6 +13,9 @@ import type {
   CreateFlightError,
   FareError,
   FlightInfo,
+  FlightListFilter,
+  Page,
+  PageRequest,
 } from './catalog-api';
 import {
   type AirportRecord,
@@ -77,6 +80,39 @@ export class FlightCatalogService implements CatalogApi {
     if (normalized.length < MIN_AIRPORT_QUERY) return [];
     const airports = await this.repository.searchAirports(normalized, MAX_AIRPORT_SUGGESTIONS);
     return airports.map(({ code, name, city, country }) => ({ code, name, city, country }));
+  }
+
+  async listFlights(filter: FlightListFilter, page: PageRequest): Promise<Page<FlightInfo>> {
+    const normalized: FlightListFilter = {
+      ...filter,
+      origin: filter.origin?.toUpperCase(),
+      destination: filter.destination?.toUpperCase(),
+      flightNumber: filter.flightNumber?.trim().toUpperCase() || undefined,
+    };
+    const { flights, total } = await this.repository.pageFlights(
+      normalized,
+      (page.page - 1) * page.pageSize,
+      page.pageSize,
+    );
+    return { items: await this.describe(flights), total };
+  }
+
+  async listAirports(query: string | undefined, page: PageRequest): Promise<Page<AirportInput>> {
+    const { airports, total } = await this.repository.pageAirports(
+      query?.trim() || undefined,
+      (page.page - 1) * page.pageSize,
+      page.pageSize,
+    );
+    return {
+      items: airports.map(({ code, name, city, country, timezone }) => ({
+        code,
+        name,
+        city,
+        country,
+        timezone,
+      })),
+      total,
+    };
   }
 
   /** Read-only, one query whatever the number of codes. Search uses it to validate criteria. */
