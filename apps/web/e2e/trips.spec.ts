@@ -361,6 +361,41 @@ test('US-TK-04-T20 the e-ticket shows the passenger, flight and local times, and
   await expect(page.getByRole('button', { name: 'Print e-ticket' })).toBeHidden();
 });
 
+test('US-TK-04-T22 the e-ticket page lays out the journey, the fare summary and the document', async ({
+  page,
+}) => {
+  await stub(page);
+  await page.goto('/tickets/9990000000001');
+
+  await expect(page.getByRole('list', { name: 'Progress' }).getByText('E-ticket')).toHaveAttribute(
+    'aria-current',
+    'step',
+  );
+  const pass = page.getByRole('region', { name: 'E-ticket' });
+  await expect(pass.getByRole('heading', { level: 2 })).toHaveText('Cairo → London');
+  await expect(pass).toContainText('One way · Economy · 1 passenger');
+  const leg = pass.getByRole('group', { name: /Outbound/ });
+  await expect(leg).toContainText('OUTBOUND · THU 10 DEC');
+  await expect(leg).toContainText('5 h · Direct');
+  await expect(leg).toContainText('CAI · Cairo');
+  await expect(leg).toContainText('LHR · London');
+  await expect(leg).toContainText('Same day');
+
+  const fares = page.getByRole('region', { name: 'Fare summary' });
+  await expect(fares).toContainText('Sara Hassan');
+  await expect(fares).toContainText('EGP 15,000.00');
+  await expect(fares.getByTestId('fare-total')).toHaveText('EGP 15,000.00');
+
+  const document = page.getByRole('region', { name: 'Your document' });
+  await expect(document).toContainText('S28N6D');
+  await expect(document.getByRole('button', { name: 'Print e-ticket' })).toBeVisible();
+
+  const essentials = page.getByRole('region', { name: 'Passenger and travel essentials' });
+  await expect(essentials).toContainText('Sara Hassan');
+  await expect(essentials).toContainText('Economy');
+  await expect(essentials).toContainText('9990000000001');
+});
+
 test('US-TK-04-T21 a void ticket is marked VOID in words on the e-ticket', async ({ page }) => {
   await stub(page, { status: 'CANCELLED' });
   await page.goto('/tickets/9990000000001');
