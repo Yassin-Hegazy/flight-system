@@ -6,35 +6,12 @@ import { TripSearch } from './trip-search';
 const CONTAINER = 'mx-auto w-full max-w-[1440px] px-5 md:px-10 xl:px-[72px]';
 
 // Routes the demo schedule flies from Cairo. The cards only fill in the search; fares come from it.
+// All three share the navy card, so the section reads as one set.
 const DESTINATIONS = [
-  { kicker: '01 / CITY BREAKS', city: 'London', code: 'LHR', tone: 'pink' },
-  { kicker: '02 / WINTER SUN', city: 'Dubai', code: 'DXB', tone: 'navy' },
-  { kicker: '03 / QUICK ESCAPES', city: 'Hurghada', code: 'HRG', tone: 'ice' },
+  { kicker: '01 / CITY BREAKS', city: 'London', code: 'LHR' },
+  { kicker: '02 / WINTER SUN', city: 'Dubai', code: 'DXB' },
+  { kicker: '03 / QUICK ESCAPES', city: 'Hurghada', code: 'HRG' },
 ] as const;
-
-const TONES = {
-  pink: {
-    card: 'bg-pink focus-visible:outline-navy',
-    text: 'text-navy',
-    meta: 'text-navy',
-    rule: 'bg-navy',
-    arrow: 'bg-navy text-pink',
-  },
-  navy: {
-    card: 'bg-navy',
-    text: 'text-white',
-    meta: 'text-teal',
-    rule: 'bg-teal',
-    arrow: 'bg-pink text-navy',
-  },
-  ice: {
-    card: 'bg-ice',
-    text: 'text-navy',
-    meta: 'text-navy-soft',
-    rule: 'bg-navy-soft',
-    arrow: 'bg-navy text-white',
-  },
-};
 
 const BENEFITS = [
   { n: '01', title: 'Fares without the fog.', body: 'Compare options with clarity.' },
@@ -115,40 +92,43 @@ export default function Home() {
           </p>
         </div>
         <ul className="mt-10 grid gap-7 md:grid-cols-2 lg:mt-9 lg:grid-cols-3">
-          {DESTINATIONS.map(({ kicker, city, code, tone }) => {
-            const t = TONES[tone];
+          {DESTINATIONS.map(({ kicker, city, code }) => {
             return (
               <li key={code}>
                 <Link
                   href={`/search?origin=CAI&destination=${code}`}
                   className={cn(
                     'group flex min-h-[344px] flex-col rounded-[22px] p-[25px] transition-transform duration-200 hover:-translate-y-1',
-                    t.card,
+                    'bg-navy',
                   )}
                 >
-                  <span className={cn('text-xs leading-none font-bold', t.meta)}>{kicker}</span>
+                  <span className={cn('text-xs leading-none font-bold', 'text-teal')}>
+                    {kicker}
+                  </span>
                   <span
                     className={cn(
                       'mt-[33px] text-[39px] leading-none font-extrabold uppercase',
-                      t.text,
+                      'text-white',
                     )}
                   >
                     {city}
                   </span>
-                  <span className={cn('mt-[30px] text-[13px] leading-none font-semibold', t.meta)}>
+                  <span
+                    className={cn('mt-[30px] text-[13px] leading-none font-semibold', 'text-teal')}
+                  >
                     CAI <span aria-hidden="true">→</span>
                     <span className="sr-only">to</span> {code} / FROM CAIRO
                   </span>
-                  <span aria-hidden="true" className={cn('mt-auto h-px w-full', t.rule)} />
+                  <span aria-hidden="true" className={cn('mt-auto h-px w-full', 'bg-teal')} />
                   <span className="mt-[22px] flex items-center justify-between gap-4">
-                    <span className={cn('text-[22px] leading-none font-extrabold', t.text)}>
+                    <span className={cn('text-[22px] leading-none font-extrabold', 'text-white')}>
                       See flights
                     </span>
                     <span
                       aria-hidden="true"
                       className={cn(
                         'grid size-[58px] shrink-0 place-items-center rounded-full text-[29px] leading-none font-bold transition-transform duration-200 group-hover:rotate-45',
-                        t.arrow,
+                        'bg-pink text-navy',
                       )}
                     >
                       ↗
