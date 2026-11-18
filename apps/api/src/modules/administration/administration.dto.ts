@@ -23,9 +23,9 @@ import { FlightStatus } from '../flight-catalog/index';
  */
 
 // An instant must say which zone it is in, so "2027-03-01T08:00" can never be read as server time.
-const UTC_INSTANT =
+export const UTC_INSTANT =
   /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
-const INSTANT_MESSAGE =
+export const INSTANT_MESSAGE =
   '$property must be an ISO 8601 instant with a zone, e.g. 2027-03-01T06:00:00Z';
 
 export const MAX_CABIN_CAPACITY = 600;

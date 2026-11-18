@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, type EntityManager, In, QueryFailedError } from 'typeorm';
+import { Brackets, DataSource, type EntityManager, In, QueryFailedError } from 'typeorm';
 import { isUniqueViolation, type Tx } from '../../shared/db';
 import { money } from '../../shared/money';
 import { err, ok, type Result } from '../../shared/result';
@@ -12,6 +12,7 @@ import type {
   CatalogRepository,
   FareRecord,
 } from './catalog.repository';
+import type { FlightListFilter } from './catalog-api';
 import { Flight } from './flight';
 import { FlightFareEntity } from './flight-fare.entity';
 import { parseFlightStatus } from './flight-status';
@@ -52,6 +53,31 @@ export class PgCatalogRepository implements CatalogRepository {
     return rows.map(toFlight);
   }
 
+  async pageFlights(
+    filter: FlightListFilter,
+    skip: number,
+    take: number,
+  ): Promise<{ flights: Flight[]; total: number }> {
+    const query = this.db.createQueryBuilder(FlightEntity, 'flight');
+    if (filter.origin) query.andWhere('flight.originCode = :origin', { origin: filter.origin });
+    if (filter.destination)
+      query.andWhere('flight.destinationCode = :destination', { destination: filter.destination });
+    if (filter.flightNumber)
+      query.andWhere('flight.flightNumber = :number', { number: filter.flightNumber });
+    if (filter.status) query.andWhere('flight.status = :status', { status: filter.status });
+    if (filter.departingFrom)
+      query.andWhere('flight.scheduledDepartureUtc >= :from', { from: filter.departingFrom });
+    if (filter.departingBefore)
+      query.andWhere('flight.scheduledDepartureUtc < :before', { before: filter.departingBefore });
+    const [rows, total] = await query
+      .orderBy('flight.scheduledDepartureUtc', 'ASC')
+      .addOrderBy('flight.id', 'ASC')
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
+    return { flights: rows.map(toFlight), total };
+  }
+
   /**
    * Inserts a new flight. A duplicate is reported as a result; PostgreSQL has then aborted the
    * transaction, so the caller must roll back.
@@ -89,6 +115,36 @@ export class PgCatalogRepository implements CatalogRepository {
       .setParameters({ exact: query.toLowerCase() })
       .take(limit)
       .getMany();
+  }
+
+  async pageAirports(
+    search: string | undefined,
+    skip: number,
+    take: number,
+  ): Promise<{ airports: AirportRecord[]; total: number }> {
+    const query = this.db.createQueryBuilder(AirportEntity, 'airport');
+    if (search) {
+      // As in searchAirports: % and _ typed by the user are text, not LIKE wildcards.
+      const literal = search.toLowerCase().replace(/[\\%_]/g, (character) => `\\${character}`);
+      query.where(
+        new Brackets((match) =>
+          match
+            .where(`LOWER(airport.code) LIKE :prefix ESCAPE '\\'`, { prefix: `${literal}%` })
+            .orWhere(`LOWER(airport.city) LIKE :contains ESCAPE '\\'`, {
+              contains: `%${literal}%`,
+            })
+            .orWhere(`LOWER(airport.name) LIKE :contains ESCAPE '\\'`, {
+              contains: `%${literal}%`,
+            }),
+        ),
+      );
+    }
+    const [airports, total] = await query
+      .orderBy('airport.code', 'ASC')
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
+    return { airports, total };
   }
 
   async lockAirport(tx: Tx, code: string): Promise<AirportRecord | null> {

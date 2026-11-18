@@ -49,6 +49,29 @@ export interface AirportInput {
   timezone: string;
 }
 
+/** Which flights an administrator wants listed; every field narrows the list. */
+export interface FlightListFilter {
+  origin?: string;
+  destination?: string;
+  flightNumber?: string;
+  status?: FlightStatus;
+  /** Scheduled departure at or after this instant. */
+  departingFrom?: Date;
+  /** Scheduled departure before this instant. */
+  departingBefore?: Date;
+}
+
+export interface PageRequest {
+  /** Counted from 1. */
+  page: number;
+  pageSize: number;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+}
+
 export type CreateFlightError = FlightRuleError | 'DUPLICATE_FLIGHT';
 export type ChangeStatusError = StatusRuleError | 'FLIGHT_NOT_FOUND';
 export type FareError = 'FLIGHT_NOT_FOUND' | 'INVALID_CABIN' | 'INVALID_FARE' | 'CURRENCY_MISMATCH';
@@ -68,6 +91,10 @@ export interface CatalogApi {
   getFlight(id: string, tx?: Tx): Promise<FlightInfo | null>;
   findFlights(route: Route, localDate: string): Promise<FlightInfo[]>;
   searchAirports(query: string): Promise<AirportSuggestion[]>;
+  /** Every flight, by scheduled departure, a page at a time (administration). */
+  listFlights(filter: FlightListFilter, page: PageRequest): Promise<Page<FlightInfo>>;
+  /** Every airport, by code, a page at a time; a query narrows by code, city or name. */
+  listAirports(query: string | undefined, page: PageRequest): Promise<Page<AirportInput>>;
   /** The known airports among these codes, with their time zones, in one query. Unknown codes are left out. */
   getAirports(codes: readonly string[]): Promise<AirportInfo[]>;
   isBookable(flight: FlightInfo, now: Date): boolean;

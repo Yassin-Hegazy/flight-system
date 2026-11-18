@@ -9,6 +9,7 @@ import type {
 } from './catalog.repository';
 import { Flight } from './flight';
 import type { Cabin, Route } from './value-objects';
+import type { FlightListFilter } from './catalog-api';
 
 /**
  * In-memory stand-in for PgCatalogRepository, so Catalog rules can be unit-tested in milliseconds
@@ -58,6 +59,20 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return Promise.resolve(found.map((flight) => this.copy(flight) as Flight));
   }
 
+  pageFlights(
+    filter: FlightListFilter,
+    skip: number,
+    take: number,
+  ): Promise<{ flights: Flight[]; total: number }> {
+    const matches = [...this.flights.values()]
+      .filter((flight) => matchesFilter(flight, filter))
+      .sort((a, b) => a.scheduledDepartureUtc.getTime() - b.scheduledDepartureUtc.getTime());
+    return Promise.resolve({
+      flights: matches.slice(skip, skip + take).map((flight) => this.copy(flight) as Flight),
+      total: matches.length,
+    });
+  }
+
   insertFlight(_tx: Tx, flight: Flight): Promise<Result<string, 'DUPLICATE_FLIGHT'>> {
     const duplicate = [...this.flights.values()].some(
       (existing) =>
@@ -98,6 +113,27 @@ export class InMemoryCatalogRepository implements CatalogRepository {
         return exactA - exactB || a.code.localeCompare(b.code);
       });
     return Promise.resolve(matches.slice(0, limit));
+  }
+
+  pageAirports(
+    query: string | undefined,
+    skip: number,
+    take: number,
+  ): Promise<{ airports: AirportRecord[]; total: number }> {
+    const q = query?.toLowerCase();
+    const matches = [...this.airports.values()]
+      .filter(
+        (airport) =>
+          !q ||
+          airport.code.toLowerCase().startsWith(q) ||
+          airport.city.toLowerCase().includes(q) ||
+          airport.name.toLowerCase().includes(q),
+      )
+      .sort((a, b) => a.code.localeCompare(b.code));
+    return Promise.resolve({
+      airports: matches.slice(skip, skip + take).map((airport) => ({ ...airport })),
+      total: matches.length,
+    });
   }
 
   lockAirport(_tx: Tx, code: string): Promise<AirportRecord | null> {
@@ -169,4 +205,17 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       cancelReason: flight.cancelReason,
     });
   }
+}
+
+function matchesFilter(flight: Flight, filter: FlightListFilter): boolean {
+  const departure = flight.scheduledDepartureUtc;
+  const checks = [
+    !filter.origin || flight.route.origin.value === filter.origin,
+    !filter.destination || flight.route.destination.value === filter.destination,
+    !filter.flightNumber || flight.number.value === filter.flightNumber,
+    !filter.status || flight.status === filter.status,
+    !filter.departingFrom || departure >= filter.departingFrom,
+    !filter.departingBefore || departure < filter.departingBefore,
+  ];
+  return checks.every(Boolean);
 }
