@@ -221,7 +221,30 @@ async function stubOps(page: Page) {
       status: 'ISSUED',
     },
   ];
+  const recurring: Handler = (route, { body }) => {
+    const template = body?.template as { flightNumber: string };
+    if (template.flightNumber === 'MS777') {
+      return route.fulfill(
+        error(400, {
+          code: 'SERIES_REJECTED',
+          message: 'The flight series could not be scheduled.',
+          fieldErrors: { '2027-01-04': 'DUPLICATE_FLIGHT', '2027-01-11': 'DUPLICATE_FLIGHT' },
+        }),
+      );
+    }
+    return route.fulfill({
+      status: 201,
+      json: {
+        flights: [
+          { date: '2027-01-04', id: 'r-1' },
+          { date: '2027-01-06', id: 'r-2' },
+          { date: '2027-01-11', id: 'r-3' },
+        ],
+      },
+    });
+  };
   const ROUTES: [string, RegExp, Handler][] = [
+    ['POST', /^\/admin\/flights\/recurring$/, recurring],
     ['GET', /^\/admin\/flights$/, listFlights],
     ['POST', /^\/admin\/flights$/, createFlight],
     ['GET', /^\/admin\/flights\/([^/]+)\/load$/, (route) => route.fulfill({ json: load })],
@@ -346,6 +369,75 @@ test('US-AD-01-T31 a duplicate flight is reported and nothing navigates away', a
     'This flight already exists on that date.',
   );
   await expect(page).toHaveURL(/\/admin\/flights\/new$/);
+});
+
+async function fillSeries(page: Page, flightNumber: string) {
+  await page.goto('/admin/flights/recurring');
+  await page.getByLabel('Flight number').fill(flightNumber);
+  await page.getByLabel('Airline code').fill('ms');
+  await page.getByLabel('From', { exact: true }).fill('cai');
+  await page.getByLabel('To', { exact: true }).fill('lhr');
+  await page.getByLabel('First date').fill('2027-01-04');
+  await page.getByLabel('Last date').fill('2027-01-17');
+  await page.getByRole('checkbox', { name: 'Monday' }).check();
+  await page.getByRole('checkbox', { name: 'Wednesday' }).check();
+  await page.getByLabel('Departure (local at origin)').fill('09:00');
+  await page.getByLabel('Duration (minutes)').fill('300');
+  await page.getByLabel('Economy fare (EGP)').fill('15000');
+  await page.getByLabel('Business fare (EGP)').fill('60000');
+  await page.getByLabel('Economy seats').fill('180');
+  await page.getByLabel('Business seats').fill('20');
+  await page.getByRole('button', { name: 'Schedule flights' }).click();
+}
+
+test('US-AD-08-T20 a series is sent with its local time, weekdays and fares, and lists the flights made', async ({
+  page,
+}) => {
+  const { calls } = await stubOps(page);
+  await fillSeries(page, 'ms805');
+
+  await expect(page.getByRole('status')).toHaveText('3 flights scheduled.');
+  const made = page.getByRole('list', { name: 'Scheduled flights' });
+  await expect(made.getByRole('link')).toHaveCount(3);
+  await expect(made.getByRole('link').first()).toHaveAttribute('href', '/admin/flights/r-1');
+  const sent = writes(calls).find(({ path }) => path === '/admin/flights/recurring')!;
+  expect(sent.body).toEqual({
+    template: {
+      flightNumber: 'MS805',
+      airlineCode: 'MS',
+      originCode: 'CAI',
+      destinationCode: 'LHR',
+      currency: 'EGP',
+      fares: { ECONOMY: 1_500_000, BUSINESS: 6_000_000 },
+      capacity: { ECONOMY: 180, BUSINESS: 20 },
+    },
+    from: '2027-01-04',
+    to: '2027-01-17',
+    weekdays: [1, 3],
+    localDeparture: '09:00',
+    durationMinutes: 300,
+  });
+});
+
+test('US-AD-08-T21 a rejected series names every failing date, and the page says none were made', async ({
+  page,
+}) => {
+  await stubOps(page);
+  await fillSeries(page, 'MS777');
+
+  const alert = page.getByRole('main').getByRole('alert');
+  await expect(alert).toContainText('No flights were scheduled');
+  await expect(alert).toContainText('2027-01-04: DUPLICATE_FLIGHT');
+  await expect(alert).toContainText('2027-01-11: DUPLICATE_FLIGHT');
+  await expect(page.getByRole('list', { name: 'Scheduled flights' })).toHaveCount(0);
+});
+
+test('US-AD-08-T22 the flights page links to scheduling a series', async ({ page }) => {
+  await stubOps(page);
+  await page.goto('/admin/flights');
+  await page.getByRole('link', { name: 'Schedule a series' }).click();
+  await expect(page).toHaveURL(/\/admin\/flights\/recurring$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Recurring flights');
 });
 
 test('US-AD-05-T22 a flight page shows the load of each cabin and the passenger manifest', async ({
@@ -527,6 +619,7 @@ test('NFR-USAB-01-T20 the admin screens have no accessibility violations and nev
     ['/admin', 'Next departures'],
     ['/admin/flights', 'Flights'],
     ['/admin/flights/new', 'Create flight'],
+    ['/admin/flights/recurring', 'Recurring flights'],
     ['/admin/flights/f-1', 'Seats by cabin'],
     ['/admin/airports', 'Airports'],
     ['/admin/audit', 'Audit trail'],

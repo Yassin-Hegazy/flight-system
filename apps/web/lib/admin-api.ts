@@ -77,6 +77,18 @@ export interface NewFlight {
   capacity: Record<Cabin, number>;
 }
 
+/** POST /admin/flights/recurring: one template on chosen weekdays between two local dates. */
+export interface RecurringSeries {
+  template: Omit<NewFlight, 'scheduledDepartureUtc' | 'scheduledArrivalUtc'>;
+  from: string;
+  to: string;
+  /** ISO weekdays: Monday is 1, Sunday 7. */
+  weekdays: number[];
+  /** HH:mm at the departure airport. */
+  localDeparture: string;
+  durationMinutes: number;
+}
+
 export interface NewAdministrator {
   name: string;
   email: string;
@@ -124,6 +136,12 @@ export const listFlights = (filter: FlightFilter) =>
 
 export const createFlight = (input: NewFlight) =>
   api<{ id: string }>('/admin/flights', { method: 'POST', body: input });
+
+export const scheduleRecurring = (series: RecurringSeries) =>
+  api<{ flights: { date: string; id: string }[] }>('/admin/flights/recurring', {
+    method: 'POST',
+    body: series,
+  });
 
 export const getLoad = (id: string) => api<CabinLoad[]>(`${flightPath(id)}/load`);
 
