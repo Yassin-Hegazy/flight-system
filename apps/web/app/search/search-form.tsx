@@ -209,7 +209,9 @@ function Travelers({
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (event: PointerEvent) => {
+    // On a click, not a pointerdown: on a phone the panel sits in the page, so closing it on
+    // pointerdown would move the Search button out from under the finger before the click lands.
+    const onClick = (event: MouseEvent) => {
       if (!cell.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -217,10 +219,10 @@ function Travelers({
       setOpen(false);
       trigger.current?.focus();
     };
-    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('click', onClick);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('click', onClick);
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
