@@ -501,7 +501,7 @@ describe('Administration final stories', () => {
       departingFrom: new Date(departure - 2 * 3_600_000).toISOString(),
       departingBefore: new Date(departure + 2 * 3_600_000).toISOString(),
     });
-    const found = (await get(`/admin/flights?${window}`).expect(200)).body as {
+    const found = (await get(`/admin/flights?${window.toString()}`).expect(200)).body as {
       items: { id: string; flightNumber: string; origin: { code: string }; status: string }[];
     };
     expect(found.items.map(({ id }) => id)).toContain(flightId);

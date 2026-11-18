@@ -12,6 +12,9 @@ export type {
   CreateFlightError,
   FareError,
   FlightInfo,
+  FlightListFilter,
+  Page,
+  PageRequest,
 } from './catalog-api';
 export type { NewFlight } from './flight';
 export { FlightStatus } from './flight-status';

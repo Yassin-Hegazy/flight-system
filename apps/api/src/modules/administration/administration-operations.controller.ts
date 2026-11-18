@@ -35,6 +35,9 @@ import { AuditLog } from './audit-log';
 import { CommandBus } from './command-bus';
 import { ConfigureCapacity } from './configure-capacity.command';
 import {
+  ADMIN_PAGE_SIZE,
+  AdminAirportsQuery,
+  AdminFlightsQuery,
   AirportBody,
   AuditQuery,
   CapacityBody,
@@ -88,6 +91,41 @@ export class AdministrationOperationsController {
     private readonly passengers: BookingPassengers,
     private readonly tickets: FlightTickets,
   ) {}
+
+  @Header('Cache-Control', 'no-store')
+  @Get('flights')
+  @ApiOperation({ summary: 'List every flight by scheduled departure, 20 per page' })
+  @ApiOkResponse({ description: 'One page of flights, with the total that match the filters.' })
+  @ApiErrors(400)
+  flights(@Ctx() ctx: RequestContext, @Query() query: AdminFlightsQuery) {
+    return this.read(ctx, async () => {
+      const { page, departingFrom, departingBefore, ...filter } = query;
+      const result = await this.catalog.listFlights(
+        {
+          ...filter,
+          departingFrom: departingFrom ? new Date(departingFrom) : undefined,
+          departingBefore: departingBefore ? new Date(departingBefore) : undefined,
+        },
+        { page, pageSize: ADMIN_PAGE_SIZE },
+      );
+      return { ...result, page, pageSize: ADMIN_PAGE_SIZE };
+    });
+  }
+
+  @Header('Cache-Control', 'no-store')
+  @Get('airports')
+  @ApiOperation({ summary: 'List every airport by code, 20 per page, optionally searched' })
+  @ApiOkResponse({ description: 'One page of airports, with the total that match.' })
+  @ApiErrors(400)
+  airports(@Ctx() ctx: RequestContext, @Query() query: AdminAirportsQuery) {
+    return this.read(ctx, async () => {
+      const result = await this.catalog.listAirports(query.q, {
+        page: query.page,
+        pageSize: ADMIN_PAGE_SIZE,
+      });
+      return { ...result, page: query.page, pageSize: ADMIN_PAGE_SIZE };
+    });
+  }
 
   @Put('flights/:id/capacity/:cabin')
   @ApiOperation({ summary: 'Set the capacity of one cabin' })
