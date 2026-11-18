@@ -91,6 +91,7 @@ async function fillAndSearch(page: Page, from: string, to: string) {
   await page.getByLabel('From', { exact: true }).fill(from);
   await page.getByLabel('To', { exact: true }).fill(to);
   await page.getByLabel('Departure date').fill('2026-12-10');
+  await page.getByRole('button', { name: /^Travelers/ }).click();
   await page.getByLabel('Adults').fill('2');
   await page.getByRole('button', { name: 'Search flights' }).click();
 }
@@ -175,14 +176,57 @@ test('NFR-COMP-01-T02 the page never scrolls sideways, at any tested width', asy
 
 test('US-FS-03-T11 filters that match nothing say so and offer to clear them', async ({ page }) => {
   await page.goto('/search');
-  await page.getByLabel('Maximum total price (EGP)').fill('10');
   await fillAndSearch(page, 'CAI', 'LHR');
+  await expect(page.getByTestId('search-result')).toHaveCount(3);
+  await page.getByLabel('Maximum total price (EGP)').fill('10');
+  await page.getByRole('button', { name: 'Apply filters' }).click();
 
   await expect(page.getByText('No flights match these filters')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await page.getByRole('button', { name: 'Clear filters' }).first().click();
 
   await expect(page.getByTestId('search-result')).toHaveCount(3);
   await expect(page).not.toHaveURL(/maxTotal=/);
+});
+
+test('US-FS-03-T20 the sidebar sends the price limit, departure window and airlines to the API', async ({
+  page,
+}) => {
+  const asked: URLSearchParams[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/search/flights?'))
+      asked.push(new URL(request.url()).searchParams);
+  });
+  await page.goto('/search');
+  await fillAndSearch(page, 'CAI', 'LHR');
+  const filters = page.getByRole('form', { name: 'Refine your search' });
+  await expect(filters.getByRole('checkbox', { name: 'EgyptAir (MS)' })).toBeVisible();
+  await expect(filters.getByRole('checkbox', { name: 'British Airways (BA)' })).toBeVisible();
+
+  await filters.getByLabel('Maximum total price (EGP)').fill('30000');
+  await filters.getByLabel('Departing from').fill('08:00');
+  await filters.getByLabel('Departing until').fill('14:00');
+  await filters.getByRole('checkbox', { name: 'EgyptAir (MS)' }).check();
+  await filters.getByRole('button', { name: 'Apply filters' }).click();
+
+  await expect(page).toHaveURL(/maxTotal=3000000/);
+  await expect.poll(() => asked.at(-1)?.get('airlines')).toBe('MS');
+  expect(asked.at(-1)?.get('departFrom')).toBe('08:00');
+  expect(asked.at(-1)?.get('departTo')).toBe('14:00');
+  // The chosen airline stays offered even when the filtered answer has no flights.
+  await expect(filters.getByRole('checkbox', { name: /\(MS\)/ })).toBeChecked();
+});
+
+test('US-FS-01-T22 the results are headed by the route, the date and the party', async ({
+  page,
+}) => {
+  await page.goto('/search');
+  await fillAndSearch(page, 'CAI', 'LHR');
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cairo → London');
+  await expect(page.getByText('Thu 10 Dec · 2 passengers · One way')).toBeVisible();
+  const first = page.getByTestId('search-result').first();
+  await expect(first).toContainText('Direct · 5 h');
+  await expect(first.getByRole('link', { name: 'Book BA155' })).toBeVisible();
 });
 
 test('NFR-COMP-01-T03 the home page links to the search page', async ({ page }) => {
