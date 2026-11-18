@@ -55,7 +55,7 @@ function signedInLinks(me: Me, unread: number): NavLink[] {
       name: unread ? `Inbox, ${unread} unread` : 'Inbox',
       badge: unread,
     },
-    ...(me.role === 'ADMIN' ? [{ href: '/admin/admins', label: 'ADMIN' }] : []),
+    ...(me.role === 'ADMIN' ? [{ href: '/admin', label: 'ADMIN' }] : []),
     { href: '/account', label: me.name, name: `Account, ${me.name}` },
   ];
 }

@@ -270,7 +270,7 @@ test('US-AD-05-T20 the flights list shows every flight with its status and filte
   await expect(rows.nth(2)).toContainText('Delayed');
   await expect(page.getByText('3 flights')).toBeVisible();
 
-  await page.getByLabel('To').fill('dxb');
+  await page.getByLabel('To', { exact: true }).fill('dxb');
   await page.getByLabel('Status').selectOption('DELAYED');
   await page.getByRole('button', { name: 'Apply filters' }).click();
 
@@ -301,8 +301,8 @@ test('US-AD-01-T30 creating a flight sends UTC instants and minor units, then op
   await page.goto('/admin/flights/new');
   await page.getByLabel('Flight number').fill('ms801');
   await page.getByLabel('Airline code').fill('ms');
-  await page.getByLabel('From').fill('cai');
-  await page.getByLabel('To').fill('lhr');
+  await page.getByLabel('From', { exact: true }).fill('cai');
+  await page.getByLabel('To', { exact: true }).fill('lhr');
   await page.getByLabel('Departure (UTC)').fill('2027-01-10T06:00');
   await page.getByLabel('Arrival (UTC)').fill('2027-01-10T11:00');
   await page.getByLabel('Economy fare (EGP)').fill('15000');
@@ -332,8 +332,8 @@ test('US-AD-01-T31 a duplicate flight is reported and nothing navigates away', a
   await page.goto('/admin/flights/new');
   await page.getByLabel('Flight number').fill('MS777');
   await page.getByLabel('Airline code').fill('MS');
-  await page.getByLabel('From').fill('CAI');
-  await page.getByLabel('To').fill('LHR');
+  await page.getByLabel('From', { exact: true }).fill('CAI');
+  await page.getByLabel('To', { exact: true }).fill('LHR');
   await page.getByLabel('Departure (UTC)').fill('2027-01-10T06:00');
   await page.getByLabel('Arrival (UTC)').fill('2027-01-10T11:00');
   await page.getByLabel('Economy fare (EGP)').fill('15000');
