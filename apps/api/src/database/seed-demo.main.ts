@@ -3,12 +3,15 @@
  * Run by `pnpm bootstrap`, or directly with `node dist/database/seed-demo.main.js`.
  *
  * Optional environment (apps/api/.env or the shell): ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME,
- * DEMO_TRAVELER_EMAIL, DEMO_TRAVELER_PASSWORD, and SEED_WORLD=false to skip the world network
+ * DEMO_TRAVELER_EMAIL, DEMO_TRAVELER_PASSWORD, SEED_DEMO_ACCOUNTS (the ten accounts in
+ * seed-accounts.ts: on by default, off in production unless set to true), and SEED_WORLD=false to skip the world network
  * (about 50,000 flights over 1,168 airports, src/database/world). The built-in defaults are for local development
  * only, so a production environment must supply its own passwords.
  */
+import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
+import { seedAccounts, shouldSeedAccounts } from './seed-accounts';
 import { seedDemo, type FlightSeedResult } from './seed-demo';
 import { seedWorld } from './world/seed-world';
 
@@ -46,6 +49,8 @@ async function main(): Promise<void> {
     console.log(`Demo traveler ${traveler.email}: ${summary.traveler}.`);
     report('Demo flights', summary.flights);
 
+    await seedDemoAccounts(app, env);
+
     if (env.SEED_WORLD !== 'false') {
       const started = Date.now();
       const world = await seedWorld(app, {
@@ -60,6 +65,20 @@ async function main(): Promise<void> {
     }
   } finally {
     await app.close();
+  }
+}
+
+/** The ten demo accounts, unless this is production and they were not asked for. */
+async function seedDemoAccounts(
+  app: INestApplicationContext,
+  env: Record<string, string | undefined>,
+): Promise<void> {
+  if (!shouldSeedAccounts(env)) {
+    console.log('Demo accounts skipped (production; set SEED_DEMO_ACCOUNTS=true to add them).');
+    return;
+  }
+  for (const { account, outcome } of await seedAccounts(app)) {
+    console.log(`${account.role.padEnd(8)} ${account.email} / ${account.password}: ${outcome}.`);
   }
 }
 

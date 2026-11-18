@@ -15,5 +15,5 @@ export {
   WithRole,
 } from './access';
 export type { OwnerLookup, RequestContext, UseCase } from './access';
-export { UserRole } from './users-access.domain';
+export { passwordProblem, UserRole } from './users-access.domain';
 export type { Principal } from './users-access.domain';

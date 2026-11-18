@@ -49,6 +49,22 @@ pnpm dev         # API on http://localhost:3001, web on http://localhost:3000
 | Admin      | `admin@example.com` / `Admin-Local-2026!` (local development only)       |
 | Traveler   | `traveler@example.com` / `Traveler-Local-2026!` (local development only) |
 
+Bootstrap also seeds ten demo accounts (`apps/api/src/database/seed-accounts.ts`). They are
+skipped in production unless `SEED_DEMO_ACCOUNTS=true`, because the passwords are public.
+
+| Role     | Name          | Email                     | Password             |
+| -------- | ------------- | ------------------------- | -------------------- |
+| Traveler | Nour Hassan   | `nour@example.com`        | `Nour-Travels-2026`  |
+| Traveler | Omar Khaled   | `omar@example.com`        | `Omar-Travels-2026`  |
+| Traveler | Salma Youssef | `salma@example.com`       | `Salma-Travels-2026` |
+| Traveler | Karim Mostafa | `karim@example.com`       | `Karim-Travels-2026` |
+| Traveler | Laila Mahmoud | `laila@example.com`       | `Laila-Travels-2026` |
+| Admin    | Mona Adel     | `mona.admin@example.com`  | `Mona-Admin-2026!`   |
+| Admin    | Hany Fawzy    | `hany.admin@example.com`  | `Hany-Admin-2026!`   |
+| Admin    | Rana Samir    | `rana.admin@example.com`  | `Rana-Admin-2026!`   |
+| Admin    | Tarek Nabil   | `tarek.admin@example.com` | `Tarek-Admin-2026!`  |
+| Admin    | Dina Fathy    | `dina.admin@example.com`  | `Dina-Admin-2026!`   |
+
 The first bootstrap seeds about 52,000 flights between 1,168 real airports and takes a few
 minutes ([Demo data](#demo-data)). Bootstrap once before presenting, or set `SEED_WORLD=false` for
 the 15 hand-written routes only.
