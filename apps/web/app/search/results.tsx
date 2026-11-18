@@ -43,7 +43,7 @@ export function ResultsSection(props: ResultsSectionProps) {
           <h2 id={headingId} className="text-2xl font-extrabold">
             {title}
           </h2>
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="text-[13px] font-semibold text-navy-soft">
             {page.total === 1 ? '1 flight' : `${page.total} flights`}
           </p>
         </div>
@@ -112,14 +112,14 @@ function EmptyState({
 }) {
   if (!filtered) {
     return (
-      <div className="rounded-lg border border-dashed p-6 text-center">
+      <div className="rounded-[18px] border border-dashed border-line bg-ice p-6 text-center">
         <p className="font-medium">No flights on this day</p>
         <p className="text-sm text-muted-foreground">Try another date or route.</p>
       </div>
     );
   }
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line bg-ice p-6 text-center">
       <p className="font-medium">No flights match these filters</p>
       <button type="button" className={BUTTON_CLASS} onClick={onClearFilters}>
         Clear filters
@@ -142,55 +142,86 @@ interface ResultCardProps {
 
 function ResultCard({ result, party, selection }: ResultCardProps) {
   const chosen = selection?.selectedId === result.flightId;
+  const stops =
+    result.stops === 0 ? 'Direct' : `${result.stops} stop${result.stops > 1 ? 's' : ''}`;
   return (
     <article
       aria-label={`${result.flightNumber}, ${result.airline.name}`}
-      className="grid gap-4 rounded-[18px] bg-card p-5 sm:grid-cols-[1fr_auto] sm:items-center"
+      className={`grid gap-5 rounded-[18px] border bg-ice p-5 sm:grid-cols-[160px_minmax(0,1fr)] xl:grid-cols-[160px_minmax(0,1fr)_auto] xl:items-center ${chosen ? 'border-navy shadow-[inset_0_0_0_2px_var(--color-navy)]' : 'border-line'}`}
       data-testid="search-result"
     >
-      <div className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{result.flightNumber}</span> ·{' '}
-          {result.airline.name} · {CABIN_LABEL[result.cabin]}
+      <div className="flex flex-col justify-center gap-1 rounded-[12px] bg-navy px-[19px] py-3 text-white sm:min-h-[86px]">
+        <p className="text-lg leading-tight font-extrabold">{result.airline.name}</p>
+        <p className="text-[11px] font-bold text-teal uppercase">
+          {result.flightNumber} · {CABIN_LABEL[result.cabin]}
         </p>
-        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-lg font-semibold">
-            <time dateTime={result.departureLocal}>{timeOf(result.departureLocal)}</time>{' '}
+      </div>
+
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+        <p className="flex flex-col">
+          <time
+            dateTime={result.departureLocal}
+            className="text-[28px] leading-none font-extrabold"
+          >
+            {timeOf(result.departureLocal)}
+          </time>
+          <span className="mt-2 pl-1 text-[13px] font-bold text-navy-soft">
             {result.origin.code}
           </span>
-          <span aria-hidden="true">→</span>
+        </p>
+        <p className="flex flex-col items-center text-center">
+          <span aria-hidden="true" className="text-[30px] leading-none font-bold text-pink">
+            →
+          </span>
           <span className="sr-only">to</span>
-          <span className="text-lg font-semibold">
-            <time dateTime={result.arrivalLocal}>{timeOf(result.arrivalLocal)}</time>{' '}
+          <span className="mt-1 text-xs font-medium text-navy-soft">
+            {stops} · {formatDuration(result.durationMinutes)}
+          </span>
+        </p>
+        <p className="flex flex-col items-end sm:items-start">
+          <time dateTime={result.arrivalLocal} className="text-[28px] leading-none font-extrabold">
+            {timeOf(result.arrivalLocal)}
+          </time>
+          <span className="mt-2 pl-1 text-[13px] font-bold text-navy-soft">
             {result.destination.code}
           </span>
         </p>
-        <p className="text-sm text-muted-foreground">
-          {dayOf(result.departureLocal)} · {formatDuration(result.durationMinutes)} ·{' '}
-          {result.stops === 0 ? 'Direct' : `${result.stops} stop${result.stops > 1 ? 's' : ''}`}
+        <p className="col-span-3 text-xs font-medium text-navy-soft">
+          {dayOf(result.departureLocal)}
+          {result.estimatedDepartureLocal && (
+            <span className="font-bold text-navy">
+              {' '}
+              · Delayed: now departs{' '}
+              <time dateTime={result.estimatedDepartureLocal}>
+                {timeOf(result.estimatedDepartureLocal)}
+              </time>{' '}
+              (scheduled {timeOf(result.departureLocal)})
+            </span>
+          )}
         </p>
-        {result.estimatedDepartureLocal && (
-          <p className="text-sm font-medium">
-            Delayed: now departs{' '}
-            <time dateTime={result.estimatedDepartureLocal}>
-              {timeOf(result.estimatedDepartureLocal)}
-            </time>{' '}
-            (scheduled {timeOf(result.departureLocal)})
-          </p>
-        )}
       </div>
-      <div className="flex flex-col gap-1 sm:items-end sm:text-right">
-        <p className="text-2xl font-extrabold" data-testid="result-total">
-          {formatMoney(result.total)}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Total for all passengers · {formatMoney(result.adultFare)} per adult
-        </p>
-        <div className="order-last mt-2 flex flex-wrap gap-2 sm:justify-end">
+
+      <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between xl:col-span-1 xl:flex-col xl:items-end">
+        <div className="xl:text-right">
+          <p className="text-[28px] leading-none font-extrabold" data-testid="result-total">
+            {formatMoney(result.total)}
+          </p>
+          <p className="mt-1 text-xs text-navy-soft">
+            Total · {formatMoney(result.adultFare)} per adult
+          </p>
+          <ul className="text-xs text-navy-soft" aria-label="Price breakdown">
+            {result.breakdown.map((line) => (
+              <li key={line.passengerType}>
+                {describeLine(line)} = {formatMoney(line.amount)}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Link
             href={`/flights/${result.flightId}?${party}`}
             aria-label={`View flight ${result.flightNumber}`}
-            className={`${ACTION} border border-navy/25 hover:border-navy`}
+            className={`${ACTION} border border-line bg-white hover:border-navy`}
           >
             DETAILS
           </Link>
@@ -200,27 +231,20 @@ function ResultCard({ result, party, selection }: ResultCardProps) {
               aria-pressed={chosen}
               aria-label={`Select ${result.flightNumber}`}
               onClick={() => selection.onSelect(result.flightId)}
-              className={`${ACTION} ${chosen ? 'bg-navy text-white' : 'bg-pink text-navy hover:brightness-105'}`}
+              className={`${ACTION} rounded-[16px] ${chosen ? 'bg-navy text-white' : 'bg-pink text-navy hover:brightness-105'}`}
             >
-              {chosen ? 'SELECTED ✓' : 'SELECT'}
+              {chosen ? 'SELECTED ✓' : 'SELECT FLIGHT'}
             </button>
           ) : (
             <Link
               href={`/book?flightId=${result.flightId}&${party}`}
               aria-label={`Book ${result.flightNumber}`}
-              className={`${ACTION} bg-pink text-navy hover:brightness-105`}
+              className={`${ACTION} rounded-[16px] bg-pink text-navy hover:brightness-105`}
             >
-              BOOK <span aria-hidden="true">↗</span>
+              SELECT FLIGHT <span aria-hidden="true">↗</span>
             </Link>
           )}
         </div>
-        <ul className="text-xs text-muted-foreground" aria-label="Price breakdown">
-          {result.breakdown.map((line) => (
-            <li key={line.passengerType}>
-              {describeLine(line)} = {formatMoney(line.amount)}
-            </li>
-          ))}
-        </ul>
       </div>
     </article>
   );

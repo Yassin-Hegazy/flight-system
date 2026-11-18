@@ -56,7 +56,7 @@ test('US-FS-01-T19 a one-way search from the landing page opens the results for 
     infants: '0',
     cabin: 'ECONOMY',
   });
-  await expect(page.getByRole('heading', { name: 'Search flights' })).toBeVisible();
+  await expect(page.getByRole('form', { name: 'Search flights' })).toBeVisible();
 });
 
 test('US-FS-02-T16 a round trip from the landing page carries the return date', async ({
