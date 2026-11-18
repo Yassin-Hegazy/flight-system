@@ -6,9 +6,17 @@ import { type ReactNode, useEffect } from 'react';
 import { PageHeading } from '@/components/page-parts';
 import { useMe } from '@/lib/auth';
 
-// Only screens that exist are linked; Dashboard, Flights, Airports and Audit trail join as they
-// are built.
-const LINKS = [{ href: '/admin/admins', label: 'Admin users' }];
+const LINKS = [
+  { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/flights', label: 'Flights' },
+  { href: '/admin/airports', label: 'Airports' },
+  { href: '/admin/audit', label: 'Audit trail' },
+  { href: '/admin/admins', label: 'Admin users' },
+];
+
+/** A section is current on its own page and below it; the dashboard only on itself. */
+const isCurrent = (href: string, pathname: string) =>
+  href === '/admin' ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
 export function AdminNav() {
   const pathname = usePathname();
@@ -25,7 +33,7 @@ export function AdminNav() {
           <li key={href}>
             <Link
               href={href}
-              aria-current={pathname === href ? 'page' : undefined}
+              aria-current={isCurrent(href, pathname) ? 'page' : undefined}
               className="flex h-[45px] items-center rounded-[12px] px-4 text-sm font-semibold text-white hover:bg-white/5 focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:font-bold aria-[current=page]:text-navy"
             >
               {label}
