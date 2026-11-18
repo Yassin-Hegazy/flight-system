@@ -10,7 +10,7 @@ import { errorMessage, fieldErrorsOf, formText } from '@/lib/api';
 import { toMinorUnits } from '@/lib/format';
 import { ADMIN_CARD, CardHeading, PINK_BUTTON } from '../../admin-parts';
 
-const CURRENCY = 'EGP';
+export const CURRENCY = 'EGP';
 
 /** Where each API field's message is shown, by the form field's name. */
 const FIELD_OF: Record<string, string> = {
@@ -142,7 +142,7 @@ export function CreateFlightForm() {
 }
 
 /** One labelled input; its error comes from the form's merged errors. */
-function Text({
+export function Text({
   name,
   label,
   errors,
@@ -154,7 +154,7 @@ function Text({
   name: string;
   label: string;
   errors: Record<string, string>;
-  type?: 'text' | 'number' | 'datetime-local';
+  type?: 'text' | 'number' | 'datetime-local' | 'date' | 'time';
   max?: number;
   placeholder?: string;
   inputMode?: HTMLAttributes<HTMLInputElement>['inputMode'];
