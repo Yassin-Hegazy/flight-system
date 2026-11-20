@@ -25,18 +25,26 @@ const EDGE_FEATHER = {
   WebkitMaskComposite: 'source-in',
 } as const;
 
+let webglAvailable: boolean | undefined;
+
 function canUse3D(): boolean {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  if (webglAvailable !== undefined) return webglAvailable;
   try {
     const gl = document.createElement('canvas').getContext('webgl2');
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return gl !== null;
+    webglAvailable = gl !== null;
   } catch {
-    return false;
+    webglAvailable = false;
   }
+  return webglAvailable;
 }
 
-const noop = () => () => {};
+function subscribeMotionPreference(update: () => void) {
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  preference.addEventListener('change', update);
+  return () => preference.removeEventListener('change', update);
+}
 
 /** Shows the poster instead if the 3D scene throws (lost context, blocked GPU). */
 class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }> {
@@ -52,16 +60,26 @@ class SceneBoundary extends Component<{ onError: () => void; children: ReactNode
   }
 }
 
+const motionLabel = (paused: boolean) =>
+  paused ? 'Resume sculpture rotation' : 'Pause sculpture rotation';
+const motionText = (paused: boolean) => (paused ? 'Resume motion' : 'Pause motion');
+
+function heroMode(use3D: boolean, ready: boolean) {
+  if (!use3D) return 'static';
+  return ready ? '3d' : 'loading';
+}
+
 /**
  * The landing page's chrome sculpture. The still image is what the server sends; the browser swaps
  * in the real-time model once it has loaded, unless motion is reduced or WebGL is missing.
  */
 export function HeroSculpture() {
   // false on the server and during hydration, the real answer right after.
-  const capable = useSyncExternalStore(noop, canUse3D, () => false);
+  const capable = useSyncExternalStore(subscribeMotionPreference, canUse3D, () => false);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(true);
+  const [paused, setPaused] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const use3D = capable && !failed;
   // Stable, because the scene loads its model in an effect that depends on them.
@@ -92,9 +110,9 @@ export function HeroSculpture() {
   return (
     <div
       ref={box}
-      role="img"
+      role="group"
       aria-label="Liquid-chrome sculpture in teal, navy and crimson"
-      data-hero-mode={use3D ? (ready ? '3d' : 'loading') : 'static'}
+      data-hero-mode={heroMode(use3D, ready)}
       className="relative aspect-[680/588] w-full"
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- a fixed local poster, masked with CSS */}
@@ -117,9 +135,20 @@ export function HeroSculpture() {
           )}
         >
           <SceneBoundary onError={markFailed}>
-            <Scene active={active} onReady={markReady} onUnavailable={markFailed} />
+            <Scene active={active && !paused} onReady={markReady} onUnavailable={markFailed} />
           </SceneBoundary>
         </div>
+      )}
+      {use3D && ready && (
+        <button
+          type="button"
+          aria-label={motionLabel(paused)}
+          aria-pressed={paused}
+          onClick={() => setPaused((value) => !value)}
+          className="absolute right-4 bottom-2 z-10 rounded-full border border-navy/20 bg-teal/90 px-4 py-2 text-xs font-medium text-navy hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-navy"
+        >
+          {motionText(paused)}
+        </button>
       )}
     </div>
   );

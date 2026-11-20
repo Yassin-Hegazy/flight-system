@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:sculpture": "node --test tests/sculpture.test.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.2",
