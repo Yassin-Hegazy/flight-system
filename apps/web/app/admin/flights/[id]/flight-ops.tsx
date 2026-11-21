@@ -147,7 +147,9 @@ function ManifestSection({ manifest }: { manifest: UseQueryResult<ManifestEntry[
       <CardHeading kicker="Paid passengers" title="Manifest" id="manifest-title" />
       <FormAlert message={manifest.isError ? errorMessage(manifest.error) : null} />
       {manifest.data?.length === 0 && (
-        <p className="rounded-[18px] bg-card p-5 font-semibold">No confirmed passengers yet.</p>
+        <p className="rounded-card border border-line bg-white p-5 font-semibold">
+          No confirmed passengers yet.
+        </p>
       )}
       {!!manifest.data?.length && (
         <AdminTable name="Passenger manifest" head={['Passenger', 'Booking', 'Ticket', 'Status']}>

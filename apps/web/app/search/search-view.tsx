@@ -263,7 +263,7 @@ function Results({ outcome, update, party }: ResultsProps) {
           onSelect: (inbound) => setPicked((current) => ({ ...current, inbound })),
         }}
       />
-      <div className="flex flex-wrap items-center gap-4 rounded-[18px] bg-navy p-5 text-white">
+      <div className="flex flex-wrap items-center gap-4 rounded-card bg-navy p-5 text-white">
         {picked.outbound && picked.inbound ? (
           <Link
             href={`/book?flightId=${picked.outbound}&returnFlightId=${picked.inbound}&${party}`}

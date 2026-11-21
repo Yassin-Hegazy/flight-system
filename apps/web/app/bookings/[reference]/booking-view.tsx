@@ -128,7 +128,7 @@ function Actions({ booking }: { booking: BookingDetail }) {
         )}
       </div>
       {asking && (
-        <div className="flex flex-col gap-4 rounded-[18px] border-2 border-danger bg-card p-5">
+        <div className="flex flex-col gap-4 rounded-card border-2 border-danger bg-white p-5">
           <p className="text-base font-bold">
             Cancel booking {booking.reference}? Its tickets become void, and anything you paid is
             refunded to the card.
@@ -262,9 +262,9 @@ function TicketsPanel({ reference }: { reference: string }) {
               <Link
                 href={`/tickets/${ticket.ticketNumber}`}
                 aria-label={`Open ticket ${ticket.ticketNumber}`}
-                className="inline-flex h-11 items-center rounded-full bg-pink px-5 text-xs font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+                className="inline-flex h-11 items-center rounded-full bg-navy px-5 text-[13px] font-bold text-white hover:bg-navy-soft"
               >
-                E-TICKET
+                E-ticket
               </Link>
             </span>
           </li>

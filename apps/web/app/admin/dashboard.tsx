@@ -80,7 +80,9 @@ export function Dashboard() {
           <CardHeading kicker="From now" title="Next departures" id="next-title" />
           {next.data &&
             (next.data.items.length === 0 ? (
-              <p className="rounded-[18px] bg-card p-5 font-semibold">Nothing scheduled ahead.</p>
+              <p className="rounded-card border border-line bg-white p-5 font-semibold">
+                Nothing scheduled ahead.
+              </p>
             ) : (
               <AdminTable
                 name="Next departures"
@@ -106,7 +108,7 @@ export function Dashboard() {
                         aria-label={`Manage ${flight.flightNumber}`}
                         className={NAVY_BUTTON}
                       >
-                        MANAGE
+                        Manage
                       </Link>
                     </td>
                   </tr>
@@ -120,9 +122,8 @@ export function Dashboard() {
 
         <section
           aria-labelledby="recent-title"
-          className="flex flex-col gap-5 rounded-[22px] bg-navy p-5 text-white sm:p-6"
+          className="flex flex-col gap-5 rounded-card bg-navy p-5 text-white sm:p-6"
         >
-          <span aria-hidden="true" className="block h-[5px] w-[62px] rounded bg-pink" />
           <div>
             <p className="text-[11px] leading-none font-bold text-mist uppercase">Audit trail</p>
             <h2 id="recent-title" className="mt-3 text-2xl font-extrabold">

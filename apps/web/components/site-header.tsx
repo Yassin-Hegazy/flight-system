@@ -19,10 +19,10 @@ interface NavLink {
 }
 
 const LINKS: NavLink[] = [
-  { href: '/', label: 'EXPLORE' },
-  { href: '/search', label: 'FLIGHTS' },
-  { href: '/#destinations', label: 'DESTINATIONS' },
-  { href: '/#why', label: 'WHY AERON' },
+  { href: '/', label: 'Explore' },
+  { href: '/search', label: 'Flights' },
+  { href: '/#destinations', label: 'Destinations' },
+  { href: '/#why', label: 'Why aeron' },
 ];
 
 export function Brand() {
@@ -48,14 +48,14 @@ function signedInLinks(me: Me, unread: number): NavLink[] {
   return [
     LINKS[0],
     LINKS[1],
-    { href: '/bookings', label: 'MY TRIPS' },
+    { href: '/bookings', label: 'My trips' },
     {
       href: '/account/notifications',
-      label: 'INBOX',
+      label: 'Inbox',
       name: unread ? `Inbox, ${unread} unread` : 'Inbox',
       badge: unread,
     },
-    ...(me.role === 'ADMIN' ? [{ href: '/admin', label: 'ADMIN' }] : []),
+    ...(me.role === 'ADMIN' ? [{ href: '/admin', label: 'Admin' }] : []),
     { href: '/account', label: me.name, name: `Account, ${me.name}` },
   ];
 }
@@ -104,7 +104,7 @@ export function SiteHeader() {
                   href={href}
                   aria-label={name}
                   aria-current={current(href)}
-                  className="flex h-11 max-w-[170px] items-center gap-2 rounded-full px-5 text-xs font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
+                  className="flex h-11 max-w-[170px] items-center gap-2 rounded-full px-5 text-[13px] font-bold text-teal transition-colors hover:text-white focus-visible:outline-teal aria-[current=page]:bg-white aria-[current=page]:text-navy"
                 >
                   <span className="truncate">{label}</span>
                   {badge ? (
@@ -126,7 +126,7 @@ export function SiteHeader() {
                     onClick={() => signOut.mutate()}
                     className="flex h-11 cursor-pointer items-center rounded-full bg-teal px-6 text-xs font-bold text-navy transition-colors hover:bg-white"
                   >
-                    SIGN OUT
+                    Sign out
                   </button>
                 </li>
               </>
@@ -136,7 +136,7 @@ export function SiteHeader() {
                   href="/sign-in"
                   className="flex h-11 items-center gap-2 rounded-full bg-teal px-7 text-xs font-bold text-navy transition-colors hover:bg-white"
                 >
-                  SIGN IN
+                  Sign in
                   <span aria-hidden="true">↗</span>
                 </Link>
               </li>
@@ -152,13 +152,11 @@ export function SiteHeader() {
           onClick={() => setOpen((value) => !value)}
           className="flex h-12 cursor-pointer items-center rounded-full bg-navy px-5 text-xs font-bold text-teal lg:hidden"
         >
-          {open ? 'CLOSE' : 'MENU'}
+          {open ? 'Close' : 'Menu'}
         </button>
       </div>
 
-      <div aria-hidden="true" className="relative h-px bg-mist">
-        <span className="absolute top-[-1px] left-[58%] hidden h-[3px] w-[216px] rounded-sm bg-pink lg:block" />
-      </div>
+      <div aria-hidden="true" className="h-px bg-mist" />
 
       {open && (
         <nav
@@ -167,7 +165,7 @@ export function SiteHeader() {
           className="absolute inset-x-5 top-[80px] rounded-3xl bg-navy p-3 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] md:inset-x-10 lg:hidden"
         >
           <ul className="flex flex-col gap-1">
-            {[...links, ...(me ? [] : [{ href: '/sign-in', label: 'SIGN IN' } as NavLink])].map(
+            {[...links, ...(me ? [] : [{ href: '/sign-in', label: 'Sign in' } as NavLink])].map(
               ({ href, label, name, badge }) => (
                 <li key={href}>
                   <Link
@@ -177,7 +175,7 @@ export function SiteHeader() {
                     onClick={() => setOpen(false)}
                     className={cn(
                       'flex h-12 items-center rounded-2xl px-4 text-sm font-bold text-teal hover:bg-white/5',
-                      'aria-[current=page]:bg-pink aria-[current=page]:text-navy',
+                      'aria-[current=page]:bg-white aria-[current=page]:text-navy',
                     )}
                   >
                     {label}
@@ -201,7 +199,7 @@ export function SiteHeader() {
                   }}
                   className="h-11 cursor-pointer rounded-full bg-teal px-5 text-xs font-bold text-navy"
                 >
-                  SIGN OUT
+                  Sign out
                 </button>
               </li>
             )}

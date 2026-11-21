@@ -23,7 +23,7 @@ export function AdminNav() {
   return (
     <nav
       aria-label="Administration"
-      className="flex flex-col rounded-[22px] bg-navy p-4 lg:min-h-[640px]"
+      className="flex flex-col rounded-card bg-navy p-4 lg:min-h-[640px]"
     >
       <p className="px-2 pt-2 pb-4 text-[11px] leading-none font-bold text-mist">
         AERON / OPERATIONS
@@ -34,7 +34,7 @@ export function AdminNav() {
             <Link
               href={href}
               aria-current={isCurrent(href, pathname) ? 'page' : undefined}
-              className="flex h-[45px] items-center rounded-[12px] px-4 text-sm font-semibold text-white hover:bg-white/5 focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:font-bold aria-[current=page]:text-navy"
+              className="flex h-[45px] items-center rounded-full px-4 text-sm font-semibold text-white hover:bg-white/5 focus-visible:outline-teal aria-[current=page]:bg-white aria-[current=page]:font-bold aria-[current=page]:text-navy"
             >
               {label}
             </Link>
@@ -42,7 +42,7 @@ export function AdminNav() {
         ))}
       </ul>
       <div className="mt-auto hidden border-t border-navy-soft px-2 pt-5 lg:block">
-        <p className="text-xs font-bold text-white">TRAVEL LIGHT. STAY READY.</p>
+        <p className="text-xs font-bold text-white">Travel light. Stay ready.</p>
         <p className="mt-2 text-xs text-mist">
           A simpler place for everything behind your next journey.
         </p>

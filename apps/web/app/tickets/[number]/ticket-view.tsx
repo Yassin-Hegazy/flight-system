@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormAlert } from '@/components/auth-card';
 import { NAVY_LINK, StatusPill } from '@/components/page-parts';
+import { CARD, OVERLINE } from '@/components/ui';
 import { errorMessage } from '@/lib/api';
 import { useSignInRedirect } from '@/lib/auth';
 import { dayOf, formatDuration, formatInstant, formatMoney, timeOf } from '@/lib/format';
@@ -19,8 +20,8 @@ import {
 } from '@/lib/trips-api';
 
 const CABIN = { ECONOMY: 'Economy', BUSINESS: 'Business' } as const;
-const CARD = 'rounded-[24px] border border-line bg-white p-5 sm:p-7';
-const KICKER = 'text-xs leading-none font-bold text-navy-soft uppercase';
+
+const KICKER = OVERLINE;
 
 /** One ticket, laid out as Figma's e-ticket page (US-TK-02, US-TK-04). */
 export function TicketView() {
@@ -156,7 +157,7 @@ function Stepper() {
             >
               <span
                 aria-hidden="true"
-                className={`text-[11px] ${current ? 'text-pink' : 'text-navy-soft'}`}
+                className={`text-[11px] ${current ? 'text-mist' : 'text-navy-soft'}`}
               >
                 0{index + 1}
               </span>
@@ -186,10 +187,6 @@ function Journey({ ticket, legs, passengers, voidMarking }: JourneyProps) {
       aria-label="E-ticket"
       className={`${CARD} relative flex flex-col gap-5 print:break-inside-avoid`}
     >
-      <span
-        aria-hidden="true"
-        className="absolute top-7 left-[-1px] h-[124px] w-[5px] rounded-sm bg-pink"
-      />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className={KICKER}>
@@ -225,7 +222,7 @@ function Journey({ ticket, legs, passengers, voidMarking }: JourneyProps) {
       {voidMarking && (
         <p
           data-testid="void-marking"
-          className="rounded-[14px] border-2 border-danger bg-white px-5 py-4 text-center text-[40px] leading-none font-extrabold tracking-[0.3em] text-danger"
+          className="rounded-inset border-2 border-danger bg-white px-5 py-4 text-center text-[40px] leading-none font-extrabold tracking-[0.3em] text-danger"
         >
           {voidMarking}
         </p>
@@ -256,18 +253,18 @@ function Leg({ leg, label, current }: { leg: Ticket; label: string; current: boo
     <div
       role="group"
       aria-label={`${label}, ${f.flightNumber}`}
-      className="relative flex flex-col gap-5 rounded-[17px] bg-ice p-5 sm:px-[22px]"
+      className="relative flex flex-col gap-5 rounded-inset bg-ice p-5 sm:px-[22px]"
     >
       <span
         aria-hidden="true"
-        className={`absolute top-[23px] left-0 h-[66px] w-1 rounded-sm ${label === 'Return' ? 'bg-navy' : 'bg-pink'}`}
+        className={`absolute top-[23px] left-0 h-[66px] w-1 rounded-sm ${label === 'Return' ? 'bg-navy-soft' : 'bg-navy'}`}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-bold text-navy-soft">
           {`${label} · ${dayOf(departs)}`.toUpperCase()}
         </p>
         <span className="rounded-full bg-teal px-4 py-1.5 text-[10px] font-bold text-navy-soft">
-          NONSTOP
+          Nonstop
         </span>
       </div>
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
@@ -285,9 +282,9 @@ function Leg({ leg, label, current }: { leg: Ticket; label: string; current: boo
         </div>
         <div className="flex flex-col items-center gap-1 px-2">
           <div aria-hidden="true" className="flex w-full max-w-[314px] items-center">
-            <span className="size-3 shrink-0 rounded-full bg-pink" />
+            <span className="size-3 shrink-0 rounded-full border-2 border-navy bg-white" />
             <span className="relative h-[2px] flex-1 bg-line">
-              <span className="absolute -top-[22px] left-1/2 -translate-x-1/2 text-[32px] leading-none text-pink">
+              <span className="absolute -top-[22px] left-1/2 -translate-x-1/2 text-[32px] leading-none text-navy">
                 →
               </span>
             </span>
@@ -387,7 +384,6 @@ function FareSummary({ booking, trip }: { booking?: BookingDetail; trip: string 
               {formatMoney(booking.amount)}
             </span>
           </div>
-          <span aria-hidden="true" className="h-1 rounded-sm bg-pink" />
         </>
       )}
     </section>
@@ -398,7 +394,7 @@ function Document({ ticket }: { ticket: Ticket }) {
   return (
     <section
       aria-label="Your document"
-      className="flex flex-col gap-4 rounded-[24px] bg-navy p-6 text-white"
+      className="flex flex-col gap-4 rounded-card bg-navy p-6 text-white"
     >
       <p className="text-[11px] font-bold text-teal">YOUR DOCUMENT</p>
       <p className="text-2xl font-bold">E-ticket {ticket.ticketNumber}</p>
@@ -410,7 +406,7 @@ function Document({ ticket }: { ticket: Ticket }) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="h-[51px] cursor-pointer rounded-[15px] bg-teal text-[13px] font-bold text-navy hover:bg-white focus-visible:outline-pink"
+          className="h-[51px] cursor-pointer rounded-full bg-teal text-[13px] font-bold text-navy hover:bg-white focus-visible:outline-pink"
         >
           Print e-ticket <span aria-hidden="true">↗</span>
         </button>
@@ -446,8 +442,7 @@ function Essentials({ ticket }: { ticket: Ticket }) {
 
 function Advisory({ void: isVoid }: { void: boolean }) {
   return (
-    <aside className="flex flex-col gap-4 rounded-[22px] border border-line bg-ice p-6 print:hidden">
-      <span aria-hidden="true" className="h-1 w-[42px] rounded-sm bg-pink" />
+    <aside className="flex flex-col gap-4 rounded-card border border-line bg-ice p-6 print:hidden">
       <p className="text-[23px] leading-tight font-bold">
         {isVoid ? 'This ticket is void.' : 'Good to know.'}
       </p>

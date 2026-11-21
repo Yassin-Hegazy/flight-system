@@ -186,7 +186,7 @@ function PassengersForm({ trip, priced, saved, signInPath }: PassengersFormProps
       {changed && priceChanged ? (
         <div
           role="alert"
-          className="flex flex-col gap-3 rounded-[18px] border-2 border-danger bg-card p-5"
+          className="flex flex-col gap-3 rounded-card border-2 border-danger bg-white p-5"
         >
           <p className="text-lg font-extrabold">{errorMessage(booking.error)}</p>
           <p className="text-sm font-medium">
@@ -215,7 +215,7 @@ function PassengersForm({ trip, priced, saved, signInPath }: PassengersFormProps
         return (
           <fieldset
             key={index}
-            className="grid gap-4 rounded-[22px] bg-card p-5 sm:grid-cols-3 sm:p-7"
+            className="grid gap-4 rounded-card border border-line bg-white p-5 sm:grid-cols-3 sm:p-7"
           >
             <legend className="float-left mb-1 w-full text-base font-extrabold sm:col-span-3">
               Passenger {index + 1}, {TYPE_LABEL[type]}
@@ -307,7 +307,7 @@ function TripSummary({ priced, cabin }: { priced: Quote[]; cabin: Cabin }) {
   return (
     <aside
       aria-label="Your trip"
-      className="flex flex-col gap-5 rounded-[22px] bg-navy p-6 text-white"
+      className="flex flex-col gap-5 rounded-card bg-navy p-6 text-white"
     >
       <p className="text-[11px] leading-none font-bold text-mist">YOUR TRIP</p>
       {priced.map((quote, index) => (
@@ -337,7 +337,7 @@ function TripSummary({ priced, cabin }: { priced: Quote[]; cabin: Cabin }) {
         <p className="text-xs font-bold text-mist">TOTAL</p>
         <p
           data-testid="booking-total"
-          className="text-[28px] leading-none font-extrabold text-pink"
+          className="text-[28px] leading-none font-extrabold text-navy"
         >
           {formatMoney({ amountMinor: shownTotal, currency })}
         </p>

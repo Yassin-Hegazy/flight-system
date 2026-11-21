@@ -94,7 +94,9 @@ function AuditFilter({ flightId }: { flightId?: string }) {
 function AuditTable({ entries }: { entries: AuditEntry[] }) {
   if (entries.length === 0) {
     return (
-      <p className="rounded-[18px] bg-card p-5 font-semibold">No changes recorded here yet.</p>
+      <p className="rounded-card border border-line bg-white p-5 font-semibold">
+        No changes recorded here yet.
+      </p>
     );
   }
   return (

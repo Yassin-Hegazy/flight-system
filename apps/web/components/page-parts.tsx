@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, CARD, OVERLINE, SIZE_LG } from './ui';
 
 export const PAGE = 'mx-auto flex w-full max-w-[1100px] flex-1 flex-col gap-8 px-5 py-10 md:px-10';
-export const NAVY_LINK =
-  'inline-flex h-[52px] items-center gap-2 rounded-full bg-navy px-6 text-[15px] font-bold text-white hover:bg-navy-soft';
-export const PINK_LINK =
-  'inline-flex h-[52px] items-center gap-2 rounded-full bg-pink px-8 text-[15px] font-bold text-navy hover:brightness-105 focus-visible:outline-navy';
+/** A page's main action, and its other actions, as links (see components/ui.ts). */
+export const PINK_LINK = `${BUTTON_PRIMARY} ${SIZE_LG}`;
+export const NAVY_LINK = `${BUTTON_SECONDARY} ${SIZE_LG}`;
 
 export function PageHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs leading-none font-bold text-navy-soft uppercase">{eyebrow}</p>
+      <p className={OVERLINE}>{eyebrow}</p>
       <h1 className="text-[clamp(2.25rem,5vw,64px)] leading-none font-extrabold">{title}</h1>
     </div>
   );
@@ -18,8 +18,8 @@ export function PageHeading({ eyebrow, title }: { eyebrow: string; title: string
 /** A named card: the name is the region's accessible name and its visible heading. */
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-4 rounded-[22px] bg-card p-5 sm:p-7">
-      <h2 className="text-xs leading-none font-bold text-navy-soft uppercase">{title}</h2>
+    <section aria-label={title} className={`${CARD} flex flex-col gap-4`}>
+      <h2 className={OVERLINE}>{title}</h2>
       {children}
     </section>
   );

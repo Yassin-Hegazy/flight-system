@@ -30,7 +30,7 @@ export function TravelersView() {
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <section
         aria-label="Your saved travelers"
-        className="flex flex-col gap-4 rounded-[22px] bg-card p-5 sm:p-7"
+        className="flex flex-col gap-4 rounded-card border border-line bg-white p-5 sm:p-7"
       >
         <p className="text-[11px] leading-none font-bold text-navy-soft">
           SAVED TRAVELERS / {travelers.data.length} OF 10
@@ -44,7 +44,7 @@ export function TravelersView() {
             ))}
           </ul>
         )}
-        <p className="rounded-[14px] bg-teal p-4 text-sm font-medium text-navy-soft">
+        <p className="rounded-inset bg-teal p-4 text-sm font-medium text-navy-soft">
           A saved traveler fills in passenger details when you book. Editing one never changes an
           existing booking.
         </p>
@@ -67,11 +67,11 @@ function Row({ traveler, onEdit }: { traveler: SavedTraveler; onEdit: () => void
     .toUpperCase();
 
   return (
-    <li className="flex flex-col gap-3 rounded-[16px] border border-line bg-white p-4">
+    <li className="flex flex-col gap-3 rounded-inset border border-line bg-white p-4">
       <div className="flex items-center gap-4">
         <span
           aria-hidden="true"
-          className="grid size-[52px] shrink-0 place-items-center rounded-[14px] bg-navy text-base font-extrabold text-white"
+          className="grid size-[52px] shrink-0 place-items-center rounded-inset bg-navy text-base font-extrabold text-white"
         >
           {initials}
         </span>
@@ -104,7 +104,7 @@ function Row({ traveler, onEdit }: { traveler: SavedTraveler; onEdit: () => void
               aria-label={`Edit ${traveler.name}`}
               className={QUIET}
             >
-              EDIT
+              Edit
             </button>
             <button
               type="button"
@@ -112,7 +112,7 @@ function Row({ traveler, onEdit }: { traveler: SavedTraveler; onEdit: () => void
               aria-label={`Remove ${traveler.name}`}
               className={QUIET}
             >
-              REMOVE
+              Remove
             </button>
           </>
         )}
@@ -153,10 +153,9 @@ function TravelerForm({ editing, onDone }: { editing: SavedTraveler | null; onDo
       onSubmit={submit}
       noValidate
       aria-label={editing ? 'Edit traveler' : 'Add a traveler'}
-      className="flex flex-col gap-5 rounded-[22px] bg-navy p-5 text-white sm:p-7"
+      className="flex flex-col gap-5 rounded-card bg-navy p-5 text-white sm:p-7"
     >
       <div>
-        <span aria-hidden="true" className="block h-[5px] w-[62px] rounded bg-pink" />
         <p className="mt-6 text-[11px] leading-none font-bold text-mist">
           {editing ? 'EDIT TRAVELER' : 'NEW TRAVELER'}
         </p>
@@ -169,7 +168,7 @@ function TravelerForm({ editing, onDone }: { editing: SavedTraveler | null; onDo
           save.isError && !errors.name && !errors.dateOfBirth ? errorMessage(save.error) : null
         }
       />
-      <div className="flex flex-col gap-4 rounded-[14px] bg-card p-4 text-navy">
+      <div className="flex flex-col gap-4 rounded-inset bg-ice p-4 text-navy">
         <Field id="tr-first" label="First name">
           {(control) => (
             <input
@@ -220,7 +219,7 @@ function TravelerForm({ editing, onDone }: { editing: SavedTraveler | null; onDo
           onClick={onDone}
           className="h-11 cursor-pointer rounded-full border border-white/40 text-xs font-bold hover:border-white focus-visible:outline-teal"
         >
-          CANCEL EDIT
+          Cancel edit
         </button>
       )}
     </form>

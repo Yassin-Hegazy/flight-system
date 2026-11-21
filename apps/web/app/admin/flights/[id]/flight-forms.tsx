@@ -230,7 +230,7 @@ export function CancelForm({ flight }: { flight: Flight }) {
       onSubmit={submit}
       noValidate
       aria-labelledby="cancel-title"
-      className="flex flex-col gap-5 rounded-[22px] bg-blush p-5 sm:p-6"
+      className="flex flex-col gap-5 rounded-card bg-blush p-5 sm:p-6"
     >
       <CardHeading kicker="Cannot be undone" title="Cancel the flight" id="cancel-title" />
       <p className="-mt-2 text-sm">

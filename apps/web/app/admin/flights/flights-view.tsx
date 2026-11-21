@@ -156,7 +156,7 @@ export function FlightsView() {
             {data.total > 0 && ` · page ${data.page} of ${pages}`}
           </p>
           {data.items.length === 0 ? (
-            <p className="rounded-[18px] bg-card p-5 font-semibold">
+            <p className="rounded-card border border-line bg-white p-5 font-semibold">
               No flight matches these filters.
             </p>
           ) : (
@@ -206,7 +206,7 @@ function FlightRow({ flight }: { flight: AdminFlight }) {
           aria-label={`Manage ${flight.flightNumber} on ${dayOf(departs)}`}
           className={NAVY_BUTTON}
         >
-          MANAGE
+          Manage
         </Link>
       </td>
     </tr>

@@ -15,7 +15,7 @@ const LINKS = [
 export function AccountNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Account" className="rounded-[22px] bg-navy p-4 lg:min-h-[420px]">
+    <nav aria-label="Account" className="rounded-card bg-navy p-4 lg:min-h-[420px]">
       <p className="px-2 pt-2 pb-4 text-[11px] leading-none font-bold text-mist">
         AERON / YOUR SPACE
       </p>
@@ -25,7 +25,7 @@ export function AccountNav() {
             <Link
               href={href}
               aria-current={pathname === href ? 'page' : undefined}
-              className="flex h-[45px] items-center rounded-[12px] px-4 text-sm font-bold text-white hover:bg-white/5 focus-visible:outline-teal aria-[current=page]:bg-pink aria-[current=page]:text-navy"
+              className="flex h-[45px] items-center rounded-full px-4 text-sm font-bold text-white hover:bg-white/5 focus-visible:outline-teal aria-[current=page]:bg-white aria-[current=page]:text-navy"
             >
               {label}
             </Link>

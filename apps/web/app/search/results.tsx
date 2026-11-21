@@ -112,14 +112,14 @@ function EmptyState({
 }) {
   if (!filtered) {
     return (
-      <div className="rounded-[18px] border border-dashed border-line bg-ice p-6 text-center">
+      <div className="rounded-card border border-dashed border-line bg-white p-6 text-center">
         <p className="font-medium">No flights on this day</p>
         <p className="text-sm text-muted-foreground">Try another date or route.</p>
       </div>
     );
   }
   return (
-    <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line bg-ice p-6 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line bg-white p-6 text-center">
       <p className="font-medium">No flights match these filters</p>
       <button type="button" className={BUTTON_CLASS} onClick={onClearFilters}>
         Clear filters
@@ -131,7 +131,7 @@ function EmptyState({
 const CABIN_LABEL = { ECONOMY: 'Economy', BUSINESS: 'Business' } as const;
 
 const ACTION =
-  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-5 text-xs font-bold ' +
+  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-5 text-[13px] font-bold ' +
   'focus-visible:outline-navy';
 
 interface ResultCardProps {
@@ -147,10 +147,10 @@ function ResultCard({ result, party, selection }: ResultCardProps) {
   return (
     <article
       aria-label={`${result.flightNumber}, ${result.airline.name}`}
-      className={`grid gap-5 rounded-[18px] border bg-ice p-5 sm:grid-cols-[160px_minmax(0,1fr)] xl:grid-cols-[160px_minmax(0,1fr)_auto] xl:items-center ${chosen ? 'border-navy shadow-[inset_0_0_0_2px_var(--color-navy)]' : 'border-line'}`}
+      className={`grid gap-5 rounded-card border bg-white p-5 sm:grid-cols-[160px_minmax(0,1fr)] xl:grid-cols-[160px_minmax(0,1fr)_auto] xl:items-center ${chosen ? 'border-navy shadow-[inset_0_0_0_2px_var(--color-navy)]' : 'border-line'}`}
       data-testid="search-result"
     >
-      <div className="flex flex-col justify-center gap-1 rounded-[12px] bg-navy px-[19px] py-3 text-white sm:min-h-[86px]">
+      <div className="flex flex-col justify-center gap-1 rounded-inset bg-navy px-[19px] py-3 text-white sm:min-h-[86px]">
         <p className="text-lg leading-tight font-extrabold">{result.airline.name}</p>
         <p className="text-[11px] font-bold text-teal uppercase">
           {result.flightNumber} · {CABIN_LABEL[result.cabin]}
@@ -170,7 +170,7 @@ function ResultCard({ result, party, selection }: ResultCardProps) {
           </span>
         </p>
         <p className="flex flex-col items-center text-center">
-          <span aria-hidden="true" className="text-[30px] leading-none font-bold text-pink">
+          <span aria-hidden="true" className="text-[30px] leading-none font-bold text-navy-soft">
             →
           </span>
           <span className="sr-only">to</span>
@@ -223,7 +223,7 @@ function ResultCard({ result, party, selection }: ResultCardProps) {
             aria-label={`View flight ${result.flightNumber}`}
             className={`${ACTION} border border-line bg-white hover:border-navy`}
           >
-            DETAILS
+            Details
           </Link>
           {selection ? (
             <button
@@ -231,17 +231,17 @@ function ResultCard({ result, party, selection }: ResultCardProps) {
               aria-pressed={chosen}
               aria-label={`Select ${result.flightNumber}`}
               onClick={() => selection.onSelect(result.flightId)}
-              className={`${ACTION} rounded-[16px] ${chosen ? 'bg-navy text-white' : 'bg-pink text-navy hover:brightness-105'}`}
+              className={`${ACTION} ${chosen ? 'bg-teal text-navy shadow-[inset_0_0_0_2px_var(--color-navy)]' : 'bg-navy text-white hover:bg-navy-soft'}`}
             >
-              {chosen ? 'SELECTED ✓' : 'SELECT FLIGHT'}
+              {chosen ? 'Selected ✓' : 'Select flight'}
             </button>
           ) : (
             <Link
               href={`/book?flightId=${result.flightId}&${party}`}
               aria-label={`Book ${result.flightNumber}`}
-              className={`${ACTION} rounded-[16px] bg-pink text-navy hover:brightness-105`}
+              className={`${ACTION} bg-navy text-white hover:bg-navy-soft`}
             >
-              SELECT FLIGHT <span aria-hidden="true">↗</span>
+              Select flight <span aria-hidden="true">↗</span>
             </Link>
           )}
         </div>

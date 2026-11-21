@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { type FormEvent, useRef } from 'react';
 import { Field, INPUT_CLASS } from '@/app/search/field';
 import { FormAlert } from '@/components/auth-card';
+import { BUTTON_PRIMARY, SIZE_LG } from '@/components/ui';
 import { createAdministrator, type NewAdministrator } from '@/lib/admin-api';
 import { errorMessage, fieldErrorsOf, formText } from '@/lib/api';
 
@@ -37,7 +38,7 @@ export function CreateAdministratorForm() {
       onSubmit={submit}
       noValidate
       aria-labelledby="create-admin-title"
-      className="flex flex-col gap-5 rounded-[22px] border border-line bg-white p-5 sm:p-6"
+      className="flex flex-col gap-5 rounded-card border border-line bg-white p-5 sm:p-6"
     >
       <div>
         <p className="text-[11px] leading-none font-bold text-navy-soft">ADMIN-ONLY ACTION</p>
@@ -84,12 +85,10 @@ export function CreateAdministratorForm() {
       <button
         type="submit"
         disabled={create.isPending}
-        className="h-14 w-full cursor-pointer rounded-[15px] bg-pink px-8 text-[13px] font-bold text-navy uppercase hover:brightness-105 focus-visible:outline-navy disabled:opacity-60"
+        className={`${BUTTON_PRIMARY} ${SIZE_LG} w-full`}
       >
         {create.isPending ? 'Creating…' : 'Create administrator'}
-        <span aria-hidden="true" className="ml-3">
-          ↗
-        </span>
+        <span aria-hidden="true">↗</span>
       </button>
       {create.isSuccess && (
         <p role="status" className="text-sm font-bold">

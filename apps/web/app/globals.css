@@ -13,6 +13,15 @@
   --color-line: #b5d8e9;
   --color-danger: #b8124a;
   --color-blush: #ffe0ea;
+
+  /* Three corner sizes (docs/BRAND.md): cards, surfaces inside a card, and form fields. Buttons and
+     chips are pills (rounded-full). */
+  --radius-card: 22px;
+  --radius-inset: 14px;
+  --radius-field: 12px;
+
+  /* The one shadow, for things that float above the page: the picture book's cards, popovers. */
+  --shadow-float: 0 24px 50px -24px rgb(7 45 80 / 0.5);
 }
 
 @theme inline {
