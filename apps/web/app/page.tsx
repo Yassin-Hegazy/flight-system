@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { HeroSculpture } from '@/components/hero/sculpture';
+import { DestinationBook } from '@/components/destination-book/destination-book';
 import { cn } from '@/lib/utils';
 import { TripSearch } from './trip-search';
 
@@ -59,7 +59,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mx-auto w-full max-w-[560px] lg:mt-5 lg:-ml-6 lg:max-w-[680px] lg:justify-self-end">
-            <HeroSculpture />
+            <DestinationBook />
           </div>
         </div>
       </section>

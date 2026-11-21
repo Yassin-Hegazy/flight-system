@@ -138,6 +138,115 @@ test('NFR-COMP-01-T04 a destination card opens the search with that route filled
   await expect(form.getByLabel('To', { exact: true })).toHaveValue('LHR');
 });
 
+const book = (page: Page) => page.getByRole('region', { name: 'Where aeron flies' });
+/** The cards only respond once the page has hydrated. */
+const bookReady = (page: Page) => expect(book(page)).toHaveAttribute('data-ready', 'true');
+const DESTINATIONS = [
+  'Tokyo, Japan',
+  'Paris, France',
+  'Cairo, Egypt',
+  'Rome, Italy',
+  'Beijing, China',
+  'Los Angeles, USA',
+];
+
+test('US-FS-01-T23 the hero is a picture book of six destinations with one at the front', async ({
+  page,
+}) => {
+  await bookReady(page);
+  const cards = book(page).getByRole('button', { name: /, / });
+  await expect(cards).toHaveCount(6);
+  for (const name of DESTINATIONS) {
+    await expect(book(page).getByRole('button', { name, exact: true })).toBeAttached();
+  }
+  await expect(book(page).locator('[aria-current="true"]')).toHaveCount(1);
+  await expect(book(page).getByRole('button', { name: 'Tokyo, Japan' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await expect(book(page).getByRole('status')).toHaveText('Now showing Tokyo, Japan');
+});
+
+test('US-FS-01-T24 choosing a card swings it to the front and opens its flights from there', async ({
+  page,
+}) => {
+  await bookReady(page);
+  await book(page).getByRole('button', { name: 'Paris, France' }).click();
+
+  await expect(book(page).getByRole('button', { name: 'Paris, France' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await expect(book(page).getByRole('status')).toHaveText('Now showing Paris, France');
+  const link = book(page).getByRole('link', { name: 'See flights to Paris' });
+  await expect(link).toHaveAttribute('href', '/search?origin=CAI&destination=CDG');
+  await link.click();
+  await expect(page).toHaveURL(/\/search\?origin=CAI&destination=CDG$/);
+});
+
+test('US-FS-01-T25 a small plane flies across while the cards swing, then lands out of sight', async ({
+  page,
+}) => {
+  await bookReady(page);
+  const plane = book(page).getByTestId('book-plane');
+  await expect(plane).toHaveAttribute('data-flying', 'false');
+  await book(page).getByRole('button', { name: 'Next destination' }).click();
+
+  await expect(plane).toHaveAttribute('data-flying', 'true');
+  await expect(plane).toHaveAttribute('data-flying', 'false', { timeout: 4000 });
+  await expect(book(page).getByRole('button', { name: 'Paris, France' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+});
+
+test('US-FS-01-T26 with reduced motion the front card changes at once and no plane flies', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await bookReady(page);
+  const plane = book(page).getByTestId('book-plane');
+  await book(page).getByRole('button', { name: 'Los Angeles, USA' }).click();
+
+  await expect(book(page).getByRole('button', { name: 'Los Angeles, USA' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await expect(plane).toHaveAttribute('data-flying', 'false');
+});
+
+test('US-FS-01-T27 the picture book works from the keyboard', async ({ page }) => {
+  await bookReady(page);
+  await book(page).getByRole('button', { name: 'Tokyo, Japan' }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(book(page).getByRole('button', { name: 'Paris, France' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await expect(book(page).getByRole('button', { name: 'Paris, France' })).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(book(page).getByRole('button', { name: 'Los Angeles, USA' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await book(page).getByRole('button', { name: 'Previous destination' }).click();
+  await expect(book(page).getByRole('button', { name: 'Beijing, China' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+});
+
+test('US-FS-01-T28 a destination with no direct flight from Cairo fills in only where to', async ({
+  page,
+}) => {
+  await expect(book(page).getByRole('link', { name: 'See flights to Tokyo' })).toHaveAttribute(
+    'href',
+    '/search?destination=HND',
+  );
+});
+
 test('NFR-USAB-01-T04 the landing page has no detectable accessibility violations', async ({
   page,
 }) => {
