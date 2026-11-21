@@ -139,6 +139,8 @@ test('NFR-COMP-01-T04 a destination card opens the search with that route filled
 });
 
 const book = (page: Page) => page.getByRole('region', { name: 'Where aeron flies' });
+/** The cards only respond once the page has hydrated. */
+const bookReady = (page: Page) => expect(book(page)).toHaveAttribute('data-ready', 'true');
 const DESTINATIONS = [
   'Tokyo, Japan',
   'Paris, France',
@@ -151,6 +153,7 @@ const DESTINATIONS = [
 test('US-FS-01-T23 the hero is a picture book of six destinations with one at the front', async ({
   page,
 }) => {
+  await bookReady(page);
   const cards = book(page).getByRole('button', { name: /, / });
   await expect(cards).toHaveCount(6);
   for (const name of DESTINATIONS) {
@@ -167,6 +170,7 @@ test('US-FS-01-T23 the hero is a picture book of six destinations with one at th
 test('US-FS-01-T24 choosing a card swings it to the front and opens its flights from there', async ({
   page,
 }) => {
+  await bookReady(page);
   await book(page).getByRole('button', { name: 'Paris, France' }).click();
 
   await expect(book(page).getByRole('button', { name: 'Paris, France' })).toHaveAttribute(
@@ -183,6 +187,7 @@ test('US-FS-01-T24 choosing a card swings it to the front and opens its flights 
 test('US-FS-01-T25 a small plane flies across while the cards swing, then lands out of sight', async ({
   page,
 }) => {
+  await bookReady(page);
   const plane = book(page).getByTestId('book-plane');
   await expect(plane).toHaveAttribute('data-flying', 'false');
   await book(page).getByRole('button', { name: 'Next destination' }).click();
@@ -200,10 +205,11 @@ test('US-FS-01-T26 with reduced motion the front card changes at once and no pla
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.reload();
+  await bookReady(page);
   const plane = book(page).getByTestId('book-plane');
-  await book(page).getByRole('button', { name: 'Rome, Italy' }).click();
+  await book(page).getByRole('button', { name: 'Los Angeles, USA' }).click();
 
-  await expect(book(page).getByRole('button', { name: 'Rome, Italy' })).toHaveAttribute(
+  await expect(book(page).getByRole('button', { name: 'Los Angeles, USA' })).toHaveAttribute(
     'aria-current',
     'true',
   );
@@ -211,6 +217,7 @@ test('US-FS-01-T26 with reduced motion the front card changes at once and no pla
 });
 
 test('US-FS-01-T27 the picture book works from the keyboard', async ({ page }) => {
+  await bookReady(page);
   await book(page).getByRole('button', { name: 'Tokyo, Japan' }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(book(page).getByRole('button', { name: 'Paris, France' })).toHaveAttribute(
