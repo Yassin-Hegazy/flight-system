@@ -127,15 +127,15 @@ test('US-FS-06-T16 typing in From on the landing page offers matching airports',
   await expect(page.locator('#rail-origin-options option[value="CAI"]')).toBeAttached();
 });
 
-test('NFR-COMP-01-T04 a destination card opens the search with that route filled in', async ({
-  page,
-}) => {
-  await page.getByRole('link', { name: /London/ }).click();
-
-  await expect(page).toHaveURL(/\/search\?origin=CAI&destination=LHR/);
-  // The landing page stays mounted but hidden after the navigation, so the form is named.
-  const form = page.getByRole('form', { name: 'Search flights' });
-  await expect(form.getByLabel('To', { exact: true })).toHaveValue('LHR');
+test('NFR-COMP-01-T04 the Destinations link leads to the picture book', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const link = page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Destinations' });
+  await expect(link).toHaveAttribute('href', '/#destinations');
+  await expect(
+    page.locator('#destinations').getByRole('region', { name: 'Where aeron flies' }),
+  ).toBeVisible();
 });
 
 const book = (page: Page) => page.getByRole('region', { name: 'Where aeron flies' });
