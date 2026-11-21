@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { OVERLINE_ON_DARK } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { AirportInput } from './search/airport-input';
 
@@ -76,11 +77,11 @@ export function TripSearch() {
     <section
       id="search"
       aria-labelledby="search-title"
-      className="relative scroll-mt-6 rounded-[32px] bg-navy px-5 pt-7 pb-7 sm:px-8 lg:pr-[56px] lg:pl-[34px]"
+      className="relative scroll-mt-6 rounded-card bg-navy px-5 pt-7 pb-7 sm:px-8 lg:pr-[56px] lg:pl-[34px]"
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-col gap-4">
-          <p className="text-[11px] leading-none font-bold text-mist">01 / THE TAKEOFF</p>
+          <p className={OVERLINE_ON_DARK}>01 / The takeoff</p>
           <h2
             id="search-title"
             className="text-[clamp(2rem,3.5vw,39px)] leading-none font-extrabold text-white"
@@ -97,7 +98,7 @@ export function TripSearch() {
         aria-label="Find a flight"
         className="mt-7 flex flex-col gap-[13px] lg:flex-row"
       >
-        <div className="flex flex-col rounded-[14px] bg-teal lg:flex-1 lg:flex-row">
+        <div className="flex flex-col rounded-field bg-teal lg:flex-1 lg:flex-row">
           <Cell
             id="rail-origin"
             label="From"
@@ -117,7 +118,7 @@ export function TripSearch() {
                   type="button"
                   onClick={swap}
                   aria-label="Swap origin and destination"
-                  className="absolute right-4 bottom-[-18px] z-30 grid size-9 cursor-pointer place-items-center rounded-full bg-pink text-[19px] leading-none font-extrabold text-navy transition-transform hover:rotate-180 focus-visible:outline-navy lg:top-1/2 lg:right-[-18px] lg:bottom-auto lg:-translate-y-1/2"
+                  className="absolute right-4 bottom-[-18px] z-30 grid size-9 cursor-pointer place-items-center rounded-full bg-navy text-[19px] leading-none font-extrabold text-white transition-transform hover:rotate-180 focus-visible:outline-pink lg:top-1/2 lg:right-[-18px] lg:bottom-auto lg:-translate-y-1/2"
                 >
                   <span aria-hidden="true" className="rotate-90 lg:rotate-0">
                     ↔
@@ -163,9 +164,9 @@ export function TripSearch() {
 
         <button
           type="submit"
-          className="flex h-16 shrink-0 cursor-pointer items-center justify-center gap-3 rounded-[14px] bg-pink px-6 text-[18px] leading-tight font-extrabold text-navy transition-[filter] hover:brightness-105 focus-visible:outline-teal lg:h-[91px] lg:w-[192px]"
+          className="flex h-16 shrink-0 cursor-pointer items-center justify-center gap-3 rounded-field bg-pink px-6 text-[18px] leading-tight font-extrabold text-navy transition-[filter] hover:brightness-105 focus-visible:outline-teal lg:h-[91px] lg:w-[192px]"
         >
-          <span className="lg:max-w-[5.5em] lg:text-center">SEARCH FLIGHTS</span>
+          <span className="lg:max-w-[5.5em] lg:text-center">Search flights</span>
           <span aria-hidden="true">↗</span>
         </button>
       </form>
@@ -233,8 +234,8 @@ function TripToggle({ value, onChange }: { value: Trip; onChange: (trip: Trip) =
                 ?.focus();
             }}
             className={cn(
-              'h-[34px] cursor-pointer rounded-full px-[15px] text-xs leading-none font-bold uppercase transition-colors focus-visible:outline-teal',
-              selected ? 'bg-pink text-navy' : 'text-white hover:text-pink',
+              'h-[34px] cursor-pointer rounded-full px-[15px] text-[13px] leading-none font-bold transition-colors focus-visible:outline-teal',
+              selected ? 'bg-white text-navy' : 'text-white/80 hover:text-white',
             )}
           >
             {option.label}
@@ -311,7 +312,7 @@ function Travelers({ party, cabin, onParty, onCabin }: TravelersProps) {
           id="rail-travelers-panel"
           role="group"
           aria-label="Travelers and cabin"
-          className="absolute top-full right-0 left-0 z-40 mt-2 flex flex-col gap-4 rounded-[18px] bg-ice p-5 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] lg:left-auto lg:w-[300px]"
+          className="absolute top-full right-0 left-0 z-40 mt-2 flex flex-col gap-4 rounded-card bg-ice p-5 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] lg:left-auto lg:w-[300px]"
         >
           {PARTY_ROWS.map(({ key, label, plural, hint, min }) => (
             <div key={key} className="flex items-center justify-between gap-3">
@@ -352,7 +353,7 @@ function Travelers({ party, cabin, onParty, onCabin }: TravelersProps) {
               id="rail-cabin"
               value={cabin}
               onChange={(event) => onCabin(event.target.value as Cabin)}
-              className="h-11 rounded-[12px] border border-line bg-white px-3 text-sm font-semibold text-navy"
+              className="h-11 rounded-field border border-line bg-white px-3 text-sm font-semibold text-navy"
             >
               <option value="ECONOMY">Economy</option>
               <option value="BUSINESS">Business</option>

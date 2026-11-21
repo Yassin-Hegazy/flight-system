@@ -8,7 +8,8 @@ import { changePassword, type ProfilePatch, updateProfile } from '@/lib/account-
 import { errorMessage, fieldErrorsOf, formText } from '@/lib/api';
 import { useMe } from '@/lib/auth';
 
-const CARD = 'flex flex-col gap-5 rounded-[22px] bg-card p-5 sm:p-7';
+const CARD = 'flex flex-col gap-5 rounded-card border border-line bg-white p-5 sm:p-7';
+const CARD_DARK = 'flex flex-col gap-5 rounded-card bg-navy p-5 text-white sm:p-7';
 const KNOWN = (errors: Record<string, string>, names: string[]) =>
   names.some((name) => errors[name]);
 
@@ -144,11 +145,12 @@ export function PasswordForm() {
       onSubmit={submit}
       noValidate
       aria-label="Change password"
-      className={`${CARD} bg-navy text-white`}
+      className={CARD_DARK}
     >
       <div>
-        <span aria-hidden="true" className="block h-[5px] w-[62px] rounded bg-pink" />
-        <p className="mt-6 text-[11px] leading-none font-bold text-mist">KEEP YOUR ACCOUNT SAFE</p>
+        <p className="text-[11px] leading-none font-bold tracking-[0.08em] text-mist">
+          KEEP YOUR ACCOUNT SAFE
+        </p>
         <h2 className="mt-3 text-2xl leading-tight font-extrabold">
           A better password. A safer journey.
         </h2>
@@ -158,7 +160,7 @@ export function PasswordForm() {
           change.isError && !KNOWN(errors, ['current', 'next']) ? errorMessage(change.error) : null
         }
       />
-      <div className="flex flex-col gap-4 rounded-[14px] bg-card p-4 text-navy">
+      <div className="flex flex-col gap-4 rounded-inset bg-ice p-4 text-navy">
         <Field id="pw-current" label="Current password" error={errors.current}>
           {(control) => (
             <input

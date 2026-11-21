@@ -38,7 +38,7 @@ export function BookingsList() {
         Show expired bookings
       </label>
       {upcoming.length + past.length === 0 ? (
-        <div className="flex flex-col items-start gap-5 rounded-[22px] bg-card p-7">
+        <div className="flex flex-col items-start gap-5 rounded-card border border-line bg-white p-7">
           <p className="text-lg font-bold">You have no trips yet.</p>
           <Link href="/search" className={PINK_LINK}>
             Search flights <span aria-hidden="true">↗</span>
@@ -65,7 +65,7 @@ function Group({ title, items, empty }: { title: string; items: BookingSummary[]
           {items.map((item) => (
             <li
               key={item.reference}
-              className="grid gap-4 rounded-[18px] bg-card p-5 sm:grid-cols-[1fr_auto] sm:items-center"
+              className="grid gap-4 rounded-card border border-line bg-white p-5 sm:grid-cols-[1fr_auto] sm:items-center"
             >
               <div className="flex flex-col gap-2">
                 <p className="flex flex-wrap items-center gap-3">
@@ -85,9 +85,9 @@ function Group({ title, items, empty }: { title: string; items: BookingSummary[]
                 <Link
                   href={`/bookings/${item.reference}`}
                   aria-label={`View booking ${item.reference}`}
-                  className="inline-flex h-11 items-center rounded-full bg-pink px-5 text-xs font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+                  className="inline-flex h-11 items-center rounded-full bg-navy px-5 text-[13px] font-bold text-white hover:bg-navy-soft"
                 >
-                  VIEW
+                  View
                 </Link>
               </div>
             </li>

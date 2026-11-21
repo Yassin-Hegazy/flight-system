@@ -8,14 +8,15 @@ import { errorMessage } from '@/lib/api';
 import { type Flight, getFlight, STATUS_LABEL } from '@/lib/flights-api';
 import { dayOf, formatDuration, formatMoney, timeOf } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, SIZE_LG } from '@/components/ui';
 
 const CABINS = [
   ['ECONOMY', 'Economy'],
   ['BUSINESS', 'Business'],
 ] as const;
 
-const BACK =
-  'inline-flex h-[52px] items-center gap-2 rounded-full bg-navy px-6 text-[15px] font-bold text-white hover:bg-navy-soft';
+const BACK = `${BUTTON_SECONDARY} ${SIZE_LG}`;
+const CONTINUE = `${BUTTON_PRIMARY} ${SIZE_LG}`;
 
 /** Flight details (US-FL-01) and current status (US-FL-02), drawn as a boarding pass. */
 export function FlightView() {
@@ -26,7 +27,7 @@ export function FlightView() {
   if (flight.isError) {
     return (
       <div className="flex flex-col items-start gap-6">
-        <p role="alert" className="rounded-[14px] bg-card p-5 text-lg font-bold text-danger">
+        <p role="alert" className="rounded-inset bg-ice p-5 text-lg font-bold text-danger">
           {errorMessage(flight.error)}
         </p>
         <Link href="/search" className={BACK}>
@@ -60,10 +61,10 @@ function Ticket({ flight }: { flight: Flight }) {
 
       <section
         aria-label={`Flight ${flight.flightNumber}`}
-        className="overflow-hidden rounded-[28px] bg-navy p-4 sm:p-7"
+        className="overflow-hidden rounded-card bg-navy p-4 sm:p-7"
       >
-        <div className="overflow-hidden rounded-[18px] bg-teal">
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-pink px-5 py-4 sm:px-7">
+        <div className="overflow-hidden rounded-inset bg-teal">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-5 py-4 sm:px-7">
             <p className="text-2xl leading-none font-extrabold text-navy sm:text-[32px]">
               {flight.airline.name}
             </p>
@@ -76,7 +77,7 @@ function Ticket({ flight }: { flight: Flight }) {
 
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-5 pt-7 sm:px-7">
             <Place code={flight.origin.code} city={flight.origin.city} name={flight.origin.name} />
-            <Plane aria-hidden="true" className="size-8 rotate-45 text-pink sm:size-11" />
+            <Plane aria-hidden="true" className="size-8 rotate-45 text-navy-soft sm:size-11" />
             <Place
               code={flight.destination.code}
               city={flight.destination.city}
@@ -118,7 +119,7 @@ function Ticket({ flight }: { flight: Flight }) {
                 <dt className="text-xs font-bold text-mist uppercase">{label} / per adult</dt>
                 <dd
                   data-testid={`fare-${cabin}`}
-                  className={cn('text-2xl font-extrabold', fare ? 'text-pink' : 'text-mist')}
+                  className={cn('text-2xl font-extrabold', fare ? 'text-white' : 'text-mist')}
                 >
                   {fare ? formatMoney(fare) : 'Not offered'}
                 </dd>
@@ -133,7 +134,7 @@ function Ticket({ flight }: { flight: Flight }) {
       </section>
 
       {cancelled && (
-        <p className="rounded-[14px] bg-card p-5 text-lg font-bold text-danger">
+        <p className="rounded-inset bg-ice p-5 text-lg font-bold text-danger">
           This flight was cancelled and cannot be booked.
         </p>
       )}
@@ -142,7 +143,7 @@ function Ticket({ flight }: { flight: Flight }) {
         {BOOKABLE.has(flight.status) && (
           <Link
             href={`/book?flightId=${flight.id}${party ? `&${party}` : ''}`}
-            className="inline-flex h-[52px] items-center gap-2 rounded-full bg-pink px-8 text-[15px] font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+            className={CONTINUE}
           >
             Continue to booking <span aria-hidden="true">↗</span>
           </Link>

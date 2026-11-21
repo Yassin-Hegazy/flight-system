@@ -131,7 +131,7 @@ function AirportRow({ airport, confirming, onEdit, onDelete, onConfirm, onKeep }
                 onClick={onEdit}
                 className={NAVY_BUTTON}
               >
-                EDIT
+                Edit
               </button>
               <button
                 type="button"
@@ -139,7 +139,7 @@ function AirportRow({ airport, confirming, onEdit, onDelete, onConfirm, onKeep }
                 onClick={onDelete}
                 className={QUIET_BUTTON}
               >
-                DELETE
+                Delete
               </button>
             </>
           )}

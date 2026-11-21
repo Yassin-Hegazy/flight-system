@@ -64,7 +64,7 @@ export function FiltersPanel({
       onSubmit={apply}
       noValidate
       aria-label="Refine your search"
-      className="flex flex-col gap-4 rounded-[18px] border border-line bg-ice p-5"
+      className="flex flex-col gap-4 rounded-card border border-line bg-white p-5"
     >
       <h2 className="text-[21px] leading-tight font-bold">Refine your search</h2>
 
@@ -165,7 +165,7 @@ export function FiltersPanel({
       <div className="flex flex-wrap gap-3 border-t border-line pt-4">
         <button
           type="submit"
-          className="inline-flex h-11 cursor-pointer items-center rounded-full bg-pink px-5 text-xs font-bold text-navy hover:brightness-105 focus-visible:outline-navy"
+          className="inline-flex h-11 cursor-pointer items-center rounded-full bg-navy px-5 text-[13px] font-bold text-white hover:bg-navy-soft"
         >
           Apply filters
         </button>

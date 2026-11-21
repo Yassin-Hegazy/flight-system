@@ -82,13 +82,13 @@ export function SearchForm({ params, errors, pending, onSearch }: SearchFormProp
       onSubmit={submit}
       noValidate
       aria-label="Search flights"
-      className="flex flex-col gap-4 rounded-[20px] bg-navy p-5 sm:px-[26px] sm:pt-4 sm:pb-6"
+      className="flex flex-col gap-4 rounded-card bg-navy p-5 sm:px-[26px] sm:pt-4 sm:pb-6"
     >
       <p className="text-[11px] leading-none font-bold whitespace-pre-wrap text-mist uppercase">
         {summary(params)}
       </p>
       <div className="flex flex-col gap-[13px] lg:flex-row">
-        <div className="flex flex-col rounded-[12px] bg-teal lg:flex-1 lg:flex-row">
+        <div className="flex flex-col rounded-field bg-teal lg:flex-1 lg:flex-row">
           <RailCell id="origin" label="From" error={errors.origin}>
             {(control) => (
               <AirportInput
@@ -136,7 +136,7 @@ export function SearchForm({ params, errors, pending, onSearch }: SearchFormProp
         <button
           type="submit"
           disabled={pending}
-          className="flex h-[62px] shrink-0 cursor-pointer items-center justify-center gap-3 rounded-[12px] bg-pink px-6 text-sm font-bold text-navy uppercase hover:brightness-105 focus-visible:outline-teal disabled:opacity-60 lg:w-[211px]"
+          className="flex h-[62px] shrink-0 cursor-pointer items-center justify-center gap-3 rounded-field bg-pink px-6 text-sm font-bold text-navy hover:brightness-105 focus-visible:outline-teal disabled:opacity-60 lg:w-[211px]"
         >
           {pending ? 'Searching…' : 'Search flights'}
           <span aria-hidden="true">↗</span>
@@ -182,7 +182,7 @@ const PARTY = [
   { name: 'infants', label: 'Infants', hint: 'Under 2, on a lap', fallback: '0' },
 ];
 const PANEL_INPUT =
-  'h-10 w-16 rounded-[10px] border border-line bg-white px-2 text-center text-sm font-bold ' +
+  'h-10 w-16 rounded-field border border-line bg-white px-2 text-center text-sm font-bold ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ' +
   'aria-invalid:border-destructive';
 
@@ -252,7 +252,7 @@ function Travelers({
         role="group"
         aria-label="Travelers and cabin"
         hidden={!open}
-        className="mt-2 flex-col gap-4 rounded-[18px] bg-ice p-5 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] [&:not([hidden])]:flex lg:absolute lg:top-full lg:right-0 lg:z-40 lg:w-[320px]"
+        className="mt-2 flex-col gap-4 rounded-card bg-ice p-5 shadow-[0_24px_60px_-20px_rgb(7_45_80/0.6)] [&:not([hidden])]:flex lg:absolute lg:top-full lg:right-0 lg:z-40 lg:w-[320px]"
       >
         {PARTY.map(({ name, label, hint, fallback }) => (
           <div key={name} className="flex flex-col gap-1">
@@ -289,7 +289,7 @@ function Travelers({
             id="cabin"
             name="cabin"
             defaultValue={params.get('cabin') ?? 'ECONOMY'}
-            className="h-11 rounded-[12px] border border-line bg-white px-3 text-sm font-semibold text-navy"
+            className="h-11 rounded-field border border-line bg-white px-3 text-sm font-semibold text-navy"
           >
             <option value="ECONOMY">Economy</option>
             <option value="BUSINESS">Business</option>

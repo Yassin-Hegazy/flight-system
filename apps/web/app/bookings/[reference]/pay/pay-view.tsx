@@ -98,7 +98,7 @@ function Checkout({ booking }: { booking: Booking }) {
     return (
       <>
         {heading('Hold expired')}
-        <p className="rounded-[18px] bg-card p-5 text-lg font-bold">
+        <p className="rounded-card border border-line bg-white p-5 text-lg font-bold">
           The hold on these seats has expired. Nothing was charged; search again to book.
         </p>
         <div>
@@ -113,14 +113,14 @@ function Checkout({ booking }: { booking: Booking }) {
   return (
     <>
       {heading('Payment')}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[22px] bg-navy p-6 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-card bg-navy p-6 text-white">
         <div>
           <p className="text-[11px] leading-none font-bold text-mist">SEATS HELD FOR</p>
           {/* Not announced every second; the value is there when a screen reader asks for it. */}
           <p
             role="timer"
             aria-live="off"
-            className="mt-2 text-[44px] leading-none font-extrabold text-pink tabular-nums"
+            className="mt-2 text-[44px] leading-none font-extrabold text-navy tabular-nums"
           >
             {clock(left)}
           </p>
@@ -166,7 +166,7 @@ function PayForm({ booking, onPaid }: { booking: Booking; onPaid: (payment: Paym
     <form
       onSubmit={pay}
       aria-label="Payment"
-      className="flex flex-col gap-5 rounded-[22px] bg-card p-5 sm:p-7"
+      className="flex flex-col gap-5 rounded-card border border-line bg-white p-5 sm:p-7"
     >
       {payment.isError && (
         <FormAlert
@@ -178,7 +178,7 @@ function PayForm({ booking, onPaid }: { booking: Booking; onPaid: (payment: Paym
         {CARDS.map((card) => (
           <label
             key={card.token}
-            className="flex items-center gap-3 rounded-[12px] border border-input bg-white p-4 text-sm font-semibold"
+            className="flex items-center gap-3 rounded-field border border-input bg-white p-4 text-sm font-semibold"
           >
             <input
               type="radio"
@@ -214,7 +214,7 @@ function Summary({
   return (
     <section
       aria-label="Booking summary"
-      className="flex flex-col gap-4 rounded-[22px] bg-card p-5 sm:p-7"
+      className="flex flex-col gap-4 rounded-card border border-line bg-white p-5 sm:p-7"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="text-xs font-bold text-navy-soft uppercase">

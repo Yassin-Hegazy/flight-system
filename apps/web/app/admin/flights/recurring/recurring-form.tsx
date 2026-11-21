@@ -205,7 +205,7 @@ function SeriesError({ error }: { error: unknown }) {
   return (
     <div
       role="alert"
-      className="flex flex-col gap-2 rounded-[12px] border border-danger p-3 text-sm text-danger"
+      className="flex flex-col gap-2 rounded-field border border-danger p-3 text-sm text-danger"
     >
       <p className="font-bold">No flights were scheduled. {SERIES_ERRORS[code] ?? message}</p>
       {dates.length > 0 && (

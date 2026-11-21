@@ -1,21 +1,30 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-export const ADMIN_CARD =
-  'flex flex-col gap-5 rounded-[22px] border border-line bg-white p-5 sm:p-6';
-export const SMALL_BUTTON =
-  'inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-5 text-xs font-bold ' +
-  'focus-visible:outline-navy disabled:opacity-60';
-export const PINK_BUTTON = `${SMALL_BUTTON} bg-pink text-navy hover:brightness-105`;
-export const NAVY_BUTTON = `${SMALL_BUTTON} bg-navy text-white hover:bg-navy-soft`;
-export const DANGER_BUTTON = `${SMALL_BUTTON} bg-danger text-white hover:brightness-110`;
-export const QUIET_BUTTON = `${SMALL_BUTTON} border border-line bg-white text-navy hover:bg-ice`;
+import {
+  BUTTON_DANGER,
+  BUTTON_PRIMARY,
+  BUTTON_QUIET,
+  BUTTON_SECONDARY,
+  CARD,
+  OVERLINE,
+  OVERLINE_ON_DARK,
+  SIZE_MD,
+} from '@/components/ui';
+
+// The admin pages use the site's building blocks (components/ui.ts) at the in-card size.
+export const ADMIN_CARD = `${CARD} flex flex-col gap-5`;
+export const SMALL_BUTTON = `inline-flex cursor-pointer items-center justify-center gap-2 rounded-full ${SIZE_MD} font-bold`;
+export const PINK_BUTTON = `${BUTTON_PRIMARY} ${SIZE_MD}`;
+export const NAVY_BUTTON = `${BUTTON_SECONDARY} ${SIZE_MD}`;
+export const DANGER_BUTTON = `${BUTTON_DANGER} ${SIZE_MD}`;
+export const QUIET_BUTTON = `${BUTTON_QUIET} ${SIZE_MD}`;
 
 /** A card's small overline and heading, as on the Figma admin frame. */
 export function CardHeading({ kicker, title, id }: { kicker: string; title: string; id?: string }) {
   return (
     <div>
-      <p className="text-[11px] leading-none font-bold text-navy-soft uppercase">{kicker}</p>
+      <p className={OVERLINE}>{kicker}</p>
       <h2 id={id} className="mt-3 text-2xl leading-tight font-extrabold">
         {title}
       </h2>
@@ -41,7 +50,7 @@ export function AdminTable({
       role="region"
       aria-label={`${name} (scrolls sideways on small screens)`}
       tabIndex={0}
-      className="relative max-w-full overflow-x-auto rounded-[18px] border border-line bg-white focus-visible:outline-navy"
+      className="relative max-w-full overflow-x-auto rounded-card border border-line bg-white focus-visible:outline-navy"
     >
       <table className="w-full min-w-[640px] border-collapse text-left text-sm">
         <caption className="sr-only">{name}</caption>
@@ -105,8 +114,8 @@ export function Stat({
   testId: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[18px] bg-navy p-5 text-white">
-      <p className="text-[11px] leading-none font-bold text-mist uppercase">{label}</p>
+    <div className="flex flex-col gap-2 rounded-card bg-navy p-5 text-white">
+      <p className={OVERLINE_ON_DARK}>{label}</p>
       <p data-testid={testId} className="text-[44px] leading-none font-extrabold">
         {value}
       </p>

@@ -42,7 +42,10 @@ export function InboxView() {
   const failure = one.error ?? all.error;
 
   return (
-    <section aria-label="Inbox" className="flex flex-col gap-4 rounded-[22px] bg-card p-5 sm:p-7">
+    <section
+      aria-label="Inbox"
+      className="flex flex-col gap-4 rounded-card border border-line bg-white p-5 sm:p-7"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p data-testid="unread-count" role="status" className="text-xl font-extrabold">
           {unread} unread
@@ -108,7 +111,7 @@ function Item({ item, onRead, busy }: ItemProps) {
   return (
     <li
       className={cn(
-        'grid gap-3 rounded-[16px] border bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center',
+        'grid gap-3 rounded-inset border bg-white p-4 sm:grid-cols-[1fr_auto] sm:items-center',
         item.read ? 'border-line' : 'border-2 border-navy',
       )}
     >
@@ -135,7 +138,7 @@ function Item({ item, onRead, busy }: ItemProps) {
           aria-label={`Mark as read: ${item.title}`}
           className={QUIET}
         >
-          MARK AS READ
+          Mark as read
         </button>
       )}
     </li>
@@ -160,7 +163,7 @@ export function EmailPreferences() {
 
   if (!preferences.data) return null;
   return (
-    <fieldset className="flex flex-col gap-4 rounded-[22px] bg-card p-5 sm:p-7">
+    <fieldset className="flex flex-col gap-4 rounded-card border border-line bg-white p-5 sm:p-7">
       <legend className="float-left w-full text-xl font-extrabold">Also send by email</legend>
       <p className="text-sm font-medium text-navy-soft">
         Every notification appears in this inbox. Tick a type to get it by email too.
@@ -169,7 +172,7 @@ export function EmailPreferences() {
       <ul className="grid gap-3 sm:grid-cols-2">
         {preferences.data.preferences.map(({ type, email }) => (
           <li key={type}>
-            <label className="flex items-center gap-3 rounded-[12px] border border-input bg-white p-4 text-sm font-semibold">
+            <label className="flex items-center gap-3 rounded-field border border-input bg-white p-4 text-sm font-semibold">
               <input
                 type="checkbox"
                 checked={chosen[type] ?? email}

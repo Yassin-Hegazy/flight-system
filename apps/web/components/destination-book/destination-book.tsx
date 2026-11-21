@@ -228,7 +228,7 @@ export function DestinationBook() {
               data-front={isFront}
               className="group absolute w-[62%] origin-bottom opacity-0 sm:w-[46%]"
             >
-              <div className="relative flex flex-col gap-2 rounded-[22px] bg-navy p-2 shadow-[0_28px_50px_-24px_rgb(7_45_80/0.55)] sm:p-2.5">
+              <div className="relative flex flex-col gap-2 rounded-card bg-navy p-2 shadow-[0_28px_50px_-24px_rgb(7_45_80/0.55)] sm:p-2.5">
                 <button
                   ref={(node) => {
                     buttons.current[index] = node;
@@ -237,9 +237,9 @@ export function DestinationBook() {
                   aria-label={`${destination.city}, ${destination.country}`}
                   aria-current={isFront ? 'true' : undefined}
                   onClick={() => go(index)}
-                  className="absolute inset-0 z-10 cursor-pointer rounded-[22px] focus-visible:outline-pink"
+                  className="absolute inset-0 z-10 cursor-pointer rounded-card focus-visible:outline-pink"
                 />
-                <div aria-hidden="true" className="aspect-[4/3] overflow-hidden rounded-[15px]">
+                <div aria-hidden="true" className="aspect-[4/3] overflow-hidden rounded-inset">
                   <Scene />
                 </div>
                 <div
